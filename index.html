@@ -399,6 +399,46 @@ input[type="file"]{display:none;}
 .vm-unit{font-size:0.75rem; font-weight:500; color:var(--ink-muted); margin-left:1px;}
 @media (min-width:480px){ .vm-grid{grid-template-columns:repeat(4,1fr);} }
 
+/* 品種別内訳の展開（新植/据置の内訳） */
+.vm-details > summary{list-style:none; cursor:pointer;}
+.vm-details > summary::-webkit-details-marker{display:none;}
+.vm-summary .ship-name{flex:1 1 auto;}
+.vm-caret{flex:0 0 auto; color:var(--ink-muted); font-size:0.8125rem; transition:transform var(--dur);}
+.vm-details[open] .vm-caret{transform:rotate(180deg);}
+.vm-detail{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
+.vm-detail-head{font-size:0.75rem; font-weight:700; color:var(--ink-muted); margin-bottom:8px;}
+.pt-bars{display:flex; flex-direction:column; gap:8px;}
+.pt-bar-row{display:flex; align-items:center; gap:8px;}
+.pt-bar-label{flex:0 0 40px; font-size:0.8125rem; font-weight:700;}
+.pt-bar-label.pt-shin{color:var(--primary);}
+.pt-bar-label.pt-sue{color:var(--accent-text);}
+.pt-bar-track{flex:1; height:16px; background:var(--surface-2); border-radius:var(--r-pill); overflow:hidden;}
+.pt-bar-fill{height:100%; border-radius:var(--r-pill); min-width:2px;}
+.pt-bar-fill.pt-shin{background:var(--primary);}
+.pt-bar-fill.pt-sue{background:var(--accent);}
+.pt-bar-val{flex:0 0 auto; min-width:56px; text-align:right; font-size:0.875rem; font-weight:600; font-variant-numeric:tabular-nums;}
+.pt-metrics{display:flex; flex-direction:column; gap:6px; margin-top:12px;}
+.pt-metric{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.pt-metric-label{flex:0 0 40px; font-size:0.8125rem; font-weight:700;}
+.pt-metric-label.pt-shin{color:var(--primary);}
+.pt-metric-label.pt-sue{color:var(--accent-text);}
+.pt-metric-cell{display:flex; flex-direction:column; gap:1px; padding:4px 10px; background:var(--surface-2); border-radius:8px;}
+.pt-metric-k{font-size:0.6875rem; color:var(--ink-muted);}
+.pt-metric-v{font-size:0.9375rem; font-weight:600; font-variant-numeric:tabular-nums;}
+.pt-metric-v.is-empty{color:var(--ink-muted); font-weight:500;}
+.pt-unassigned{margin-top:10px; font-size:0.8125rem; color:var(--warn-text);}
+
+/* 新植/据置 割り当てカード・行 */
+.badge-alloc{background:var(--accent-soft); color:var(--accent-text);}
+.card-alloc{border-color:var(--accent); background:var(--accent-soft);}
+.card-alloc .card-title{color:var(--accent-text);}
+.alloc-row{display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface);}
+.alloc-main{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; font-variant-numeric:tabular-nums;}
+.alloc-btns{display:flex; gap:6px;}
+.btn-plant{flex:1; min-height:40px; padding:0 8px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font-size:0.875rem; font-weight:700; cursor:pointer; white-space:nowrap;}
+.btn-plant:active{background:var(--border);}
+.btn-plant.is-on{border-color:var(--primary); background:var(--primary-soft); color:var(--primary);}
+
 details.collapse summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:var(--sp2); font-weight:600; font-size:0.875rem;}
 details.collapse summary::-webkit-details-marker{display:none;}
 details.collapse summary::before{content:"▸"; color:var(--ink-muted); transition:transform var(--dur);}
@@ -919,7 +959,8 @@ const Store = {
       Store.jibun.push({
         id: 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
         date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, betsuCount:rec.betsuCount||0,
-        source, addedAt: new Date().toISOString()
+        source, addedAt: new Date().toISOString(),
+        plant: (rec.plant==='新植'||rec.plant==='据置'||rec.plant==='mix') ? rec.plant : null, sueokiRatio: rec.sueokiRatio||0
       });
       added++;
     });
@@ -939,6 +980,16 @@ const Store = {
     const i = (typeof index === 'number' && index >= 0 && index <= Store.jibun.length) ? index : Store.jibun.length;
     Store.jibun.splice(i, 0, rec);
     Store.persist();
+  },
+  // 出荷行の新植/据置の割り当てをセット（plant='新植'|'据置'|'mix'、mixのみ sueokiRatio 0..1）
+  setJibunPlant(id, plant, sueokiRatio){
+    const rec = Store.jibun.find(r=>r.id===id);
+    if(!rec) return false;
+    rec.plant = plant;
+    rec.sueokiRatio = (plant==='mix') ? (Number(sueokiRatio)||0) : 0;
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
   },
   addSakutsuke(rec){
     const row = {
@@ -994,7 +1045,10 @@ const Store = {
     const jibun = (data.jibun||[]).map((r,i)=>({
       id: r.id || ('j'+Date.now().toString(36)+i),
       date: Norm.date(r.date), variety: Norm.text(r.variety), grade: Norm.grade(r.grade), count: Norm.num(r.count),
-      boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString()
+      boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString(),
+      // 新植/据置の割り当て（未割当は null）。混在の据置本数比率のみ保持。
+      plant: (r.plant==='新植'||r.plant==='据置'||r.plant==='mix') ? r.plant : null,
+      sueokiRatio: Norm.num(r.sueokiRatio)||0
     }));
     const sakutsuke = (data.sakutsuke||[]).map((r,i)=>({
       id: r.id || ('s'+Date.now().toString(36)+i),
@@ -1132,6 +1186,42 @@ const Compute = {
     });
     return points;
   },
+  // 作付設定から、品種ごとの区分有無と区分別坪を集計
+  allocInfo(){
+    const typesByVariety = new Map(); // variety -> {新植:bool, 据置:bool}
+    const tsuboByType = new Map();    // variety -> {新植:tsubo, 据置:tsubo}
+    Store.sakutsuke.forEach(r=>{
+      const v = r.variety; if(!v) return;
+      const t = (r.type==='据置') ? '据置' : '新植';
+      if(!typesByVariety.has(v)) typesByVariety.set(v, {新植:false, 据置:false});
+      if(!tsuboByType.has(v)) tsuboByType.set(v, {新植:0, 据置:0});
+      if((Number(r.tsubo)||0) > 0 || true) typesByVariety.get(v)[t] = true; // 登録があれば区分ありとみなす
+      tsuboByType.get(v)[t] += (Number(r.tsubo)||0);
+    });
+    return {typesByVariety, tsuboByType};
+  },
+  // 品種が両区分ありのとき、割り当てが要る（plant=null）行を返す。単区分・未登録品種は対象外＝入力不要。
+  unassignedAllocRows(){
+    const {typesByVariety} = Compute.allocInfo();
+    return Store.jibun.filter(r=>{
+      const t = typesByVariety.get(r.variety);
+      return t && t.新植 && t.据置 && !(r.plant==='新植'||r.plant==='据置'||r.plant==='mix');
+    });
+  },
+  // 行の実効「据置比率」f を返す。{f, unassigned, categorized}
+  //  両区分: 新植→0 / 据置→1 / mix→ratio / null→未割当  単区分: その区分に自動確定  未登録: 未分類
+  allocFraction(row, typesByVariety){
+    const t = typesByVariety.get(row.variety);
+    if(!t) return {f:0, unassigned:false, categorized:false};        // 作付設定なし＝分割対象外
+    if(t.新植 && t.据置){
+      if(row.plant==='据置') return {f:1, unassigned:false, categorized:true};
+      if(row.plant==='新植') return {f:0, unassigned:false, categorized:true};
+      if(row.plant==='mix')  return {f:Math.max(0,Math.min(1,Number(row.sueokiRatio)||0)), unassigned:false, categorized:true};
+      return {f:0, unassigned:true, categorized:true};               // 両区分だが未割当
+    }
+    if(t.据置) return {f:1, unassigned:false, categorized:true};      // 据置のみ→自動
+    return {f:0, unassigned:false, categorized:true};                // 新植のみ→自動
+  },
   matchJibun(){
     return Store.jibun.map(row=>{
       const isBetsu = row.betsuCount>0;
@@ -1165,14 +1255,35 @@ const Compute = {
     const pendingSeen = new Set();
     const pendingRows = [];
     pend.forEach(r=>{ if(pendingSeen.has(r.sanchiKey)) return; pendingSeen.add(r.sanchiKey); pendingRows.push(r); });
+    // 新植/据置の区分別按分（stems・amount）。既存の品種合計は維持しつつ split を追加。
+    const {typesByVariety, tsuboByType} = Compute.allocInfo();
+    const zeroSplit = ()=>({shinshoku:{stems:0,amount:0}, sueoki:{stems:0,amount:0}, unassigned:{stems:0,amount:0}});
     const byVariety = new Map();
     ok.forEach(r=>{
-      if(!byVariety.has(r.variety)) byVariety.set(r.variety, {amount:0, boxes:0, stems:0});
+      if(!byVariety.has(r.variety)) byVariety.set(r.variety, {amount:0, boxes:0, stems:0, split:zeroSplit()});
       const v = byVariety.get(r.variety);
       v.amount += r.amount; v.boxes += r.boxQty; v.stems += (r.stems||0);
+      const st = r.stems||0, am = r.amount||0;
+      const {f, unassigned} = Compute.allocFraction(r, typesByVariety);
+      if(unassigned){ v.split.unassigned.stems += st; v.split.unassigned.amount += am; }
+      else {
+        v.split.sueoki.stems += f*st;      v.split.sueoki.amount += f*am;
+        v.split.shinshoku.stems += (1-f)*st; v.split.shinshoku.amount += (1-f)*am;
+      }
     });
-    const varietyRows = Array.from(byVariety.entries()).map(([variety,v])=>({variety, amount:v.amount, boxes:v.boxes, stems:v.stems, perStem: v.stems>0 ? v.amount/v.stems : null}))
-      .sort((a,b)=>b.amount-a.amount);
+    const varietyRows = Array.from(byVariety.entries()).map(([variety,v])=>{
+      const tt = tsuboByType.get(variety) || {新植:0, 据置:0};
+      const perT = (amount, tsubo)=> tsubo>0 ? amount/tsubo : null;
+      const perS = (amount, stems)=> stems>0 ? amount/stems : null;
+      return {variety, amount:v.amount, boxes:v.boxes, stems:v.stems, perStem: v.stems>0 ? v.amount/v.stems : null,
+        split:{
+          shinshoku:{...v.split.shinshoku, tsubo:tt.新植, perTsubo:perT(v.split.shinshoku.amount, tt.新植), perStem:perS(v.split.shinshoku.amount, v.split.shinshoku.stems)},
+          sueoki:   {...v.split.sueoki,    tsubo:tt.据置, perTsubo:perT(v.split.sueoki.amount, tt.据置),       perStem:perS(v.split.sueoki.amount, v.split.sueoki.stems)},
+          unassigned: v.split.unassigned,
+          hasBoth: !!(typesByVariety.get(variety) && typesByVariety.get(variety).新植 && typesByVariety.get(variety).据置)
+        }};
+    }).sort((a,b)=>b.amount-a.amount);
+    const allocUnassignedCount = Compute.unassignedAllocRows().length;
     const byDate = new Map();
     ok.forEach(r=>{
       byDate.set(r.date, (byDate.get(r.date)||0) + r.amount);
@@ -1183,7 +1294,7 @@ const Compute = {
       recentDate = dateRows[dateRows.length-1].date;
       recentAmount = dateRows[dateRows.length-1].amount;
     }
-    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, pendingCount:pendingRows.length, unmatchedCount:bad.length, varietyRows, dateRows, pendingRows, unmatchedRows:bad, recentAmount, recentDate};
+    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, pendingCount:pendingRows.length, unmatchedCount:bad.length, allocUnassignedCount, varietyRows, dateRows, pendingRows, unmatchedRows:bad, recentAmount, recentDate};
   },
   optionsForForm(){
     const varieties = Compute.varietyList().map(v=>v.variety);
@@ -1441,6 +1552,7 @@ const State = {
   calendarOpen: false,
   calendarMonth: null,
   mineDate: null,        // 自分出荷手入力の選択日付（産地と同じ自作カレンダー）
+  mineVariety: null,     // 手入力で最後に選んだ品種（連続入力のため保持）
   mineCalMonth: null,    // 手入力カレンダーの表示月
   mineMode: 'csv',
   donutHighlight: null,
@@ -1451,7 +1563,8 @@ const State = {
   undoTimer: null,
   sanchiImportSummary: '',
   mineImportSummary: '',
-  multiMeta: null
+  multiMeta: null,
+  lineDetailShow: null    // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
 };
 
 /* ============================== UI ============================== */
@@ -1585,9 +1698,12 @@ const UI = {
 
     // セレクタ（日付＋品種の横並び）。プルダウン上部を指定順に並べ、残りは既存順のまま。
     const VARIETY_TOP_ORDER = ['バンコクスプリーム','ホワイト','ピアノホワイト','シャローム','エメラルドチョコゼブラ','チェリープリンセスデーン','パルビフローラ','リボン'];
+    const isMix = (name)=> name.includes('ミックス'); // 「ミックス」を含む品種は最下部へ
+    const restList = list.filter(v=>!VARIETY_TOP_ORDER.includes(v.variety));
     const orderedList = [
       ...VARIETY_TOP_ORDER.map(name=>list.find(v=>v.variety===name)).filter(Boolean),
-      ...list.filter(v=>!VARIETY_TOP_ORDER.includes(v.variety))
+      ...restList.filter(v=>!isMix(v.variety)),
+      ...restList.filter(v=>isMix(v.variety))
     ];
     const varietyOptions =
       `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
@@ -1910,6 +2026,16 @@ const UI = {
       </div>
     ` : '';
 
+    // 新植/据置 未割当カード（両区分を作っている品種の未割当出荷）
+    const unassignedRows = Compute.unassignedAllocRows();
+    const allocBlock = unassignedRows.length ? `
+      <div class="card card-alloc">
+        <div class="card-head"><h2 class="card-title">新植/据置 未割当（要割り当て）<span class="badge badge-alloc">${unassignedRows.length}件</span></h2></div>
+        <p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを割り当てると、品種別売上内訳で区分別に見られます。混在は据置の本数比率を入力。</p>
+        <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(unassignedRows)}</div>
+      </div>
+    ` : '';
+
     return `
       <h1 class="screen-title">自分の分析</h1>
       <div class="card kpi-card">
@@ -1929,6 +2055,7 @@ const UI = {
         </div>
       </div>
       ${pendingBlock}
+      ${allocBlock}
       <div class="card">
         <div class="card-head"><h2 class="card-title">品種別売上内訳</h2></div>
         ${varietyRows.length ? `
@@ -1937,15 +2064,30 @@ const UI = {
           const vt=tsuboByVariety[r.variety]||0;
           const perT=vt>0?Fmt.yen(r.amount/vt):null;
           const mk=markMap[r.variety]||1;
-          return `<li class="vm-item">
-            <div class="vm-name"><span class="ship-name mk mk${mk}">${Fmt.esc(r.variety)}</span><span class="vm-amount">${Fmt.yen(r.amount)}</span></div>
-            <div class="vm-grid">
-              <div class="vm-cell"><span class="vm-label">箱数</span><span class="vm-val">${Fmt.num(r.boxes)}<span class="vm-unit">箱</span></span></div>
-              <div class="vm-cell"><span class="vm-label">累計本数</span><span class="vm-val">${Fmt.num(r.stems)}<span class="vm-unit">本</span></span></div>
-              <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${perT?'':' is-empty'}">${perT?`${perT}<span class="vm-unit">/坪</span>`:'-'}</span></div>
-              <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
-            </div>
-          </li>`;
+          // 新植/据置の区分別詳細（比較バー＋坪売上・1本単価）
+          const sp=r.split, shin=sp.shinshoku, sue=sp.sueoki;
+          const showShin = shin.stems>0 || shin.tsubo>0;
+          const showSue  = sue.stems>0  || sue.tsubo>0;
+          const maxStems = Math.max(shin.stems, sue.stems, 1);
+          const barRow=(label,cls,s)=>`<div class="pt-bar-row"><span class="pt-bar-label ${cls}">${label}</span><div class="pt-bar-track"><div class="pt-bar-fill ${cls}" style="width:${Math.max(0,Math.min(100,s.stems/maxStems*100)).toFixed(1)}%"></div></div><span class="pt-bar-val tnum">${Fmt.num(Math.round(s.stems))}<span class="vm-unit">本</span></span></div>`;
+          const metricRow=(label,cls,s)=>`<div class="pt-metric"><span class="pt-metric-label ${cls}">${label}</span><span class="pt-metric-cell"><span class="pt-metric-k">坪売上</span><span class="pt-metric-v${s.perTsubo!=null?'':' is-empty'}">${s.perTsubo!=null?`${Fmt.yen(s.perTsubo)}<span class="vm-unit">/坪</span>`:'-'}</span></span><span class="pt-metric-cell"><span class="pt-metric-k">1本単価</span><span class="pt-metric-v${s.perStem!=null?'':' is-empty'}">${s.perStem!=null?`${Fmt.yen(s.perStem)}<span class="vm-unit">/本</span>`:'-'}</span></span></div>`;
+          const detail = (!showShin && !showSue)
+            ? `<p class="muted" style="font-size:0.8125rem">作付設定（新植/据置）が未登録のため、区分別の表示はできません。取込タブの「今季作付設定」で登録できます。</p>`
+            : `<div class="pt-bars">${showShin?barRow('新植','pt-shin',shin):''}${showSue?barRow('据置','pt-sue',sue):''}</div>
+               <div class="pt-metrics">${showShin?metricRow('新植','pt-shin',shin):''}${showSue?metricRow('据置','pt-sue',sue):''}</div>
+               ${sp.unassigned.stems>0?`<p class="pt-unassigned">未割当 ${Fmt.num(Math.round(sp.unassigned.stems))}本 — 下の「未割当」カードから割り当てできます</p>`:''}`;
+          return `<li class="vm-item"><details class="vm-details">
+            <summary class="vm-summary">
+              <div class="vm-name"><span class="ship-name mk mk${mk}">${Fmt.esc(r.variety)}</span><span class="vm-amount">${Fmt.yen(r.amount)}</span><span class="vm-caret">▾</span></div>
+              <div class="vm-grid">
+                <div class="vm-cell"><span class="vm-label">箱数</span><span class="vm-val">${Fmt.num(r.boxes)}<span class="vm-unit">箱</span></span></div>
+                <div class="vm-cell"><span class="vm-label">累計本数</span><span class="vm-val">${Fmt.num(r.stems)}<span class="vm-unit">本</span></span></div>
+                <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${perT?'':' is-empty'}">${perT?`${perT}<span class="vm-unit">/坪</span>`:'-'}</span></div>
+                <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
+              </div>
+            </summary>
+            <div class="vm-detail"><div class="vm-detail-head">新植 / 据置の内訳</div>${detail}</div>
+          </details></li>`;
         }).join('')}</ul>` : `<p class="muted">一致した出荷がまだありません。</p>`}
       </div>
       <div class="card">
@@ -1971,7 +2113,8 @@ const UI = {
 
     // 手入力の品種プルダウン＝今季作付設定で登録した品種（＋末尾に「その他（自由入力）」）
     const mineVarieties = Array.from(new Set(Store.sakutsuke.map(r=>r.variety).filter(Boolean)));
-    const varietyOpts = mineVarieties.map(v=>`<option value="${Fmt.esc(v)}">${Fmt.esc(v)}</option>`).join('')
+    const selMineV = State.mineVariety; // 直前に選んだ品種を復元（連続入力のため）
+    const varietyOpts = mineVarieties.map(v=>`<option value="${Fmt.esc(v)}" ${v===selMineV?'selected':''}>${Fmt.esc(v)}</option>`).join('')
       + `<option value="__other__">その他（自由入力）</option>`;
 
     // ---- 今季作付設定 ----
@@ -2378,6 +2521,97 @@ const UI = {
     input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
   },
 
+  // 新植/据置 割り当ての行マークアップ（カード／モーダル共用）
+  allocRowsHTML(rows){
+    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.grade, r.count);
+    return rows.map(r=>`
+      <div class="alloc-row">
+        <div class="alloc-main">
+          <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+          <span class="ship-name">${Fmt.esc(r.variety)}</span>
+          <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+        </div>
+        <div class="alloc-btns">
+          <button class="btn-plant ${r.plant==='新植'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="新植">新植</button>
+          <button class="btn-plant ${r.plant==='据置'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="据置">据置</button>
+          <button class="btn-plant ${r.plant==='mix'?'is-on':''}" data-action="alloc-mix" data-id="${r.id}">混在${r.plant==='mix'?` 据${Math.round((Number(r.sueokiRatio)||0)*100)}%`:''}</button>
+        </div>
+      </div>`).join('');
+  },
+  // CSV取込直後などに開く割り当てモーダル（未割当の出荷を一覧して割り当て）
+  allocModal(){
+    const rows = Compute.unassignedAllocRows();
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet alloc-modal">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">新植/据置の割り当て</h2>
+          <div class="modal-body">
+            ${rows.length ? `<p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを選んでください（混在は据置の本数比率を入力）。</p>
+            <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(rows)}</div>`
+            : `<p class="muted">未割当はありません。すべて割り当て済みです。</p>`}
+          </div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">${rows.length?'あとで':'閉じる'}</button></div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+  },
+  // 混在の据置本数比率(%)を入力
+  mixRatioModal(id, fromModal){
+    const rec = Store.jibun.find(r=>r.id===id);
+    if(!rec){ UI.toast('対象の出荷が見つかりませんでした'); return; }
+    const specText = (rec.betsuCount>0) ? `別 ${rec.betsuCount}本` : App.specToStr(rec.grade, rec.count);
+    const cur = Math.round((Number(rec.sueokiRatio)||0)*100);
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">混在の比率を入力</h2>
+          <div class="modal-body">
+            <div class="fill-target">
+              <span class="fill-date tnum">${Fmt.date(rec.date)}</span>
+              <span class="fill-name">${Fmt.esc(rec.variety)}</span>
+              <span class="fill-spec">${specText}　箱数${rec.boxQty}</span>
+            </div>
+            <p class="muted" style="font-size:0.8125rem">この出荷のうち<b>据置</b>の本数比率(%)を入力してください。残りは新植として計算します。</p>
+            <label class="fill-input-row">
+              <span class="fill-input-label">据置</span>
+              <input type="number" id="mix-input" class="fill-input" inputmode="numeric" min="0" max="100" step="1" value="${cur||''}" placeholder="例: 40" />
+              <span class="fill-input-unit">％</span>
+            </label>
+          </div>
+          <div class="modal-status" id="mix-status"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
+            <button class="btn btn-primary" id="mix-save-btn">保存</button>
+          </div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#mix-status');
+    const input = root.querySelector('#mix-input');
+    const setStatus = (msg)=>{ status.textContent = msg; status.className = 'modal-status warn'; };
+    setTimeout(()=>{ try{ input.focus(); }catch(_){} }, 30);
+    const save = ()=>{
+      const n = Norm.num(input.value);
+      if(Number.isNaN(n) || n<0 || n>100){ setStatus('0〜100の数値を入力してください'); input.focus(); return; }
+      Store.setJibunPlant(id, 'mix', n/100);
+      UI.renderMain();
+      if(fromModal) UI.allocModal(); else UI.closeModal();
+      UI.toast(`混在（据置${Math.round(n)}%）を保存しました`);
+    };
+    root.querySelector('#mix-save-btn').addEventListener('click', save);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
+  },
+
   showLineDetail(name, infoHtml, color){
     const detail = document.getElementById('line-detail');
     if(!detail) return;
@@ -2402,6 +2636,12 @@ const UI = {
     const x1 = parseFloat(svg.getAttribute('data-x1'));
     const n = points.length;
     const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
+    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span><span class="cd-tag">${p.marker==='2L'?'2L換算':'L代替'}</span>`;
+    const showAt = (i)=>{
+      const m = svg.querySelector(`[data-pt="${i}"]`);
+      if(m) UI.moveHighlight(svg, m.getAttribute('data-x'), m.getAttribute('data-y'));
+      UI.showLineDetail(variety, detailHtml(points[i]), 'var(--primary)');
+    };
     const handle = (evt)=>{
       const rect = svg.getBoundingClientRect();
       const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
@@ -2413,14 +2653,26 @@ const UI = {
         if(d<best){ best=d; nearestI=i; }
       });
       if(nearestI<0) return;
-      const p = points[nearestI];
-      const m = svg.querySelector(`[data-pt="${nearestI}"]`);
-      if(m) UI.moveHighlight(svg, m.getAttribute('data-x'), m.getAttribute('data-y'));
-      UI.showLineDetail(variety, `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span><span class="cd-tag">${p.marker==='2L'?'2L換算':'L代替'}</span>`, 'var(--primary)');
       evt.stopPropagation();
+      const p = points[nearestI];
+      // タップした点の日付に、日付セレクタ・カレンダー・ドーナツ（規格構成）を連動させる。
+      if(State.selectedDate !== p.date){
+        State.selectedDate = p.date;
+        State.calendarMonth = p.date.slice(0,7);
+        State.lineDetailShow = {variety, date:p.date}; // 再描画後に詳細を復元
+        UI.renderMain();
+        return;
+      }
+      showAt(nearestI); // 同じ日なら詳細だけ更新
     };
     svg.addEventListener('click', handle);
     svg.addEventListener('touchstart', handle, {passive:true});
+    // 日付連動による再描画直後は、対象日の詳細を復元表示（プロットの選択状態を維持）
+    if(State.lineDetailShow && State.lineDetailShow.variety===variety){
+      const idx = points.findIndex(p=>p.date===State.lineDetailShow.date && p.price!=null);
+      if(idx>=0) showAt(idx);
+      State.lineDetailShow = null;
+    }
   },
 
   wireMultiLineTooltip(wrap){
@@ -2648,6 +2900,23 @@ const App = {
         UI.fillPriceModal(t.getAttribute('data-key'));
         break;
       }
+      case 'alloc-set': {
+        // 出荷行を新植/据置に確定
+        Store.setJibunPlant(t.getAttribute('data-id'), t.getAttribute('data-plant'), 0);
+        UI.renderMain();
+        if(document.querySelector('.alloc-modal')) UI.allocModal(); // モーダル表示中なら残りへ更新
+        break;
+      }
+      case 'alloc-mix': {
+        // 混在の据置比率入力モーダル（モーダル起点なら保存後に一覧へ戻す）
+        const fromModal = !!document.querySelector('.alloc-modal');
+        UI.mixRatioModal(t.getAttribute('data-id'), fromModal);
+        break;
+      }
+      case 'open-alloc-modal': {
+        UI.allocModal();
+        break;
+      }
       case 'delete-sakutsuke-row': {
         const id = t.getAttribute('data-id');
         const removed = Store.removeSakutsuke(id);
@@ -2762,6 +3031,8 @@ const App = {
         </div>`;
       UI.renderMain();
       UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
+      // 取込直後：新植/据置の両方を作っている品種に未割当があれば、その場で割り当てを促す
+      if(added>0 && Compute.unassignedAllocRows().length>0){ UI.allocModal(); }
     }catch(err){
       State.mineImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
@@ -2901,7 +3172,12 @@ const App = {
       return;
     }
     const {added, skipped} = Store.mergeJibun([{date, variety, grade, count, boxQty, betsuCount}], 'manual');
-    if(added) State.mineDate = null; // 追加できたら日付をリセット（次の入力を新規から）
+    // 追加後も日付と品種は保持（同じ日・同じ品種で規格違いを連続入力しやすく）。規格・箱数は再描画で既定に戻る。
+    if(added){
+      // プルダウンにある品種のみ復元（「その他」自由入力は既定へ戻す）
+      const registered = new Set(Store.sakutsuke.map(r=>r.variety).filter(Boolean));
+      State.mineVariety = registered.has(variety) ? variety : null;
+    }
     UI.renderMain();
     UI.toast(added ? '追加しました' : '同じ内容が既に登録されています');
   },
