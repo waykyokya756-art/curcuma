@@ -387,11 +387,12 @@ input[type="file"]{display:none;}
 /* 品種別指標：品種ごとの label:value スタック（桁数が増えても崩れない） */
 .vm-list{list-style:none; margin:0; padding:0;}
 .vm-item{padding:12px 0; border-top:1px solid var(--border);}
-.vm-item:first-child{border-top:0; padding-top:2px;}
 /* 見出し：1段目=品種名（1行・末尾見切れ）＋右に区分／2段目=右詰の金額 */
 .vm-head{margin-bottom:8px;}
 .vm-titlerow{display:flex; align-items:center; gap:8px; min-width:0;}
-.vm-titlerow .ship-name{flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:1.0625rem; font-weight:600;}
+/* 色マーカーは品種名の文字の裏だけ（右へ伸ばさない）。長い名前は末尾を見切れさせる */
+.vm-titlerow .ship-name{flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:1.0625rem; font-weight:600;}
+.vm-titlerow .plant-cat, .vm-titlerow .vm-kon{margin-left:auto;}
 .vm-amountrow{text-align:right; margin-top:4px;}
 .vm-amount{font-size:1.1875rem; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
 .vm-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px;}
@@ -405,22 +406,14 @@ input[type="file"]{display:none;}
 /* 品種別内訳の展開（混植のみ：新植/据置の内訳） */
 .vm-details > summary{list-style:none; cursor:pointer;}
 .vm-details > summary::-webkit-details-marker{display:none;}
-/* 区分ラベル（薄い楕円チップ・共通）。色は後で差し替え予定。今は新植=緑・据置=ピンク */
-.plant-cat{flex:0 0 auto; font-size:0.6875rem; font-weight:700; padding:2px 9px; border-radius:var(--r-pill); line-height:1.5; white-space:nowrap;}
-.plant-cat-shin{background:var(--primary-soft); color:var(--primary);}
-.plant-cat-sue{background:var(--accent-soft); color:var(--accent-text);}
-.plant-cat-kon{background:var(--surface-2); color:var(--ink-muted); border:1px solid var(--border);}
+/* 区分ラベル（薄い楕円チップ・共通）。色は後で差し替え予定。今は全てグレーで統一 */
+.plant-cat{flex:0 0 auto; font-size:0.6875rem; font-weight:700; padding:2px 9px; border-radius:var(--r-pill); line-height:1.5; white-space:nowrap; background:var(--surface-2); color:var(--ink-muted); border:1px solid var(--border);}
+.plant-cat-shin, .plant-cat-sue, .plant-cat-kon{background:var(--surface-2); color:var(--ink-muted); border:1px solid var(--border);}
 /* 混植インジケータ＝色丸「混」（=見開きトグル・その品種の色） */
 .vm-kon{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:var(--r-pill); font-size:0.8125rem; font-weight:800;}
 .vm-detail{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
-/* 本数比率の1本バー（数値なし・直感用） */
-.pt-ratiobar{display:flex; height:18px; border-radius:var(--r-pill); overflow:hidden; background:var(--surface-2);}
-.pt-seg{height:100%;}
-.pt-seg.pt-shin{background:var(--primary);}
-.pt-seg.pt-sue{background:var(--accent);}
-.pt-seg.pt-un{background:var(--border);}
 /* 区分別カード（本数 / 坪売上 / 1本単価）。数値は折り返さず、長ければ左へ伸びる */
-.pt-cards{margin-top:12px; display:flex; flex-direction:column; gap:10px;}
+.pt-cards{display:flex; flex-direction:column; gap:10px;}
 .pt-cardrow{display:flex; flex-direction:column; gap:6px;}
 .pt-cardrow > .plant-cat{align-self:flex-start;}
 .pt-ccells{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
@@ -960,7 +953,7 @@ const Store = {
         id: 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
         date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, betsuCount:rec.betsuCount||0,
         source, addedAt: new Date().toISOString(),
-        plant: (rec.plant==='新植'||rec.plant==='据置'||rec.plant==='mix') ? rec.plant : null, sueokiRatio: rec.sueokiRatio||0
+        plant: (rec.plant==='新植'||rec.plant==='据置'||rec.plant==='mix') ? rec.plant : null, sueokiStems: rec.sueokiStems||0
       });
       added++;
     });
@@ -981,12 +974,35 @@ const Store = {
     Store.jibun.splice(i, 0, rec);
     Store.persist();
   },
-  // 出荷行の新植/据置の割り当てをセット（plant='新植'|'据置'|'mix'、mixのみ sueokiRatio 0..1）
-  setJibunPlant(id, plant, sueokiRatio){
+  // 出荷行の作型割り当てをセット（plant='新植'|'据置'|'mix'、mixのみ sueokiStems=据置の本数）
+  setJibunPlant(id, plant, sueokiStems){
     const rec = Store.jibun.find(r=>r.id===id);
     if(!rec) return false;
     rec.plant = plant;
-    rec.sueokiRatio = (plant==='mix') ? (Number(sueokiRatio)||0) : 0;
+    rec.sueokiStems = (plant==='mix') ? Math.max(0, Number(sueokiStems)||0) : 0;
+    delete rec.sueokiRatio; // 旧形式（比率）は使わない
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
+  },
+  // 日付×品種×規格のグループ単位で割り当て。mixのときは据置本数を各行へ本数按分。
+  setJibunPlantGroup(ids, plant, sueokiStems){
+    const recs = ids.map(id=>Store.jibun.find(r=>r.id===id)).filter(Boolean);
+    if(recs.length===0) return false;
+    const stemsOf = (r)=> ((r.betsuCount>0 ? r.betsuCount : r.count) || 0) * (r.boxQty||0);
+    const total = recs.reduce((s,r)=>s+stemsOf(r), 0);
+    let left = Math.max(0, Math.min(Number(sueokiStems)||0, total));
+    recs.forEach((r,i)=>{
+      r.plant = plant;
+      if(plant==='mix'){
+        // 端数は最終行で吸収し、合計が入力値と一致するようにする
+        const share = (i===recs.length-1) ? left : Math.min(left, Math.round(total>0 ? (Number(sueokiStems)||0)*stemsOf(r)/total : 0));
+        r.sueokiStems = share; left -= share;
+      } else {
+        r.sueokiStems = 0;
+      }
+      delete r.sueokiRatio;
+    });
     Store.dirtyCount += 1;
     Store.persist();
     return true;
@@ -1024,11 +1040,24 @@ const Store = {
     if(!Store.available){ /* memory mode: nothing to clear in localStorage */ }
   },
   exportBackup(){
+    // 作型（新植/据置/混植）はCSVには無くアプリ内で付けるデータ。JSONには実効値も含めて出力する。
+    const {typesByVariety} = Compute.allocInfo();
+    const jibun = Store.jibun.map(r=>{
+      const stems = Compute.rowStems(r);
+      const t = typesByVariety.get(r.variety);
+      const varietyCategory = !t ? null : (t.新植 && t.据置 ? '混植' : (t.据置 ? '据置' : '新植'));
+      const {f, unassigned} = Compute.allocFraction(r, typesByVariety);
+      const sueokiStems = unassigned ? null : Math.round(f*stems);
+      return {...r, stems, varietyCategory,
+        // 作型別の本数内訳（未割当は null）。混植品種のみ入力対象、単区分は自動確定。
+        sueokiStems, shinshokuStems: unassigned ? null : (stems - sueokiStems),
+        plantUnassigned: !!unassigned};
+    });
     const payload = {
       version:1,
       exportedAt: new Date().toISOString(),
       sanchi: Array.from(Store.sanchi.values()),
-      jibun: Store.jibun,
+      jibun,
       sakutsuke: Store.sakutsuke
     };
     return payload;
@@ -1046,8 +1075,9 @@ const Store = {
       id: r.id || ('j'+Date.now().toString(36)+i),
       date: Norm.date(r.date), variety: Norm.text(r.variety), grade: Norm.grade(r.grade), count: Norm.num(r.count),
       boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString(),
-      // 新植/据置の割り当て（未割当は null）。混在の据置本数比率のみ保持。
+      // 作型の割り当て（未割当は null）。混在は据置の本数を保持（旧形式の比率も読めるよう保持）。
       plant: (r.plant==='新植'||r.plant==='据置'||r.plant==='mix') ? r.plant : null,
+      sueokiStems: Norm.num(r.sueokiStems)||0,
       sueokiRatio: Norm.num(r.sueokiRatio)||0
     }));
     const sakutsuke = (data.sakutsuke||[]).map((r,i)=>({
@@ -1208,15 +1238,36 @@ const Compute = {
       return t && t.新植 && t.据置 && !(r.plant==='新植'||r.plant==='据置'||r.plant==='mix');
     });
   },
+  // 出荷行の総本数（別行は別本数×箱数、通常は規格本数×箱数）
+  rowStems(row){
+    return ((row.betsuCount>0 ? row.betsuCount : row.count) || 0) * (row.boxQty||0);
+  },
+  // 未割当を「日付×品種×規格」でまとめる（割り当ての質問単位）。各グループに合計本数を持たせる。
+  unassignedAllocGroups(){
+    const groups = [];
+    const byKey = new Map();
+    Compute.unassignedAllocRows().forEach(r=>{
+      const key = [r.date, r.variety, r.grade, r.count, r.betsuCount>0?r.betsuCount:0].join('|');
+      let g = byKey.get(key);
+      if(!g){ g = {key, date:r.date, variety:r.variety, grade:r.grade, count:r.count, betsuCount:r.betsuCount||0, ids:[], boxQty:0, stems:0}; byKey.set(key,g); groups.push(g); }
+      g.ids.push(r.id); g.boxQty += (r.boxQty||0); g.stems += Compute.rowStems(r);
+    });
+    return groups;
+  },
   // 行の実効「据置比率」f を返す。{f, unassigned, categorized}
-  //  両区分: 新植→0 / 据置→1 / mix→ratio / null→未割当  単区分: その区分に自動確定  未登録: 未分類
+  //  両区分: 新植→0 / 据置→1 / mix→据置本数÷総本数 / null→未割当  単区分: その区分に自動確定  未登録: 未分類
   allocFraction(row, typesByVariety){
     const t = typesByVariety.get(row.variety);
     if(!t) return {f:0, unassigned:false, categorized:false};        // 作付設定なし＝分割対象外
     if(t.新植 && t.据置){
       if(row.plant==='据置') return {f:1, unassigned:false, categorized:true};
       if(row.plant==='新植') return {f:0, unassigned:false, categorized:true};
-      if(row.plant==='mix')  return {f:Math.max(0,Math.min(1,Number(row.sueokiRatio)||0)), unassigned:false, categorized:true};
+      if(row.plant==='mix'){
+        const st = Compute.rowStems(row);
+        // 本数で保持（旧データは比率 sueokiRatio をフォールバックで使用）
+        const f = (row.sueokiStems!=null && st>0) ? (Number(row.sueokiStems)||0)/st : (Number(row.sueokiRatio)||0);
+        return {f:Math.max(0,Math.min(1,f)), unassigned:false, categorized:true};
+      }
       return {f:0, unassigned:true, categorized:true};               // 両区分だが未割当
     }
     if(t.据置) return {f:1, unassigned:false, categorized:true};      // 据置のみ→自動
@@ -1286,7 +1337,7 @@ const Compute = {
           hasBoth: !!(typesByVariety.get(variety) && typesByVariety.get(variety).新植 && typesByVariety.get(variety).据置)
         }};
     }).sort((a,b)=>b.amount-a.amount);
-    const allocUnassignedCount = Compute.unassignedAllocRows().length;
+    const allocUnassignedCount = Compute.unassignedAllocGroups().length;
     const byDate = new Map();
     ok.forEach(r=>{
       byDate.set(r.date, (byDate.get(r.date)||0) + r.amount);
@@ -2032,13 +2083,13 @@ const UI = {
       </div>
     ` : '';
 
-    // 新植/据置 未割当カード（両区分を作っている品種の未割当出荷）
-    const unassignedRows = Compute.unassignedAllocRows();
-    const allocBlock = unassignedRows.length ? `
+    // 作型 未割当カード（両区分を作っている品種の未割当出荷。日付×規格ごとに質問）
+    const unassignedGroups = Compute.unassignedAllocGroups();
+    const allocBlock = unassignedGroups.length ? `
       <div class="card card-alloc">
-        <div class="card-head"><h2 class="card-title">新植/据置 未割当（要割り当て）<span class="badge badge-alloc">${unassignedRows.length}件</span></h2></div>
-        <p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを割り当てると、品種別売上内訳で区分別に見られます。混在は据置の本数比率を入力。</p>
-        <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(unassignedRows)}</div>
+        <div class="card-head"><h2 class="card-title">作型 未割当（要割り当て）<span class="badge badge-alloc">${unassignedGroups.length}件</span></h2></div>
+        <p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。日付・規格ごとに、どちらから作ったかを割り当ててください。混在は据置の本数を入力。</p>
+        <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(unassignedGroups)}</div>
       </div>
     ` : '';
 
@@ -2090,12 +2141,8 @@ const UI = {
               <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
             </div>`;
           if(!isKon){ return `<li class="vm-item"><div class="vm-summary">${head}</div></li>`; }
-          // 混植：本数比率の1本バー（数値なし）＋ 区分別カード（本数/坪売上/1本単価）
+          // 混植：区分別カード（本数/坪売上/1本単価）
           const sp=r.split, shin=sp.shinshoku, sue=sp.sueoki, un=sp.unassigned;
-          const totalS=shin.stems+sue.stems+un.stems;
-          const pct=(x)=> totalS>0 ? (x/totalS*100) : 0;
-          const seg=(cls,x)=> x>0 ? `<div class="pt-seg ${cls}" style="width:${pct(x).toFixed(2)}%"></div>` : '';
-          const bar=`<div class="pt-ratiobar">${seg('pt-shin',shin.stems)}${seg('pt-sue',sue.stems)}${seg('pt-un',un.stems)}</div>`;
           const card=(label,cls,s,metrics)=>`<div class="pt-cardrow">
               <span class="plant-cat ${cls}">${label}</span>
               <div class="pt-ccells">
@@ -2105,7 +2152,7 @@ const UI = {
               </div>
             </div>`;
           const cards=`<div class="pt-cards">${card('新植','plant-cat-shin',shin,true)}${card('据置','plant-cat-sue',sue,true)}${un.stems>0?card('未割当','plant-cat-kon',un,false):''}</div>`;
-          const detail=`${bar}${cards}${un.stems>0?`<p class="pt-unassigned">未割当分は下の「未割当」カードから割り当てできます</p>`:''}`;
+          const detail=`${cards}${un.stems>0?`<p class="pt-unassigned">未割当分は下の「未割当」カードから割り当てできます</p>`:''}`;
           return `<li class="vm-item"><details class="vm-details"><summary class="vm-summary">${head}</summary><div class="vm-detail">${detail}</div></details></li>`;
         }).join('')}</ul>` : `<p class="muted">一致した出荷がまだありません。</p>`}
       </div>
@@ -2540,38 +2587,38 @@ const UI = {
     input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
   },
 
-  // 新植/据置 割り当ての行マークアップ（カード／モーダル共用）
-  allocRowsHTML(rows){
-    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.grade, r.count);
-    return rows.map(r=>`
+  // 作型割り当ての行マークアップ（日付×品種×規格ごと。規格とその規格の総本数を表示）
+  allocRowsHTML(groups){
+    const specText = (g)=> (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.grade, g.count);
+    return groups.map(g=>`
       <div class="alloc-row">
         <div class="alloc-main">
-          <span class="ship-date tnum">${Fmt.date(r.date)}</span>
-          <span class="ship-name">${Fmt.esc(r.variety)}</span>
-          <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+          <span class="ship-date tnum">${Fmt.date(g.date)}</span>
+          <span class="ship-name">${Fmt.esc(g.variety)}</span>
+          <span class="ship-detail">${specText(g)}　<b class="tnum">${Fmt.num(g.stems)}</b>本</span>
         </div>
         <div class="alloc-btns">
-          <button class="btn-plant ${r.plant==='新植'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="新植">新植</button>
-          <button class="btn-plant ${r.plant==='据置'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="据置">据置</button>
-          <button class="btn-plant ${r.plant==='mix'?'is-on':''}" data-action="alloc-mix" data-id="${r.id}">混在${r.plant==='mix'?` 据${Math.round((Number(r.sueokiRatio)||0)*100)}%`:''}</button>
+          <button class="btn-plant" data-action="alloc-set" data-key="${Fmt.esc(g.key)}" data-plant="新植">新植</button>
+          <button class="btn-plant" data-action="alloc-set" data-key="${Fmt.esc(g.key)}" data-plant="据置">据置</button>
+          <button class="btn-plant" data-action="alloc-mix" data-key="${Fmt.esc(g.key)}">混在</button>
         </div>
       </div>`).join('');
   },
-  // CSV取込直後などに開く割り当てモーダル（未割当の出荷を一覧して割り当て）
+  // CSV取込直後などに開く割り当てモーダル（未割当を日付×品種×規格ごとに一覧）
   allocModal(){
-    const rows = Compute.unassignedAllocRows();
+    const groups = Compute.unassignedAllocGroups();
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-sheet alloc-modal">
           <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
-          <h2 class="modal-title">新植/据置の割り当て</h2>
+          <h2 class="modal-title">作型の割り当て</h2>
           <div class="modal-body">
-            ${rows.length ? `<p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを選んでください（混在は据置の本数比率を入力）。</p>
-            <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(rows)}</div>`
+            ${groups.length ? `<p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。日付・規格ごとに、どちらから作ったかを選んでください（混在は据置の本数を入力）。</p>
+            <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(groups)}</div>`
             : `<p class="muted">未割当はありません。すべて割り当て済みです。</p>`}
           </div>
-          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">${rows.length?'あとで':'閉じる'}</button></div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">${groups.length?'あとで':'閉じる'}</button></div>
         </div>
       </div>`;
     const backdrop = root.querySelector('.modal-backdrop');
@@ -2579,29 +2626,28 @@ const UI = {
     root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
     root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
   },
-  // 混在の据置本数比率(%)を入力
-  mixRatioModal(id, fromModal){
-    const rec = Store.jibun.find(r=>r.id===id);
-    if(!rec){ UI.toast('対象の出荷が見つかりませんでした'); return; }
-    const specText = (rec.betsuCount>0) ? `別 ${rec.betsuCount}本` : App.specToStr(rec.grade, rec.count);
-    const cur = Math.round((Number(rec.sueokiRatio)||0)*100);
+  // 混在：その規格の総本数のうち「据置の本数」を入力
+  mixStemsModal(groupKey, fromModal){
+    const g = Compute.unassignedAllocGroups().find(x=>x.key===groupKey);
+    if(!g){ UI.toast('対象の出荷が見つかりませんでした'); return; }
+    const specText = (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.grade, g.count);
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-sheet">
           <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
-          <h2 class="modal-title">混在の比率を入力</h2>
+          <h2 class="modal-title">混在：据置の本数を入力</h2>
           <div class="modal-body">
             <div class="fill-target">
-              <span class="fill-date tnum">${Fmt.date(rec.date)}</span>
-              <span class="fill-name">${Fmt.esc(rec.variety)}</span>
-              <span class="fill-spec">${specText}　箱数${rec.boxQty}</span>
+              <span class="fill-date tnum">${Fmt.date(g.date)}</span>
+              <span class="fill-name">${Fmt.esc(g.variety)}</span>
+              <span class="fill-spec">${specText}　総本数 ${Fmt.num(g.stems)}本</span>
             </div>
-            <p class="muted" style="font-size:0.8125rem">この出荷のうち<b>据置</b>の本数比率(%)を入力してください。残りは新植として計算します。</p>
+            <p class="muted" style="font-size:0.8125rem">この規格の総本数 <b>${Fmt.num(g.stems)}本</b> のうち、<b>据置</b>の本数を入力してください。残りは新植として計算します。</p>
             <label class="fill-input-row">
               <span class="fill-input-label">据置</span>
-              <input type="number" id="mix-input" class="fill-input" inputmode="numeric" min="0" max="100" step="1" value="${cur||''}" placeholder="例: 40" />
-              <span class="fill-input-unit">％</span>
+              <input type="number" id="mix-input" class="fill-input" inputmode="numeric" min="0" max="${g.stems}" step="1" placeholder="例: ${Math.round(g.stems/2)}" />
+              <span class="fill-input-unit">本</span>
             </label>
           </div>
           <div class="modal-status" id="mix-status"></div>
@@ -2621,11 +2667,11 @@ const UI = {
     setTimeout(()=>{ try{ input.focus(); }catch(_){} }, 30);
     const save = ()=>{
       const n = Norm.num(input.value);
-      if(Number.isNaN(n) || n<0 || n>100){ setStatus('0〜100の数値を入力してください'); input.focus(); return; }
-      Store.setJibunPlant(id, 'mix', n/100);
+      if(Number.isNaN(n) || n<0 || n>g.stems){ setStatus(`0〜${Fmt.num(g.stems)}本の範囲で入力してください`); input.focus(); return; }
+      Store.setJibunPlantGroup(g.ids, 'mix', n);
       UI.renderMain();
       if(fromModal) UI.allocModal(); else UI.closeModal();
-      UI.toast(`混在（据置${Math.round(n)}%）を保存しました`);
+      UI.toast(`混在（据置${Fmt.num(n)}本 / 新植${Fmt.num(g.stems-n)}本）を保存しました`);
     };
     root.querySelector('#mix-save-btn').addEventListener('click', save);
     input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
@@ -2920,16 +2966,17 @@ const App = {
         break;
       }
       case 'alloc-set': {
-        // 出荷行を新植/据置に確定
-        Store.setJibunPlant(t.getAttribute('data-id'), t.getAttribute('data-plant'), 0);
+        // 日付×品種×規格のグループを新植/据置に確定
+        const g = Compute.unassignedAllocGroups().find(x=>x.key===t.getAttribute('data-key'));
+        if(g) Store.setJibunPlantGroup(g.ids, t.getAttribute('data-plant'), 0);
         UI.renderMain();
         if(document.querySelector('.alloc-modal')) UI.allocModal(); // モーダル表示中なら残りへ更新
         break;
       }
       case 'alloc-mix': {
-        // 混在の据置比率入力モーダル（モーダル起点なら保存後に一覧へ戻す）
+        // 混在の据置本数入力モーダル（モーダル起点なら保存後に一覧へ戻す）
         const fromModal = !!document.querySelector('.alloc-modal');
-        UI.mixRatioModal(t.getAttribute('data-id'), fromModal);
+        UI.mixStemsModal(t.getAttribute('data-key'), fromModal);
         break;
       }
       case 'open-alloc-modal': {
