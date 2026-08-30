@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F6F8F4">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#10130F">
+<meta id="theme-color-meta" name="theme-color" content="#F6F8F4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -42,7 +41,10 @@
     --shadow:none;
   }
 }
+/* テーマを明示した時は color-scheme も固定する。そうしないと OS がダークの端末で
+   ライトを選んだ際、ネイティブの select のドロップダウンだけ暗いままになる。 */
 :root[data-theme="dark"]{
+  color-scheme: dark;
   --bg:#10130F; --surface:#191E18; --surface-2:#212820; --ink:#E8EDE6; --ink-muted:#9AA79C;
   --border:#2C342B; --primary:#5BB98A; --primary-soft:#1E3A2C; --accent:#E58BB6; --accent-soft:#3A2430;
   --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
@@ -54,6 +56,7 @@
   --shadow:none;
 }
 :root[data-theme="light"]{
+  color-scheme: light;
   --bg:#F6F8F4; --surface:#FFFFFF; --surface-2:#EFF3EC; --ink:#17201B; --ink-muted:#4C574E;
   --border:#E2E8DD; --primary:#2E7D5B; --primary-soft:#DCEDE3; --accent:#C2568A; --accent-soft:#F6E2ED;
   --warn:#C77A2A; --warn-soft:#F7E9D4; --danger:#C0453B; --danger-soft:#F8DEDB;
@@ -84,13 +87,20 @@ h1,h2,h3,p{margin:0;}
 #app{min-height:100vh; min-height:100svh; padding-bottom:calc(64px + env(safe-area-inset-bottom) + 12px);}
 /* 入力へフォーカスした時の自動スクロールが、上のヘッダー/下のタブバーと干渉して
    行ったり来たりしないよう、あらかじめ余白を確保しておく */
-input, textarea, select{scroll-margin-top:72px; scroll-margin-bottom:96px;}
+/* アプリバーは2段で約100px。入力へスクロールした時にバーの裏へ潜らない余白を取る */
+input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
 
-/* ---- App bar ---- */
+/* ---- App bar（2段） ---- */
+/* PWAでは safe-area 分だけ上に伸ばし、ステータスバーの裏もバーと同じ色で塗る */
 #appbar{
-  position:sticky; top:0; z-index:20; height:56px; display:flex; align-items:center; justify-content:space-between;
-  padding:0 var(--sp4); background:var(--surface); border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:20; display:flex; flex-direction:column; gap:var(--sp2);
+  padding:var(--sp2) var(--sp4) var(--sp3); padding-top:calc(var(--sp2) + env(safe-area-inset-top));
+  background:var(--surface); border-bottom:1px solid var(--border);
 }
+.appbar-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp2);}
+/* 2段目は右詰め。末尾のスペーサーがテーマボタンの幅を埋め、品目の右端が年度の右端と揃う */
+.appbar-row2{justify-content:flex-end;}
+.appbar-spacer{flex:0 0 auto; width:36px;}
 /* 年度・品目セレクタを必ず操作できるようにする。幅が足りない時に削るのは飾りであるアプリ名の側。 */
 .wordmark{font-weight:700; font-size:1rem; display:flex; align-items:center; gap:var(--sp2); white-space:nowrap;
   flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;}
@@ -99,15 +109,16 @@ input, textarea, select{scroll-margin-top:72px; scroll-margin-bottom:96px;}
   font-size:0.75rem; color:var(--ink-muted); background:var(--surface-2); border:1px solid var(--border);
   border-radius:var(--r-pill); padding:4px 10px; white-space:nowrap;
 }
-/* アプリバーの年度・品目セレクタ。スマホ幅で収まるよう、フォーム用の select より小さく作る */
-.scope-sel{display:flex; align-items:center; gap:6px; min-width:0;}
-.scope-sel .select-wrap{min-width:0;}
+/* アプリバーのセレクタ。フォーム用の select より小さく、指では押しやすい高さを確保する */
+.scope-sel{flex:0 0 auto; min-width:0;}
 .scope-sel select{
-  width:auto; min-height:34px; padding:0 26px 0 10px; font-size:0.8125rem; font-weight:700;
-  color:var(--ink); border-radius:var(--r-pill); max-width:120px; text-overflow:ellipsis;
+  width:auto; min-height:36px; padding:0 28px 0 12px; font-size:0.875rem; font-weight:700;
+  color:var(--ink); border-radius:var(--r-pill); text-overflow:ellipsis;
 }
-.scope-sel .select-wrap::after{right:10px; width:6px; height:6px;}
-#year-select{max-width:88px;}
+.scope-sel.select-wrap::after{right:11px; width:6px; height:6px;}
+#year-select{min-width:92px;}
+/* 品目は7文字程度が入る幅。長い名前は … で切る */
+#item-select{min-width:92px; max-width:152px;}
 .icon-btn{
   width:36px; height:36px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -132,6 +143,10 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
 .card-sub{margin-left:8px; font-size:0.8125rem; font-weight:600; color:var(--ink-muted);}
 .card-caption{font-size:0.75rem; color:var(--ink-muted);}
 .screen-title{font-size:1.25rem; font-weight:700;}
+/* 見出しの右にチップを添える行（保存タブの件数など） */
+.title-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
+.title-row .screen-title{flex:0 0 auto;}
+.title-row .data-chip{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;}
 
 /* ---- Buttons ---- */
 .btn{
@@ -486,15 +501,20 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 
 
 <div id="app">
+  <!-- 2段構成。1段目＝アプリ名／年度＋テーマ、2段目＝品目のみ。
+       2段目の右端は年度セレクタの右端に揃える（テーマボタンの下は空ける）ため、
+       同じ幅のスペーサーを置いて位置を合わせている。 -->
   <header id="appbar">
-    <div class="wordmark">🌸 出荷分析</div>
-    <div class="appbar-right">
-      <!-- 年度 → 品目 の順で対象を絞る。全タブに一斉に効く。 -->
-      <div class="scope-sel">
-        <div class="select-wrap"><select id="year-select" data-action="scope-year" aria-label="年度を選ぶ"></select></div>
-        <div class="select-wrap"><select id="item-select" data-action="scope-item" aria-label="品目を選ぶ"></select></div>
+    <div class="appbar-row">
+      <div class="wordmark">🌸 出荷分析</div>
+      <div class="appbar-right">
+        <div class="select-wrap scope-sel"><select id="year-select" data-action="scope-year" aria-label="年度を選ぶ"></select></div>
+        <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
       </div>
-      <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
+    </div>
+    <div class="appbar-row appbar-row2">
+      <div class="select-wrap scope-sel"><select id="item-select" data-action="scope-item" aria-label="品目を選ぶ"></select></div>
+      <span class="appbar-spacer" aria-hidden="true"></span>
     </div>
   </header>
   <div id="storage-banner-region"></div>
@@ -515,7 +535,6 @@ const Icon = {
   backup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3 8-7 11-4-3-7-6-7-11V5z"/><polyline points="9 12 11 14 15 10"/></svg>',
   sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>',
-  auto:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
   upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
 };
@@ -1797,27 +1816,37 @@ const CAT_COLORVAR = {'2L30':'var(--chart-2l30)','2L50':'var(--chart-2l50)','L50
 const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
 
 const UI = {
-  themeMode(){ return localStorage.getItem('curcuma.theme') || 'auto'; },
+  // テーマは light / dark の2状態のみ。保存が無い（または旧 'auto'）なら、その場でOSの設定を見て
+  // どちらかに確定させる＝以後は必ず1タップで切り替わる（3状態巡回だとダークまで最大3タップ必要だった）。
+  themeMode(){
+    const saved = localStorage.getItem('curcuma.theme');
+    if(saved==='light' || saved==='dark') return saved;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  },
   setThemeMode(mode){
     try{ localStorage.setItem('curcuma.theme', mode); }catch(e){}
     UI.applyTheme();
   },
   applyTheme(){
     const mode = UI.themeMode();
-    const root = document.documentElement;
-    if(mode==='auto') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', mode);
+    document.documentElement.setAttribute('data-theme', mode);
     const btn = document.getElementById('theme-btn');
     if(btn){
-      btn.innerHTML = mode==='dark' ? Icon.moon : mode==='light' ? Icon.sun : Icon.auto;
-      btn.setAttribute('aria-label', 'テーマ: ' + (mode==='auto'?'自動':mode==='dark'?'ダーク':'ライト'));
+      // アイコンは「今の状態」ではなく「押した先」を出す＝何が起きるかが分かる
+      btn.innerHTML = mode==='dark' ? Icon.sun : Icon.moon;
+      btn.setAttribute('aria-label', mode==='dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え');
     }
+    // PWAのステータスバー色。prefers-color-scheme のメタはOSの設定にしか反応せず、
+    // アプリ内でダークにしても端末がライトだと上端だけ明るいまま残るため、実効テーマで書き換える。
+    let meta = document.getElementById('theme-color-meta');
+    if(!meta){ // 生成前の素の curcuma-dashboard.html を直接開いた時のための保険
+      meta = document.createElement('meta'); meta.id = 'theme-color-meta'; meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', mode==='dark' ? '#10130F' : '#F6F8F4');
   },
   cycleTheme(){
-    const order = ['auto','light','dark'];
-    const cur = UI.themeMode();
-    const next = order[(order.indexOf(cur)+1)%order.length];
-    UI.setThemeMode(next);
+    UI.setThemeMode(UI.themeMode()==='dark' ? 'light' : 'dark');
   },
 
   // 年度・品目の初期値を決める（起動時と、選択中の値が消えた時の立て直し）。品目を先に決めてから年度を決める。
@@ -2571,18 +2600,20 @@ const UI = {
   screenBackup(){
     const last = Store.meta.lastBackupAt ? new Date(Store.meta.lastBackupAt).toLocaleString('ja-JP') : '未実施';
     return `
-      <h1 class="screen-title">バックアップ</h1>
+      <div class="title-row">
+        <h1 class="screen-title">バックアップ</h1>
+        <span class="data-chip">産地${Store.sanchi.size}件・自分${Store.jibun.length}件</span>
+      </div>
       ${!Store.available ? `<div class="err-box">この端末では自動保存(localStorage)が使えません。作業のたびに書き出しを行ってください。</div>` : ''}
       <div class="card">
         <div class="row-between">
           <span class="card-caption">最終バックアップ</span>
           <span class="tnum" style="font-size:0.875rem">${last}</span>
         </div>
-        <div class="row-between" style="margin-top:var(--sp2)">
+        <div style="margin-top:var(--sp2)">
           ${Store.dirtyCount>0 ? `<span class="badge badge-unmatched">未バックアップの変更 ${Store.dirtyCount}件</span>` : `<span class="badge badge-matched">バックアップ済み</span>`}
-          <span class="data-chip">産地${Store.sanchi.size}件・自分${Store.jibun.length}件</span>
         </div>
-        <p class="card-caption" style="margin-top:var(--sp2)">件数は全年度・全品目の合計です（表示中: ${Fmt.esc(String(State.selectedYear))}年 ${Fmt.esc(String(State.selectedItem))} は 産地${Compute.scopedSanchi().size}件・自分${Compute.scopedJibun().length}件）。</p>
+        <p class="card-caption" style="margin-top:var(--sp2)">見出し横の件数は全年度・全品目の合計です（表示中: ${Fmt.esc(String(State.selectedYear))}年 ${Fmt.esc(String(State.selectedItem))} は 産地${Compute.scopedSanchi().size}件・自分${Compute.scopedJibun().length}件）。</p>
       </div>
       <div class="card stack">
         <h2 class="card-title">書き出し / 読み込み</h2>
