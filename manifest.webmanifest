@@ -1,6 +1,6 @@
 {
-  "name": "クルクマ市場分析",
-  "short_name": "クルクマ",
+  "name": "出荷分析",
+  "short_name": "出荷分析",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
