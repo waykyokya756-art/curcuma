@@ -331,6 +331,13 @@ input[type="file"]{display:none;}
 .ship-row + .ship-row{margin-top:var(--sp2);}
 .ship-day-card{padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
 .ship-day-card + .ship-day-card{margin-top:var(--sp3);}
+/* 月ごとの格納（既定は閉じる）。開くとその月の日別カードが並ぶ */
+.ship-month{border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp3);}
+.ship-month + .ship-month{margin-top:var(--sp2);}
+.ship-month > summary{font-size:1rem; min-height:44px;}
+.ship-month .sm-title{font-size:1.0625rem; font-weight:700; color:var(--ink);}
+.ship-month .sm-meta{margin-left:auto; font-size:0.875rem; font-weight:600; color:var(--ink-muted);}
+.ship-month .sm-total{font-size:1rem; font-weight:700; color:var(--ink);}
 .ship-date-head{display:flex; align-items:baseline; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
 .ship-date-md{font-size:1.3125rem; font-weight:800; color:var(--ink);}
 .ship-date-wd{font-size:0.9375rem; font-weight:700; color:var(--ink-muted);}
@@ -437,6 +444,11 @@ details.collapse summary::-webkit-details-marker{display:none;}
 details.collapse summary::before{content:"▸"; color:var(--ink-muted); transition:transform var(--dur);}
 details.collapse[open] summary::before{transform:rotate(90deg);}
 
+/* 保存タブ「保存の仕組み」の説明ブロック */
+.save-how{display:flex; flex-direction:column; gap:var(--sp3); font-size:0.875rem; line-height:1.6; color:var(--ink);}
+.save-how .muted{color:var(--ink-muted); font-size:0.8125rem;}
+.save-how code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.8125em; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:1px 5px;}
+
 .onboard-step{display:flex; gap:var(--sp3); align-items:flex-start;}
 .onboard-num{width:26px; height:26px; border-radius:var(--r-pill); background:var(--primary-soft); color:var(--primary); font-weight:700; font-size:0.8125rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
 .onboard-text{font-size:0.875rem;}
@@ -452,8 +464,8 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 .stack{display:flex; flex-direction:column; gap:var(--sp3);}
 .row-between{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
 </style>
-</head>
-<body>
+</head><body>
+
 
 <div id="app">
   <header id="appbar">
@@ -1618,7 +1630,9 @@ const State = {
   sanchiImportSummary: '',
   mineImportSummary: '',
   multiMeta: null,
-  lineDetailShow: null    // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
+  lineDetailShow: null,   // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
+  chartScrollLeft: null,  // 再描画をまたいで折れ線の横スクロール位置を保つ（nullなら右端＝最新日）
+  shipMonthsOpen: []      // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
 };
 
 /* ============================== UI ============================== */
@@ -1707,12 +1721,29 @@ const UI = {
       const multiWrap = document.querySelector('[data-multiline-wrap]');
       if(multiWrap) UI.wireMultiLineTooltip(multiWrap);
       // 折れ線は初期表示を最新日（右端）に。左スクロールで過去へ遡れる。
+      // ただしプロットのタップ由来の再描画では、見ていた位置をそのまま保つ。
       const scroller = document.querySelector('#main .chart-scroll');
-      if(scroller) scroller.scrollLeft = scroller.scrollWidth;
+      if(scroller){
+        if(State.chartScrollLeft != null){
+          scroller.scrollLeft = State.chartScrollLeft;
+          State.chartScrollLeft = null;
+        }else{
+          scroller.scrollLeft = scroller.scrollWidth;
+        }
+      }
     }
     if(State.tab==='mine'){
       const barWrap = document.querySelector('[data-bar-wrap]');
       if(barWrap) UI.wireBarTooltip(barWrap);
+      // 出荷明細一覧の月アコーディオン：開閉状態を State に控えて再描画をまたいで保つ
+      document.querySelectorAll('#main details.ship-month').forEach(d=>{
+        d.addEventListener('toggle', ()=>{
+          const ym = d.getAttribute('data-ym');
+          const i = State.shipMonthsOpen.indexOf(ym);
+          if(d.open){ if(i<0) State.shipMonthsOpen.push(ym); }
+          else if(i>=0) State.shipMonthsOpen.splice(i,1);
+        });
+      });
     }
     if(State.tab==='import'){
       const seg = document.getElementById('mine-mode-csv-panel');
@@ -1994,7 +2025,7 @@ const UI = {
       if(!g){ g={date:r.date, rows:[]}; shipGroups.push(g); }
       g.rows.push(r);
     });
-    const shipRows = shipGroups.map(g=>{
+    const shipDayCards = shipGroups.map(g=>{
       // 日付内で品種ごとに1枠にまとめる（規格は枠内に明細行として並べる）
       const byVar = [];
       g.rows.forEach(r=>{
@@ -2034,7 +2065,7 @@ const UI = {
       const wdCls = wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
       const dayTotal = byVar.reduce((s,v)=>s+v.amount, 0);
       const dayBoxes = g.rows.reduce((s,r)=>s+(r.boxQty||0), 0);
-      return `
+      const html = `
         <div class="ship-day-card">
           <div class="ship-date-head">
             <span class="ship-date-md">${Fmt.date(g.date)}</span>
@@ -2044,6 +2075,32 @@ const UI = {
           </div>
           ${blocks}
         </div>`;
+      return {date:g.date, html, boxes:dayBoxes, total:dayTotal};
+    });
+
+    // 月ごとに格納（アコーディオン）。既定は全て閉じた状態＝一覧が長くならない。
+    // 開閉は State.shipMonthsOpen に控えてあり、削除などの再描画をまたいでも保たれる。
+    const shipMonths = [];
+    shipDayCards.forEach(d=>{
+      const ym = d.date.slice(0,7);
+      let m = shipMonths.find(x=>x.ym===ym);
+      if(!m){ m={ym, days:[], boxes:0, total:0}; shipMonths.push(m); }
+      m.days.push(d);
+      m.boxes += d.boxes;
+      m.total += d.total;
+    });
+    const shipRows = shipMonths.map(m=>{
+      const [y, mo] = m.ym.split('-');
+      const open = State.shipMonthsOpen.includes(m.ym) ? ' open' : '';
+      return `
+        <details class="collapse ship-month" data-ym="${m.ym}"${open}>
+          <summary>
+            <span class="sm-title">${Number(y)}年${Number(mo)}月</span>
+            <span class="sm-meta tnum">${m.days.length}日・${Fmt.num(m.boxes)}箱</span>
+            ${m.total>0 ? `<span class="sm-total tnum">${Fmt.yen(m.total)}</span>` : ''}
+          </summary>
+          <div class="stack" style="margin-top:var(--sp3)">${m.days.map(d=>d.html).join('')}</div>
+        </details>`;
     }).join('');
 
     const unmatchedBlock = sum.unmatchedRows.length ? `
@@ -2359,10 +2416,13 @@ const UI = {
       </details>
       <div class="card">
         <h2 class="card-title">保存の仕組み</h2>
-        <p class="card-caption">
-          データは端末内（localStorage）に自動保存されますが、これは一時キャッシュです。ブラウザの設定やプライベートモードによっては消えることがあるため、
-          こまめな「書き出し」による <b>バックアップJSON</b> を正としてご利用ください。
-        </p>
+        <div class="save-how">
+          <p><b>データはこの端末の中だけにあります。</b>入力・取込のたびに、ブラウザの保存領域（localStorage・キー <code>curcuma.v1</code>）へ自動保存されます。サーバーには何も送っていません。</p>
+          <p><b>アプリを更新してもデータは消えません。</b>ホーム画面のアプリ（GitHub Pages のPWA）は、プログラムとデータが別物です。新しい版に入れ替わっても、保存済みの産地・出荷データはそのまま残ります。</p>
+          <p><b>端末をまたいだ共有はしません。</b>iPhoneとPCは別々の保存領域です。同じ内容を見たいときは、JSONを書き出して、もう一方で読み込んでください。</p>
+          <p><b>消えることもあります。</b>ブラウザの「サイトデータを削除」、プライベートモード、端末の機種変更・初期化では失われます。だから <b>書き出したバックアップJSONが正本</b> です。区切りのいいところで書き出してください。</p>
+          <p class="muted">保存に失敗したとき（容量超過など）と、読み込み時にデータが壊れていたときは、画面上部に警告を出します。壊れたデータは消さずに <code>curcuma.v1.corrupt</code> へ退避するので、黙って全部なくなることはありません。</p>
+        </div>
       </div>
     `;
   },
@@ -2684,6 +2744,35 @@ const UI = {
     detail.innerHTML = `<span class="cd-dot" style="background:${color||'var(--primary)'}"></span>`
       + `<div class="cd-body"><div class="cd-name">${Fmt.esc(name)}</div><div class="cd-info">${infoHtml}</div></div>`;
   },
+  // 「プロットをタップ」と「スクロールのために掴む」を区別する。
+  // 以前は touchstart で即発火していたため、横スクロールしようと指を置いた時点で
+  // 日付が切り替わり→全再描画→右端（最新日）へ戻る、で左へ遡れなかった。
+  // pointerdown で起点を覚え、指がほとんど動かないまま離された時だけタップとみなす。
+  // スクロールが始まると iOS/Chrome は pointercancel を出すので、そこで確実に取り消す。
+  tapOnly(el, cb){
+    const TAP_MOVE = 10;   // px：これ以上動いたら「掴んで動かす」＝スクロール操作
+    const TAP_MS = 700;    // ms：長押しはタップ扱いしない
+    let st = null;
+    const cancel = ()=>{ st = null; };
+    el.addEventListener('pointerdown', e=>{
+      if(e.pointerType === 'mouse' && e.button !== 0){ st = null; return; }
+      st = {x:e.clientX, y:e.clientY, t:Date.now(), id:e.pointerId};
+    });
+    el.addEventListener('pointermove', e=>{
+      if(!st || e.pointerId !== st.id) return;
+      if(Math.abs(e.clientX-st.x) > TAP_MOVE || Math.abs(e.clientY-st.y) > TAP_MOVE) cancel();
+    });
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('pointerleave', cancel);
+    el.addEventListener('pointerup', e=>{
+      if(!st || e.pointerId !== st.id) return;
+      const moved = Math.abs(e.clientX-st.x) > TAP_MOVE || Math.abs(e.clientY-st.y) > TAP_MOVE;
+      const quick = (Date.now() - st.t) <= TAP_MS;
+      cancel();
+      if(moved || !quick) return;
+      cb(e);
+    });
+  },
   moveHighlight(svg, x, y){
     const hl = svg.querySelector('.pt-highlight');
     if(!hl) return;
@@ -2709,8 +2798,7 @@ const UI = {
     };
     const handle = (evt)=>{
       const rect = svg.getBoundingClientRect();
-      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-      const svgX = ((clientX - rect.left) / rect.width) * W;
+      const svgX = ((evt.clientX - rect.left) / rect.width) * W;
       let nearestI = -1, best = Infinity;
       points.forEach((p,i)=>{
         if(p.price==null) return;
@@ -2725,13 +2813,14 @@ const UI = {
         State.selectedDate = p.date;
         State.calendarMonth = p.date.slice(0,7);
         State.lineDetailShow = {variety, date:p.date}; // 再描画後に詳細を復元
+        const sc = wrap.querySelector('.chart-scroll');
+        if(sc) State.chartScrollLeft = sc.scrollLeft; // 再描画で右端に戻さない
         UI.renderMain();
         return;
       }
       showAt(nearestI); // 同じ日なら詳細だけ更新
     };
-    svg.addEventListener('click', handle);
-    svg.addEventListener('touchstart', handle, {passive:true});
+    UI.tapOnly(svg, handle);
     // 日付連動による再描画直後は、対象日の詳細を復元表示（プロットの選択状態を維持）
     if(State.lineDetailShow && State.lineDetailShow.variety===variety){
       const idx = points.findIndex(p=>p.date===State.lineDetailShow.date && p.price!=null);
@@ -2748,10 +2837,8 @@ const UI = {
     const vb = svg.viewBox.baseVal;
     const handle = (evt)=>{
       const rect = svg.getBoundingClientRect();
-      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-      const svgX = ((clientX - rect.left) / rect.width) * W;
-      const svgY = ((clientY - rect.top) / rect.height) * vb.height;
+      const svgX = ((evt.clientX - rect.left) / rect.width) * W;
+      const svgY = ((evt.clientY - rect.top) / rect.height) * vb.height;
       let nearest = null, best = Infinity;
       ptMeta.forEach(m=>{
         const d = Math.hypot(m.x - svgX, m.y - svgY);
@@ -2762,8 +2849,7 @@ const UI = {
       UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span><span class="cd-tag">${nearest.marker==='2L'?'2L換算':'L代替'}</span>`, nearest.color);
       evt.stopPropagation();
     };
-    svg.addEventListener('click', handle);
-    svg.addEventListener('touchstart', handle, {passive:true});
+    UI.tapOnly(svg, handle);
   },
 
   wireBarTooltip(wrap){
