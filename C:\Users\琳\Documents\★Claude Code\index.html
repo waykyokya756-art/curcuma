@@ -1,0 +1,3219 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F6F8F4">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#10130F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="クルクマ市場分析">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<title>🌸 クルクマ市場分析</title>
+<style>
+:root{
+  --bg:#F6F8F4; --surface:#FFFFFF; --surface-2:#EFF3EC; --ink:#17201B; --ink-muted:#4C574E;
+  --border:#E2E8DD; --primary:#2E7D5B; --primary-soft:#DCEDE3; --accent:#C2568A; --accent-soft:#F6E2ED;
+  --warn:#C77A2A; --warn-soft:#F7E9D4; --danger:#C0453B; --danger-soft:#F8DEDB;
+  --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
+  --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
+  --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
+  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1;
+  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2;
+  --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
+  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  --font: -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
+  --dur:190ms;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#10130F; --surface:#191E18; --surface-2:#212820; --ink:#E8EDE6; --ink-muted:#9AA79C;
+    --border:#2C342B; --primary:#5BB98A; --primary-soft:#1E3A2C; --accent:#E58BB6; --accent-soft:#3A2430;
+    --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
+    --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
+    --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
+  --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
+    --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741;
+    --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10130F; --surface:#191E18; --surface-2:#212820; --ink:#E8EDE6; --ink-muted:#9AA79C;
+  --border:#2C342B; --primary:#5BB98A; --primary-soft:#1E3A2C; --accent:#E58BB6; --accent-soft:#3A2430;
+  --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
+  --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
+  --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
+  --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
+  --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741;
+  --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8;
+  --shadow:none;
+}
+:root[data-theme="light"]{
+  --bg:#F6F8F4; --surface:#FFFFFF; --surface-2:#EFF3EC; --ink:#17201B; --ink-muted:#4C574E;
+  --border:#E2E8DD; --primary:#2E7D5B; --primary-soft:#DCEDE3; --accent:#C2568A; --accent-soft:#F6E2ED;
+  --warn:#C77A2A; --warn-soft:#F7E9D4; --danger:#C0453B; --danger-soft:#F8DEDB;
+  --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
+  --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
+  --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
+  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1;
+  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2;
+  --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+html{font-size:112.5%; -webkit-text-size-adjust:100%; text-size-adjust:100%;} /* 既定16px→18px。文字の自動リサイズで再レイアウトが起きないよう固定 */
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font);
+  font-size:0.9375rem; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit; color:inherit;}
+h1,h2,h3,p{margin:0;}
+.tnum{font-variant-numeric:tabular-nums;}
+::selection{background:var(--primary-soft);}
+:focus-visible{outline:2px solid var(--primary); outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+
+/* svh はキーボード開閉で値が変わらない（vh は環境により変動しページが揺れる） */
+#app{min-height:100vh; min-height:100svh; padding-bottom:calc(64px + env(safe-area-inset-bottom) + 12px);}
+/* 入力へフォーカスした時の自動スクロールが、上のヘッダー/下のタブバーと干渉して
+   行ったり来たりしないよう、あらかじめ余白を確保しておく */
+input, textarea, select{scroll-margin-top:72px; scroll-margin-bottom:96px;}
+
+/* ---- App bar ---- */
+#appbar{
+  position:sticky; top:0; z-index:20; height:56px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--sp4); background:var(--surface); border-bottom:1px solid var(--border);
+}
+.wordmark{font-weight:700; font-size:1rem; display:flex; align-items:center; gap:var(--sp2); white-space:nowrap;}
+.appbar-right{display:flex; align-items:center; gap:var(--sp2);}
+.data-chip{
+  font-size:0.75rem; color:var(--ink-muted); background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-pill); padding:4px 10px; white-space:nowrap;
+}
+.icon-btn{
+  width:36px; height:36px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.icon-btn svg{width:18px; height:18px;}
+.storage-banner{
+  background:var(--danger-soft); color:var(--danger-text); font-size:0.8125rem; padding:8px var(--sp4);
+  text-align:center; border-bottom:1px solid var(--border);
+}
+
+/* ---- Main / layout ---- */
+main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-direction:column; gap:var(--sp4);}
+
+/* ---- Cards ---- */
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:var(--sp4); box-shadow:var(--shadow); display:flex; flex-direction:column; gap:var(--sp3);
+}
+.card-head{display:flex; align-items:center; justify-content:space-between; gap:var(--sp2);}
+.card-title{font-size:1rem; font-weight:600;}
+.card-caption{font-size:0.75rem; color:var(--ink-muted);}
+.screen-title{font-size:1.25rem; font-weight:700;}
+
+/* ---- Buttons ---- */
+.btn{
+  min-height:48px; border-radius:var(--r-md); border:1px solid transparent; padding:0 var(--sp4);
+  font-size:0.9375rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  gap:var(--sp2); transition:transform var(--dur) ease-out, opacity var(--dur) ease-out; width:100%;
+}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--primary); color:#fff;}
+.btn-secondary{background:var(--primary-soft); color:var(--primary);}
+.btn-ghost{background:transparent; color:var(--ink); border-color:var(--border);}
+.btn-danger{background:var(--danger); color:#fff;}
+.btn-sm{min-height:36px; width:auto; padding:0 var(--sp3); font-size:0.8125rem;}
+.btn-row{display:flex; gap:var(--sp3);}
+
+/* ---- Segmented control ---- */
+.segmented{display:flex; background:var(--surface-2); border-radius:var(--r-md); padding:3px; gap:3px;}
+.segmented button{
+  flex:1; border:none; background:transparent; padding:10px; border-radius:var(--r-sm); font-size:0.875rem;
+  font-weight:600; color:var(--ink-muted); cursor:pointer;
+}
+.segmented button[aria-selected="true"]{background:var(--surface); color:var(--primary); box-shadow:var(--shadow);}
+
+/* ---- Chips / badges ---- */
+.badge{display:inline-flex; align-items:center; gap:4px; border-radius:var(--r-pill); padding:3px 10px; font-size:0.75rem; font-weight:600;}
+.badge-matched{background:var(--primary-soft); color:var(--primary);}
+.badge-unmatched{background:var(--warn-soft); color:var(--warn-text);}
+.badge-nomatch{background:var(--surface-2); color:var(--ink-muted); border:1px solid var(--border);}
+
+/* ---- Toast ---- */
+#toast-region{position:fixed; left:0; right:0; bottom:calc(64px + env(safe-area-inset-bottom) + 8px); z-index:90; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none;}
+.toast{
+  pointer-events:auto; background:var(--ink); color:var(--bg); border-radius:var(--r-md); padding:10px 14px;
+  font-size:0.875rem; display:flex; align-items:center; gap:var(--sp3); box-shadow:var(--shadow);
+  max-width:90vw; animation:toast-in var(--dur) ease-out;
+}
+:root[data-theme="dark"] .toast, @media (prefers-color-scheme:dark){ .toast{} }
+.toast button{background:none; border:none; color:var(--accent); font-weight:700; cursor:pointer; font-size:0.875rem;}
+@keyframes toast-in{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+/* ---- Modal ---- */
+.modal-backdrop{position:fixed; inset:0; background:rgba(10,15,10,.45); z-index:70; display:flex; align-items:flex-end; justify-content:center;}
+.modal-sheet{
+  background:var(--surface); width:100%; max-width:640px; border-radius:var(--r-lg) var(--r-lg) 0 0;
+  padding:var(--sp5); padding-bottom:calc(var(--sp5) + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:var(--sp4);
+  animation:sheet-in var(--dur) ease-out; max-height:90vh; overflow-y:auto; position:relative;
+}
+.modal-close{position:absolute; top:8px; right:8px; width:40px; height:40px; border:none; background:transparent; color:var(--ink-muted); font-size:1.625rem; line-height:1; cursor:pointer; border-radius:var(--r-pill); display:inline-flex; align-items:center; justify-content:center;}
+@keyframes sheet-in{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+.modal-title{font-size:1.0625rem; font-weight:700;}
+.modal-body{color:var(--ink-muted); font-size:0.875rem;}
+.modal-status{font-size:0.8125rem; font-weight:700; min-height:1.2em; text-align:center;}
+.modal-status.ok{color:var(--primary);}
+.modal-status.warn{color:var(--warn-text);}
+/* font-size は 16px 以上を維持（iOSは16px未満の入力にフォーカスすると自動ズームする） */
+.csv-text{width:100%; min-height:110px; max-height:200px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; line-height:1.5; white-space:pre; overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface-2); color:var(--ink); padding:8px;}
+
+/* ---- Forms ---- */
+label.field{display:flex; flex-direction:column; gap:6px; font-size:0.8125rem; color:var(--ink-muted); font-weight:500;}
+.select-wrap{position:relative;}
+select, input[type="date"], input[type="text"], input[type="number"]{
+  width:100%; min-height:48px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2);
+  color:var(--ink); padding:0 var(--sp3); font-size:0.9375rem; appearance:none; -webkit-appearance:none;
+}
+select{padding-right:36px; background-image:none;}
+.select-wrap::after{
+  content:""; position:absolute; right:14px; top:50%; width:8px; height:8px; border-right:2px solid var(--ink-muted);
+  border-bottom:2px solid var(--ink-muted); transform:translateY(-70%) rotate(45deg); pointer-events:none;
+}
+.stepper{display:flex; align-items:center; gap:var(--sp2);}
+.stepper button{width:44px; height:44px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); font-size:1.25rem; cursor:pointer;}
+.stepper input{text-align:center;}
+.dropzone{
+  display:flex; flex-direction:row; align-items:center; justify-content:center; gap:8px; text-align:center;
+  border:1.5px dashed var(--border); border-radius:var(--r-md); padding:10px var(--sp3); cursor:pointer; color:var(--ink-muted);
+  min-height:44px;
+}
+.dropzone strong{color:var(--ink); font-size:0.9375rem;}
+.dropzone svg{width:20px; height:20px; color:var(--primary); flex-shrink:0;}
+input[type="file"]{display:none;}
+
+/* ---- Tabs (bottom nav) ---- */
+#tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:50; height:calc(64px + env(safe-area-inset-bottom));
+  background:var(--surface); border-top:1px solid var(--border); display:flex;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tab{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  border:none; background:none; color:var(--ink-muted); cursor:pointer; min-height:44px;
+}
+.tab svg{width:22px; height:22px;}
+.tab span{font-size:0.6875rem; font-weight:500;}
+.tab[aria-selected="true"]{color:var(--primary);}
+.tab[aria-selected="true"] span{font-weight:700;}
+/* 入力中もタブバーの位置は動かさない（キーボードに覆われるだけにする）。
+   持ち上がり分の打ち消しは JS が transform で行う */
+#tabbar{will-change:transform;}
+
+/* ペースト取込欄（コンパクト・常時表示） */
+.paste-row{display:flex; flex-direction:column; gap:var(--sp2); margin-top:var(--sp2);}
+.csv-paste{min-height:72px;}
+
+/* ---- KPI ---- */
+.kpi-card{border:1.5px solid var(--accent); background:var(--surface); position:relative; overflow:hidden;}
+.kpi-label{font-size:0.75rem; color:var(--ink-muted); font-weight:600;}
+.kpi-value{font-size:clamp(2rem,8vw,2.75rem); font-weight:700; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.kpi-sub{display:flex; gap:var(--sp4); font-size:0.8125rem; color:var(--ink-muted); flex-wrap:wrap;}
+.kpi-sub b{color:var(--ink); font-weight:600;}
+.kpi-secondary{display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp3); padding-top:var(--sp2); border-top:1px dashed var(--border);}
+.kpi-sec-label{font-size:0.8125rem; color:var(--ink-muted); font-weight:600;}
+.kpi-sec-value{font-size:1.5rem; font-weight:700; color:var(--accent-text);}
+.kpi-sec-value small{font-size:0.875rem; font-weight:600; color:var(--ink-muted); margin-left:2px;}
+.tag-betsu{display:inline-block; font-size:0.6875rem; font-weight:700; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:1px 6px; vertical-align:middle;}
+
+/* ---- Empty state ---- */
+.empty-state{display:flex; flex-direction:column; align-items:center; text-align:center; gap:var(--sp3); padding:var(--sp6) var(--sp4); color:var(--ink-muted);}
+.empty-state svg{width:40px; height:40px; color:var(--border);}
+
+/* ---- Legend ---- */
+.legend{display:flex; flex-direction:column; gap:var(--sp2);}
+.legend-item{display:flex; align-items:center; gap:var(--sp3); font-size:0.9375rem; padding:8px 6px; border-radius:var(--r-sm); cursor:pointer; border:1px solid transparent;}
+.legend-item[data-active="true"]{border-color:var(--border); background:var(--surface-2);}
+.legend-dot{width:16px; height:16px; border-radius:4px; flex-shrink:0;}
+.legend-label{flex:1; font-weight:600;}
+.legend-val{color:var(--ink-muted); font-size:0.875rem; white-space:nowrap;}
+.legend-val-strong{color:var(--ink); font-weight:700;}
+.donut-col{display:flex; flex-direction:column; align-items:center; gap:var(--sp3);}
+.donut-col .legend{width:100%; gap:2px;}
+.donut-col .legend-item{padding:4px 6px;}
+.donut-col .legend-val{font-size:0.9375rem; font-weight:600;}
+.donut-col .legend-val-strong{color:var(--ink-muted); font-weight:600;}
+
+/* ---- Donut / chart wrap ---- */
+.chart-wrap{position:relative; width:100%;}
+.chart-wrap svg{width:100%; height:auto; display:block; overflow:visible;}
+.chart-scroll{overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;}
+.chart-wrap .chart-scroll svg{width:auto; max-width:none;}
+/* 横スクロールしても左端に固定するY軸ラベル */
+.chart-yaxis{position:absolute; left:0; top:0; z-index:2; pointer-events:none; background:var(--surface); border-right:1px solid var(--border);}
+.chart-yaxis svg{display:block;}
+.donut-row{display:flex; align-items:center; gap:var(--sp4); flex-wrap:nowrap;}
+.donut-svg{width:150px; height:150px; flex-shrink:0; max-width:100%;}
+.donut-center-num{font-size:1.25rem; font-weight:700; fill:var(--ink);}
+.donut-center-lbl{font-size:0.625rem; fill:var(--ink-muted);}
+.legend-flex{flex:1 1 auto; min-width:0;}
+
+.tooltip{
+  position:absolute; background:var(--ink); color:var(--bg); padding:6px 10px; border-radius:var(--r-sm);
+  font-size:0.75rem; pointer-events:none; white-space:nowrap; transform:translate(-50%,-115%); z-index:5; box-shadow:var(--shadow);
+}
+.chart-caption{font-size:0.75rem; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:6px 10px;}
+/* 折れ線の詳細表示（固定位置。タップしたプロットの内容を表示） */
+.chart-detail{display:flex; align-items:center; gap:10px; min-height:72px; padding:8px 12px; border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border); color:var(--ink);}
+.chart-detail[data-empty="true"]{color:var(--ink-muted); font-size:0.8125rem;}
+.chart-detail .cd-dot{width:12px; height:12px; border-radius:3px; flex-shrink:0;}
+.chart-detail .cd-body{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.chart-detail .cd-name{font-weight:700; font-size:0.9375rem;}
+.chart-detail .cd-info{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.875rem; color:var(--ink-muted);}
+.chart-detail .cd-price{font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
+.chart-detail .cd-tag{font-size:0.75rem; color:var(--ink-muted); background:var(--surface); border:1px solid var(--border); border-radius:var(--r-pill); padding:2px 8px;}
+.chart-legend-row{display:flex; gap:var(--sp4); font-size:0.75rem; color:var(--ink-muted); flex-wrap:wrap;}
+.chart-legend-row span{display:inline-flex; align-items:center; gap:4px;}
+.selector-row{display:flex; gap:var(--sp3);}
+.selector-row .field{min-width:0;}
+.selector-row .date-field{flex:5;}
+/* 「品種」ラベルの見た目を「日付」に合わせる（この行だけ） */
+.selector-row .variety-field{flex:5; font-size:0.9375rem; color:var(--ink); font-weight:400; gap:0;}
+.date-field{position:relative;}
+.date-nav{display:flex; align-items:stretch; gap:4px;}
+.date-nav .date-trigger{flex:1; min-width:0; padding:0 6px; justify-content:center; gap:2px;}
+.date-step{width:32px; min-height:48px; flex-shrink:0; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font-size:1rem; font-weight:700; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
+.date-step:disabled{opacity:.35; cursor:default;}
+.date-step:active:not(:disabled){background:var(--primary-soft);}
+.date-trigger{
+  width:100%; min-height:48px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2);
+  color:var(--ink); padding:0 var(--sp3); font-size:0.9375rem; cursor:pointer; text-align:left;
+  display:flex; align-items:center; justify-content:space-between; gap:6px; font-variant-numeric:tabular-nums;
+}
+.date-trigger .caret{color:var(--ink-muted); font-size:0.75rem;}
+.cal-backdrop{position:fixed; inset:0; z-index:39;}
+.cal-pop{
+  position:absolute; top:calc(100% + 6px); left:0; z-index:40; width:330px; max-width:calc(100vw - 32px);
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); box-shadow:var(--shadow); padding:var(--sp3);
+}
+.cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--sp2);}
+.cal-head button{width:44px; height:44px; border:none; background:var(--surface-2); border-radius:var(--r-sm); cursor:pointer; font-size:1.375rem; color:var(--ink);}
+.cal-title{font-weight:700; font-size:1.0625rem;}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px;}
+.cal-wd{text-align:center; font-size:0.8125rem; font-weight:600; color:var(--ink-muted); padding:5px 0;}
+.cal-day{aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); font-size:1.0625rem; font-weight:600; font-variant-numeric:tabular-nums; border:none; background:transparent; color:var(--ink); cursor:pointer; padding:0;}
+.cal-day.enabled{color:var(--ink);}
+.cal-day.enabled:active{background:var(--primary-soft);}
+.cal-day.disabled{color:var(--ink-muted); opacity:0.4; font-weight:400; cursor:default;}
+.cal-wd.cal-sun, .cal-day.cal-sun{color:var(--cal-sun);}
+.cal-wd.cal-sat, .cal-day.cal-sat{color:var(--cal-sat);}
+.cal-day.selected{background:var(--primary); color:#fff; font-weight:700;}
+.cal-day.empty{visibility:hidden;}
+.series-legend{display:flex; flex-direction:column; gap:2px;}
+.series-legend .legend-item{cursor:default; font-size:0.9375rem; padding:6px; min-height:32px; border-radius:var(--r-sm);}
+.series-legend .legend-item[data-action]{cursor:pointer;}
+.series-legend .legend-item[data-action]:active{background:var(--surface-2);}
+.series-legend .legend-item.series-off{opacity:0.4;}
+.series-legend .legend-item.series-off .legend-label{text-decoration:line-through;}
+.series-dot{width:28px; height:6px; border-radius:3px; flex-shrink:0;}
+.series-muted{opacity:0.5;}
+
+/* ---- Shipment list ---- */
+.ship-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3); padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
+.ship-row + .ship-row{margin-top:var(--sp2);}
+.ship-day-card{padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
+.ship-day-card + .ship-day-card{margin-top:var(--sp3);}
+.ship-date-head{display:flex; align-items:baseline; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
+.ship-date-md{font-size:1.3125rem; font-weight:800; color:var(--ink);}
+.ship-date-wd{font-size:0.9375rem; font-weight:700; color:var(--ink-muted);}
+.ship-date-boxes{margin-left:auto; font-size:0.9375rem; font-weight:600; color:var(--ink-muted);}
+.ship-date-total{margin-left:var(--sp3); font-size:1.125rem; font-weight:700; color:var(--ink);}
+.ship-variety-block + .ship-variety-block{margin-top:6px; padding-top:6px; border-top:1px solid var(--border);}
+.sv-head{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
+.sv-head .ship-name{font-size:1.0625rem;}
+.sv-head .ship-amount{font-size:1.0625rem;}
+.ship-name.mk{padding:.08em .36em; border-radius:5px; box-decoration-break:clone; -webkit-box-decoration-break:clone; color:var(--ink);}
+.ship-name.mk1{background:var(--mk1);}
+.ship-name.mk2{background:var(--mk2);}
+.ship-name.mk3{background:var(--mk3);}
+.ship-name.mk4{background:var(--mk4);}
+.ship-name.mk5{background:var(--mk5);}
+.sv-specs{margin-top:4px;}
+.sv-spec{position:relative; padding:8px 44px 8px 0; border-top:1px solid var(--border);}
+.sv-spec:first-child{border-top:0; padding-top:2px;}
+.sv-spec-main{display:flex; align-items:baseline; gap:10px; font-size:0.9375rem; color:var(--ink);}
+.sv-grade{font-weight:600;}
+.sv-boxes{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums;}
+.sv-spec-sub{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin-top:2px; font-size:0.8125rem; color:var(--ink-muted); font-variant-numeric:tabular-nums;}
+.sv-spec-sub .u{font-size:0.6875rem; margin-left:1px;}
+.sv-dot{opacity:.5;}
+.sv-del{position:absolute; top:50%; right:0; transform:translateY(-50%); width:44px; height:44px; display:flex; align-items:center; justify-content:center; padding:0; border:0; background:transparent; color:var(--ink-muted); cursor:pointer; border-radius:8px;}
+.sv-del svg{width:18px; height:18px;}
+.sv-del:active{background:var(--surface-2);}
+.ship-main{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.ship-date{font-size:0.75rem; color:var(--ink-muted);}
+.ship-name{font-weight:600; font-size:0.9375rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ship-detail{font-size:0.75rem; color:var(--ink-muted);}
+.ship-amount{font-weight:700; font-variant-numeric:tabular-nums; text-align:right; flex-shrink:0;}
+.ship-del{width:44px; height:44px; border-radius:var(--r-pill); border:none; background:transparent; color:var(--ink-muted); cursor:pointer; flex-shrink:0;}
+.ship-del svg{width:18px; height:18px;}
+
+/* 未確定（要入力）：金額が後日確定する行のバッジ＋入力ボタン */
+.badge-pending{background:var(--warn-soft); color:var(--warn-text);}
+.btn-fill{min-height:32px; padding:0 12px; border-radius:var(--r-pill); border:1px solid var(--warn); background:var(--warn-soft); color:var(--warn-text); font-size:0.8125rem; font-weight:700; cursor:pointer; flex-shrink:0; white-space:nowrap;}
+.btn-fill:active{background:var(--warn); color:#fff;}
+.card-pending{border-color:var(--warn); background:var(--warn-soft);}
+.card-pending .card-title{color:var(--warn-text);}
+.card-pending .ship-row{background:var(--surface); border-radius:var(--r-sm); padding:8px 10px;}
+/* 箱単価入力モーダル */
+.fill-target{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px; padding:10px 12px; margin-bottom:var(--sp3); background:var(--surface-2); border-radius:var(--r-md); font-variant-numeric:tabular-nums;}
+.fill-target .fill-date{font-weight:700; color:var(--ink);}
+.fill-target .fill-name{font-weight:700; color:var(--ink);}
+.fill-target .fill-spec{color:var(--ink-muted); font-size:0.9375rem;}
+.fill-input-row{display:flex; align-items:center; gap:8px; margin-top:var(--sp3);}
+.fill-input-label{font-weight:600; color:var(--ink); flex-shrink:0;}
+.fill-input{flex:1; min-width:0; min-height:48px; padding:0 12px; font-size:1.125rem; text-align:right; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); color:var(--ink); font-variant-numeric:tabular-nums;}
+.fill-input:focus{outline:2px solid var(--primary); outline-offset:1px;}
+.fill-input-unit{color:var(--ink-muted); flex-shrink:0;}
+
+/* 品種別指標：品種ごとの label:value スタック（桁数が増えても崩れない） */
+.vm-list{list-style:none; margin:0; padding:0;}
+.vm-item{padding:12px 0; border-top:1px solid var(--border);}
+.vm-item:first-child{border-top:0; padding-top:2px;}
+.vm-name{display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp3); margin-bottom:8px;}
+.vm-name .ship-name{white-space:normal; overflow:visible; text-overflow:clip; font-size:1.0625rem; font-weight:600; min-width:0;}
+.vm-amount{flex-shrink:0; font-size:1.1875rem; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
+.vm-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px;}
+.vm-cell{display:flex; flex-direction:column; gap:2px; padding:6px 10px; border-radius:8px; background:var(--surface-2);}
+.vm-label{font-size:0.6875rem; color:var(--ink-muted);}
+.vm-val{font-size:1rem; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums;}
+.vm-val.is-empty{color:var(--ink-muted); font-weight:500;}
+.vm-unit{font-size:0.75rem; font-weight:500; color:var(--ink-muted); margin-left:1px;}
+@media (min-width:480px){ .vm-grid{grid-template-columns:repeat(4,1fr);} }
+
+/* 品種別内訳の展開（新植/据置の内訳） */
+.vm-details > summary{list-style:none; cursor:pointer;}
+.vm-details > summary::-webkit-details-marker{display:none;}
+.vm-summary .ship-name{flex:1 1 auto;}
+.vm-caret{flex:0 0 auto; color:var(--ink-muted); font-size:0.8125rem; transition:transform var(--dur);}
+.vm-details[open] .vm-caret{transform:rotate(180deg);}
+.vm-detail{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
+.vm-detail-head{font-size:0.75rem; font-weight:700; color:var(--ink-muted); margin-bottom:8px;}
+.pt-bars{display:flex; flex-direction:column; gap:8px;}
+.pt-bar-row{display:flex; align-items:center; gap:8px;}
+.pt-bar-label{flex:0 0 40px; font-size:0.8125rem; font-weight:700;}
+.pt-bar-label.pt-shin{color:var(--primary);}
+.pt-bar-label.pt-sue{color:var(--accent-text);}
+.pt-bar-track{flex:1; height:16px; background:var(--surface-2); border-radius:var(--r-pill); overflow:hidden;}
+.pt-bar-fill{height:100%; border-radius:var(--r-pill); min-width:2px;}
+.pt-bar-fill.pt-shin{background:var(--primary);}
+.pt-bar-fill.pt-sue{background:var(--accent);}
+.pt-bar-val{flex:0 0 auto; min-width:56px; text-align:right; font-size:0.875rem; font-weight:600; font-variant-numeric:tabular-nums;}
+.pt-metrics{display:flex; flex-direction:column; gap:6px; margin-top:12px;}
+.pt-metric{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.pt-metric-label{flex:0 0 40px; font-size:0.8125rem; font-weight:700;}
+.pt-metric-label.pt-shin{color:var(--primary);}
+.pt-metric-label.pt-sue{color:var(--accent-text);}
+.pt-metric-cell{display:flex; flex-direction:column; gap:1px; padding:4px 10px; background:var(--surface-2); border-radius:8px;}
+.pt-metric-k{font-size:0.6875rem; color:var(--ink-muted);}
+.pt-metric-v{font-size:0.9375rem; font-weight:600; font-variant-numeric:tabular-nums;}
+.pt-metric-v.is-empty{color:var(--ink-muted); font-weight:500;}
+.pt-unassigned{margin-top:10px; font-size:0.8125rem; color:var(--warn-text);}
+
+/* 新植/据置 割り当てカード・行 */
+.badge-alloc{background:var(--accent-soft); color:var(--accent-text);}
+.card-alloc{border-color:var(--accent); background:var(--accent-soft);}
+.card-alloc .card-title{color:var(--accent-text);}
+.alloc-row{display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface);}
+.alloc-main{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; font-variant-numeric:tabular-nums;}
+.alloc-btns{display:flex; gap:6px;}
+.btn-plant{flex:1; min-height:40px; padding:0 8px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font-size:0.875rem; font-weight:700; cursor:pointer; white-space:nowrap;}
+.btn-plant:active{background:var(--border);}
+.btn-plant.is-on{border-color:var(--primary); background:var(--primary-soft); color:var(--primary);}
+
+details.collapse summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:var(--sp2); font-weight:600; font-size:0.875rem;}
+details.collapse summary::-webkit-details-marker{display:none;}
+details.collapse summary::before{content:"▸"; color:var(--ink-muted); transition:transform var(--dur);}
+details.collapse[open] summary::before{transform:rotate(90deg);}
+
+.onboard-step{display:flex; gap:var(--sp3); align-items:flex-start;}
+.onboard-num{width:26px; height:26px; border-radius:var(--r-pill); background:var(--primary-soft); color:var(--primary); font-weight:700; font-size:0.8125rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+.onboard-text{font-size:0.875rem;}
+.onboard-text b{display:block; margin-bottom:2px;}
+.onboard-text span{color:var(--ink-muted); font-size:0.8125rem;}
+
+.summary-box{background:var(--primary-soft); color:var(--primary); border-radius:var(--r-md); padding:var(--sp3); font-size:0.8125rem; display:flex; flex-direction:column; gap:4px;}
+.summary-box.warn{background:var(--warn-soft); color:var(--warn-text);}
+.err-box{background:var(--danger-soft); color:var(--danger-text); border-radius:var(--r-md); padding:var(--sp3); font-size:0.75rem;}
+
+.hidden{display:none !important;}
+.muted{color:var(--ink-muted);}
+.stack{display:flex; flex-direction:column; gap:var(--sp3);}
+.row-between{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="appbar">
+    <div class="wordmark">🌸 クルクマ市場分析</div>
+    <div class="appbar-right">
+      <span class="data-chip" id="data-chip">産地0件・自分0件</span>
+      <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
+    </div>
+  </header>
+  <div id="storage-banner-region"></div>
+  <main id="main"></main>
+  <nav id="tabbar" role="tablist" aria-label="画面切替"></nav>
+  <div id="toast-region" aria-live="polite"></div>
+  <div id="modal-root"></div>
+</div>
+
+<script type="module">
+'use strict';
+
+/* ============================== Icon ============================== */
+const Icon = {
+  origin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8" stroke="currentColor" stroke-width="2"/></svg>',
+  mine:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="5" y2="10"/><line x1="12" y1="19" x2="12" y2="5"/><line x1="19" y1="19" x2="19" y2="13"/></svg>',
+  import:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="7 9 12 14 17 9"/><line x1="12" y1="14" x2="12" y2="3"/></svg>',
+  backup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 5-3 8-7 11-4-3-7-6-7-11V5z"/><polyline points="9 12 11 14 15 10"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>',
+  auto:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+};
+
+/* ============================== Fmt ============================== */
+const Fmt = {
+  yen(n){ if(n==null||Number.isNaN(n)) return '¥0'; return '¥' + Math.round(n).toLocaleString('ja-JP'); },
+  num(n){ if(n==null||Number.isNaN(n)) return '0'; return Math.round(n).toLocaleString('ja-JP'); },
+  pct(n){ if(n==null||Number.isNaN(n)) return '0.0%'; return n.toFixed(1) + '%'; },
+  date(iso){
+    if(!iso) return '';
+    const p = iso.split('-'); if(p.length!==3) return iso;
+    return `${parseInt(p[1],10)}/${parseInt(p[2],10)}`;
+  },
+  mmdd(iso){
+    if(!iso) return '--/--';
+    const p = iso.split('-'); if(p.length!==3) return iso;
+    return `${p[1]}/${p[2]}`;
+  },
+  wd(iso){
+    if(!iso) return '';
+    const dt = new Date(iso + 'T00:00:00');
+    if(Number.isNaN(dt.getTime())) return '';
+    return ['日','月','火','水','木','金','土'][dt.getDay()];
+  },
+  wdClass(iso){
+    if(!iso) return '';
+    const dt = new Date(iso + 'T00:00:00');
+    if(Number.isNaN(dt.getTime())) return '';
+    const d = dt.getDay();
+    return d===0 ? 'cal-sun' : d===6 ? 'cal-sat' : '';
+  },
+  esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+};
+
+/* ============================== Norm ============================== */
+const Norm = {
+  text(s){ return (s==null?'':String(s)).normalize('NFKC').trim(); },
+  grade(s){
+    const t = Norm.text(s);
+    if(t==='') return '';
+    if(t==='別') return '別';
+    const core = t.replace(/^秀/,'').toUpperCase();
+    if(['2L','L','M','S'].includes(core)) return '秀'+core;
+    return t;
+  },
+  date(s){
+    let t = Norm.text(s);
+    if(t==='') return '';
+    const parts = t.split(/[\/\-.年月]/).map(p=>p.replace(/日$/,'').trim()).filter(p=>p!=='');
+    if(parts.length===3){
+      const y = parts[0].padStart(4,'0');
+      const m = parts[1].padStart(2,'0');
+      const d = parts[2].padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+    return t;
+  },
+  num(s){
+    if(typeof s === 'number') return s;
+    let t = Norm.text(s).replace(/[,，]/g,'');
+    if(t==='') return NaN;
+    const n = Number(t);
+    return n;
+  },
+  key(date, variety, grade, count){
+    return JSON.stringify([Norm.date(date), Norm.text(variety), Norm.grade(grade), Norm.num(count)]);
+  }
+};
+
+/* ============================== Parse ============================== */
+const Parse = {
+  async readFileSmart(file){
+    const buf = await file.arrayBuffer();
+    let text = new TextDecoder('utf-8').decode(buf);
+    let encoding = 'UTF-8';
+    if(text.includes('\uFFFD')){
+      try{
+        const alt = new TextDecoder('shift_jis').decode(buf);
+        text = alt; encoding = 'Shift_JIS';
+      }catch(e){ /* keep utf-8 fallback */ }
+    }
+    if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    return {text, encoding};
+  },
+  csv(text){
+    const norm = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const rows = []; let row = []; let field = ''; let inQ = false;
+    for(let i=0;i<norm.length;i++){
+      const c = norm[i];
+      if(inQ){
+        if(c === '"'){
+          if(norm[i+1] === '"'){ field += '"'; i++; } else { inQ = false; }
+        } else field += c;
+      } else {
+        if(c === '"') inQ = true;
+        else if(c === ','){ row.push(field); field=''; }
+        else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+        else field += c;
+      }
+    }
+    if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+    return rows.filter(r => !(r.length===1 && Norm.text(r[0])===''));
+  },
+  headerIndex(headerRow){
+    const idx = {};
+    headerRow.forEach((h,i)=>{ idx[Norm.text(h)] = i; });
+    return idx;
+  },
+  sanchiCSV(text){
+    const rows = Parse.csv(text);
+    if(rows.length===0) return {records:[], errors:[], dupCount:0};
+    const idx = Parse.headerIndex(rows[0]);
+    const need = ['日付','品種','規格','本数','箱数量','箱単価'];
+    const missing = need.filter(k=>!(k in idx));
+    if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
+    const records = []; const errors = []; const seen = new Set(); let dupCount = 0;
+    for(let r=1;r<rows.length;r++){
+      const row = rows[r];
+      if(row.every(f=>Norm.text(f)==='')) continue;
+      const date = Norm.date(row[idx['日付']]);
+      const variety = Norm.text(row[idx['品種']]);
+      const grade = Norm.grade(row[idx['規格']]);
+      const count = Norm.num(row[idx['本数']]);
+      const boxQty = Norm.num(row[idx['箱数量']]);
+      // 箱単価は「未確定」(文字列)を許容＝pendingとしてnullで保持。空欄・ゴミ数値は従来どおりエラー。
+      const priceRaw = Norm.text(row[idx['箱単価']]);
+      const boxPrice = (priceRaw === '未確定') ? null : Norm.num(priceRaw);
+      if(!date || !variety || !grade || Number.isNaN(count) || Number.isNaN(boxQty) || (boxPrice!==null && Number.isNaN(boxPrice))){
+        errors.push({line:r+1, raw:row.join(',')});
+        continue;
+      }
+      const key = Norm.key(date, variety, grade, count);
+      if(seen.has(key)) dupCount++;
+      seen.add(key);
+      records.push({date, variety, grade, count, boxQty, boxPrice, key});
+    }
+    return {records, errors, dupCount};
+  },
+  // 「2L30」→{秀2L,30}, 「2L50」→{秀2L,50}, 「L」→{秀L,50}, 「M」→{秀M,50}
+  parseSpec(raw){
+    const t = Norm.text(raw).toUpperCase().replace(/秀/g,'').replace(/\s/g,'');
+    const m = t.match(/^(2L|L|M|S)(\d+)?$/);
+    if(!m) return null;
+    return {grade:'秀'+m[1], count: m[2] ? parseInt(m[2],10) : 50};
+  },
+  // 出荷日が m/d のみなら産地のシーズン年を補完
+  resolveShipDate(raw, seasonYear){
+    const t = Norm.text(raw);
+    const full = Norm.date(t);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(full)) return full;
+    const parts = t.split(/[\/\-.年月]/).map(p=>p.replace(/日$/,'').trim()).filter(p=>p!=='');
+    if(parts.length===2){
+      return `${seasonYear}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+    }
+    return full;
+  },
+  jibunCSV(text){
+    const rows = Parse.csv(text);
+    if(rows.length===0) return {records:[], errors:[]};
+    const idx = Parse.headerIndex(rows[0]);
+    const need = ['出荷日','品種名','規格','箱数'];
+    const missing = need.filter(k=>!(k in idx));
+    if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
+    const hasBetsu = '別本数' in idx;
+    const seasonYear = (Compute.latestDate() || (new Date().getFullYear()+'')).slice(0,4);
+    const records = []; const errors = [];
+    for(let r=1;r<rows.length;r++){
+      const row = rows[r];
+      if(row.every(f=>Norm.text(f)==='')) continue;
+      const date = Parse.resolveShipDate(row[idx['出荷日']], seasonYear);
+      const variety = Norm.text(row[idx['品種名']]);
+      const boxQty = Norm.num(row[idx['箱数']]);
+      const betsuRaw = hasBetsu ? Norm.num(row[idx['別本数']]) : NaN;
+      let grade, count, betsuCount = 0;
+      if(!Number.isNaN(betsuRaw) && betsuRaw>0){
+        // 別扱い：産地の「別（本数0）」の箱単価にマッチさせる。規格ラベルは本数換算に使わない
+        grade = '別'; count = 0; betsuCount = betsuRaw;
+      } else {
+        const spec = Parse.parseSpec(row[idx['規格']]);
+        if(spec){ grade = spec.grade; count = spec.count; }
+      }
+      if(!date || !variety || !grade || Number.isNaN(boxQty) || boxQty<=0){
+        errors.push({line:r+1, raw:row.join(',')});
+        continue;
+      }
+      records.push({date, variety, grade, count, boxQty, betsuCount});
+    }
+    return {records, errors};
+  }
+};
+
+/* ============================== Sample data ============================== */
+// 産地サンプル = ユーザー提供の実CSVそのまま（◇マーカー日・線の途切れ・極小スライス・長い品種名を含む）
+const SAMPLE_SANCHI_CSV = `日付,品目,品種,規格,本数,箱数量,箱単価
+2026-04-23,クルクマ,パルビフローラ,秀L,50,2,7500
+2026-04-23,クルクマ,パルビフローラ,秀M,50,1,6000
+2026-04-26,クルクマ,パルビフローラ,秀L,50,3,7500
+2026-04-26,クルクマ,パルビフローラ,秀M,50,1,5000
+2026-04-26,クルクマ,パルビフローラ,別,0,1,5100
+2026-04-30,クルクマ,パルビフローラ,秀L,50,6,7500
+2026-04-30,クルクマ,パルビフローラ,別,0,1,5950
+2026-05-03,クルクマ,パルビフローラ,秀2L,30,1,5400
+2026-05-03,クルクマ,パルビフローラ,秀L,50,8,7587
+2026-05-03,クルクマ,パルビフローラ,秀M,50,1,5700
+2026-05-07,クルクマ,エメラルドチョコゼブラ,秀2L,30,5,6746
+2026-05-07,クルクマ,エメラルドチョコゼブラ,別,0,1,5700
+2026-05-07,クルクマ,パルビフローラ,秀2L,50,1,9000
+2026-05-07,クルクマ,パルビフローラ,秀L,50,12,7473
+2026-05-07,クルクマ,パルビフローラ,秀M,50,1,6000
+2026-05-07,クルクマ,パルビフローラ,秀M,100,1,8000
+2026-05-07,クルクマ,パルビフローラ,別,0,1,6800
+2026-05-07,クルクマ,ミックス,別,0,1,5400
+2026-05-10,クルクマ,ホワイトジャスミン,秀2L,30,3,7200
+2026-05-10,クルクマ,ホワイトジャスミン,別,0,1,6000
+2026-05-10,クルクマ,エメラルドチョコゼブラ,秀2L,30,9,6755
+2026-05-10,クルクマ,エメラルドチョコゼブラ,秀L,50,5,9008
+2026-05-10,クルクマ,エメラルドチョコゼブラ,別,0,1,6000
+2026-05-10,クルクマ,チェリープリンセスデーン,秀2L,30,2,4950
+2026-05-10,クルクマ,チェリープリンセスデーン,秀2L,50,2,7500
+2026-05-10,クルクマ,チェリープリンセスデーン,秀L,50,2,7500
+2026-05-10,クルクマ,パルビフローラ,秀2L,30,2,4500
+2026-05-10,クルクマ,パルビフローラ,秀2L,50,8,7275
+2026-05-10,クルクマ,パルビフローラ,秀L,50,5,6600
+2026-05-10,クルクマ,パルビフローラ,別,0,1,3600
+2026-05-10,クルクマ,プーディンレッド,別,0,1,5400
+2026-05-10,クルクマ,リボン,秀2L,30,4,7450
+2026-05-10,クルクマ,ロージーレッド,秀2L,30,1,5400
+2026-05-10,クルクマ,ミックス,秀2L,30,1,6000
+2026-05-10,クルクマ,ミックス,別,0,1,5400
+2026-05-12,クルクマ,ホワイトジャスミン,秀2L,30,5,6900
+2026-05-12,クルクマ,ホワイトジャスミン,別,0,2,7400
+2026-05-12,クルクマ,パルビフローラ,秀L,50,9,7022
+2026-05-12,クルクマ,パルビフローラ,別,0,2,6350
+2026-05-12,クルクマ,プーディンレッド,別,0,1,6000
+2026-05-12,クルクマ,リボン,秀2L,30,8,7037
+2026-05-12,クルクマ,ミックス,別,0,1,5400
+2026-05-14,クルクマ,ホワイトジャスミン,秀2L,30,16,6600
+2026-05-14,クルクマ,ホワイトジャスミン,秀L,50,2,9500
+2026-05-14,クルクマ,ホワイトジャスミン,別,0,1,5400
+2026-05-14,クルクマ,エメラルドチョコゼブラ,秀2L,30,17,6264
+2026-05-14,クルクマ,エメラルドチョコゼブラ,秀L,50,1,8000
+2026-05-14,クルクマ,エメラルドチョコゼブラ,別,0,2,6000
+2026-05-14,クルクマ,チェリープリンセスデーン,秀2L,30,1,3600
+2026-05-14,クルクマ,チェリープリンセスデーン,秀2L,50,13,7307
+2026-05-14,クルクマ,チェリープリンセスデーン,秀L,50,5,6100
+2026-05-14,クルクマ,パルビフローラ,秀2L,30,4,4275
+2026-05-14,クルクマ,パルビフローラ,秀2L,50,6,7833
+2026-05-14,クルクマ,パルビフローラ,秀L,50,4,6375
+2026-05-14,クルクマ,パルビフローラ,別,0,1,4500
+2026-05-14,クルクマ,プーディンレッド,秀2L,30,1,5400
+2026-05-14,クルクマ,プーディンレッド,別,0,1,4800
+2026-05-14,クルクマ,メージョーインプレッシブピンク,秀2L,30,2,7200
+2026-05-14,クルクマ,リボン,秀2L,30,12,6975
+2026-05-14,クルクマ,ロージーレッド,秀2L,30,3,5100
+2026-05-14,クルクマ,ミックス,秀2L,30,1,6600
+2026-05-14,クルクマ,ミックス,秀2L,50,1,7000
+2026-05-14,クルクマ,ミックス,別,0,1,4800
+2026-05-17,クルクマ,ホワイトジャスミン,秀2L,30,28,6128
+2026-05-17,クルクマ,ホワイトジャスミン,秀2L,50,2,9000
+2026-05-17,クルクマ,ホワイトジャスミン,秀L,50,6,7583
+2026-05-17,クルクマ,ホワイトジャスミン,別,0,1,5400
+2026-05-17,クルクマ,エメラルドチョコゼブラ,秀2L,30,25,5688
+2026-05-17,クルクマ,エメラルドチョコゼブラ,秀2L,50,20,8055
+2026-05-17,クルクマ,エメラルドチョコゼブラ,別,0,4,4550
+2026-05-17,クルクマ,プラートーン,秀2L,50,1,8000
+2026-05-17,クルクマ,メージョージャスミン,秀2L,30,1,5400
+2026-05-17,クルクマ,チェリープリンセスデーン,秀2L,50,26,6759
+2026-05-17,クルクマ,チェリープリンセスデーン,秀L,50,11,5272
+2026-05-17,クルクマ,パルビフローラ,秀2L,30,1,5400
+2026-05-17,クルクマ,パルビフローラ,秀2L,50,5,6560
+2026-05-17,クルクマ,パルビフローラ,秀L,50,15,5754
+2026-05-17,クルクマ,パルビフローラ,秀M,100,1,7500
+2026-05-17,クルクマ,パルビフローラ,別,0,2,5450
+2026-05-17,クルクマ,プーディンレッド,秀2L,30,3,6700
+2026-05-17,クルクマ,プーディンレッド,別,0,2,4500
+2026-05-17,クルクマ,メージョーインプレッシブピンク,秀2L,30,2,7500
+2026-05-17,クルクマ,リボン,秀2L,30,29,6468
+2026-05-17,クルクマ,エメラルドパゴタ,秀2L,30,1,4500
+2026-05-17,クルクマ,エメラルドパゴタ,秀2L,50,2,6750
+2026-05-17,クルクマ,クルクマミックス（ミニ）,秀L,50,1,5000
+2026-05-17,クルクマ,グリーンアイス,秀2L,30,1,7500
+2026-05-17,クルクマ,ロージーレッド,秀2L,30,5,4800
+2026-05-17,クルクマ,ミックス,秀2L,30,1,5400
+2026-05-17,クルクマ,ミックス,秀L,50,2,7000
+2026-05-17,クルクマ,ミックス,別,0,1,4500
+2026-05-19,クルクマ,ホワイトジャスミン,秀2L,30,23,6067
+2026-05-19,クルクマ,エメラルドチョコゼブラ,秀2L,30,15,5706
+2026-05-19,クルクマ,エメラルドチョコゼブラ,秀L,50,1,6500
+2026-05-19,クルクマ,エメラルドチョコゼブラ,別,0,2,4800
+2026-05-19,クルクマ,チェリープリンセスデーン,秀2L,50,5,7240
+2026-05-19,クルクマ,チェリープリンセスデーン,秀L,50,1,6000
+2026-05-19,クルクマ,プーディンレッド,秀2L,30,2,6300
+2026-05-19,クルクマ,プーディンレッド,別,0,2,4900
+2026-05-19,クルクマ,リボン,秀2L,30,18,6177
+2026-05-19,クルクマ,エメラルドパゴタ,秀2L,50,2,7000
+2026-05-19,クルクマ,グリーンアイス,秀2L,30,1,7500
+2026-05-19,クルクマ,ロージーレッド,秀2L,30,6,5100
+2026-05-19,クルクマ,ミックス,別,0,2,4650
+2026-05-21,クルクマ,ホワイトジャスミン,秀2L,30,38,5463
+2026-05-21,クルクマ,ホワイトジャスミン,秀L,50,9,5694
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀2L,30,23,4962
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀2L,50,2,6700
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀L,50,1,7500
+2026-05-21,クルクマ,エメラルドチョコゼブラ,別,0,1,4500
+2026-05-21,クルクマ,ピアノホワイト,秀M,50,1,6000
+2026-05-21,クルクマ,ピアノホワイト,秀S,50,1,4500
+2026-05-21,クルクマ,プラートーン,秀2L,50,5,6200
+2026-05-21,クルクマ,バンコクスプリーム,秀L,50,3,9766
+2026-05-21,クルクマ,バンコクスプリーム,秀M,50,1,7000
+2026-05-21,クルクマ,メージョージャスミン,秀2L,30,3,5160
+2026-05-21,クルクマ,チェリープリンセスデーン,秀2L,50,44,5523
+2026-05-21,クルクマ,チェリープリンセスデーン,秀L,50,19,4310
+2026-05-21,クルクマ,チェリープリンセスデーン,秀M,50,1,3750
+2026-05-21,クルクマ,パルビフローラ,秀2L,30,2,4650
+2026-05-21,クルクマ,パルビフローラ,秀2L,50,5,6240
+2026-05-21,クルクマ,パルビフローラ,秀L,50,16,4781
+2026-05-21,クルクマ,パルビフローラ,秀M,100,2,7000
+2026-05-21,クルクマ,パルビフローラ,別,0,1,4800
+2026-05-21,クルクマ,プーディンレッド,秀2L,30,4,4875
+2026-05-21,クルクマ,プーディンレッド,別,0,4,4600
+2026-05-21,クルクマ,メージョーインプレッシブピンク,秀2L,30,7,5814
+2026-05-21,クルクマ,リボン,秀2L,30,31,5445
+2026-05-21,クルクマ,エメラルドパゴタ,秀2L,30,1,5400
+2026-05-21,クルクマ,エメラルドパゴタ,秀2L,50,6,5783
+2026-05-21,クルクマ,グリーンアイス,秀2L,30,5,7200
+2026-05-21,クルクマ,ロージーレッド,秀2L,50,5,7550
+2026-05-21,クルクマ,ミックス,秀M,50,2,5750
+2026-05-21,クルクマ,ミックス,別,0,1,4500
+2026-05-07,クルクマ,バンコクスプリーム,秀2L,30,3,7200
+2026-05-10,クルクマ,バンコクスプリーム,秀2L,30,4,7000
+2026-05-14,クルクマ,バンコクスプリーム,秀2L,50,3,8200
+2026-05-17,クルクマ,バンコクスプリーム,秀2L,50,4,7900
+2026-05-19,クルクマ,バンコクスプリーム,秀2L,30,5,6800
+2026-05-21,クルクマ,バンコクスプリーム,秀2L,50,4,7500
+2026-05-07,クルクマ,ホワイト,秀2L,30,2,7500
+2026-05-10,クルクマ,ホワイト,秀2L,30,5,7100
+2026-05-14,クルクマ,ホワイト,秀2L,30,8,6900
+2026-05-17,クルクマ,ホワイト,秀2L,50,3,8500
+2026-05-19,クルクマ,ホワイト,秀L,50,4,6500
+2026-05-21,クルクマ,ホワイト,秀2L,30,10,6600
+2026-05-21,クルクマ,ホワイト,秀L,50,3,7800
+2026-05-10,クルクマ,シャローム,秀2L,30,3,6800
+2026-05-14,クルクマ,シャローム,秀2L,50,2,8000
+2026-05-17,クルクマ,シャローム,秀2L,30,6,6400
+2026-05-17,クルクマ,シャローム,秀L,50,2,7000
+2026-05-21,クルクマ,シャローム,秀2L,50,5,7300
+2026-05-21,クルクマ,シャローム,別,0,1,5000
+`;
+// 自分の出荷サンプル = 産地に一致する行（累計7桁）＋わざと一致しない行2件（未マッチ別枠の確認用）
+const SAMPLE_JIBUN = [
+  {date:'2026-05-03', variety:'パルビフローラ', grade:'秀L', count:50, boxQty:8},   // 7587×8
+  {date:'2026-05-07', variety:'パルビフローラ', grade:'秀L', count:50, boxQty:12},  // 7473×12
+  {date:'2026-05-10', variety:'パルビフローラ', grade:'秀2L', count:50, boxQty:8},  // 7275×8
+  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀2L', count:50, boxQty:6},  // 7833×6
+  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀2L', count:30, boxQty:4},  // 4275×4
+  {date:'2026-05-17', variety:'パルビフローラ', grade:'別', count:0, boxQty:2, betsuCount:40}, // 別5450÷40=136.3/本
+  {date:'2026-05-21', variety:'シャローム', grade:'別', count:0, boxQty:1, betsuCount:30},     // 別5000÷30=166.7/本
+  {date:'2026-05-14', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:16}, // 6600×16
+  {date:'2026-05-14', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:30, boxQty:17}, // 6264×17
+  {date:'2026-05-17', variety:'チェリープリンセスデーン', grade:'秀2L', count:50, boxQty:26}, // 6759×26
+  {date:'2026-05-17', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:28}, // 6128×28
+  {date:'2026-05-17', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:50, boxQty:20}, // 8055×20
+  {date:'2026-05-17', variety:'リボン', grade:'秀2L', count:30, boxQty:29},          // 6468×29
+  {date:'2026-05-19', variety:'リボン', grade:'秀2L', count:30, boxQty:18},          // 6177×18
+  {date:'2026-05-21', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:38}, // 5463×38
+  {date:'2026-05-21', variety:'チェリープリンセスデーン', grade:'秀2L', count:50, boxQty:44}, // 5523×44
+  {date:'2026-05-21', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:30, boxQty:23}, // 4962×23
+  {date:'2026-05-21', variety:'リボン', grade:'秀2L', count:30, boxQty:31},          // 5445×31
+  {date:'2026-05-30', variety:'パルビフローラ', grade:'秀2L', count:30, boxQty:5},   // 未マッチ（該当日なし）
+  {date:'2026-06-02', variety:'グリーンアイス', grade:'秀L', count:50, boxQty:3}     // 未マッチ（該当組合せなし）
+];
+
+/* ============================== Store ============================== */
+const STORAGE_KEY = 'curcuma.v1';
+const Store = {
+  available: false,
+  dirtyCount: 0,
+  saveError: false, // 自動保存(localStorage)が失敗しているか（容量オーバー等）
+  loadError: false, // 起動時の読み込みに失敗したか（保存データ破損等）
+  sanchi: new Map(), // key -> {date,variety,grade,count,boxQty,boxPrice}
+  jibun: [], // {id,date,variety,grade,count,boxQty,source,addedAt}
+  sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo} 今季作付設定（坪）
+  meta: {lastBackupAt: null},
+
+  detect(){
+    try{
+      const t = '__curcuma_test__';
+      localStorage.setItem(t,'1'); localStorage.removeItem(t);
+      Store.available = true;
+    }catch(e){ Store.available = false; }
+    return Store.available;
+  },
+  load(){
+    Store.detect();
+    if(!Store.available) return;
+    let raw = null;
+    try{
+      raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      const data = JSON.parse(raw);
+      Store.sanchi = new Map();
+      (data.sanchi||[]).forEach(rec=>{
+        const key = Norm.key(rec.date, rec.variety, rec.grade, rec.count);
+        // 未確定は null で保持（旧データに文字列「未確定」が混じっていても null に正規化）
+        const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : rec.boxPrice;
+        Store.sanchi.set(key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice});
+      });
+      Store.jibun = (data.jibun||[]).map(r=>({...r}));
+      Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r}));
+      Store.meta = data.meta || {lastBackupAt:null};
+      Store.dirtyCount = data.dirtyCount || 0;
+    }catch(e){
+      console.warn('load failed', e);
+      // 壊れたデータを無言で失わないよう、別キーへ退避してから警告（次の保存で上書きされる前に保全）
+      try{ if(raw) localStorage.setItem(STORAGE_KEY + '.corrupt', raw); }catch(_){}
+      Store.loadError = true;
+    }
+  },
+  persist(){
+    if(!Store.available) return;
+    try{
+      const payload = {
+        version:1,
+        sanchi: Array.from(Store.sanchi.values()),
+        jibun: Store.jibun,
+        sakutsuke: Store.sakutsuke,
+        meta: Store.meta,
+        dirtyCount: Store.dirtyCount
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      Store.saveError = false;
+    }catch(e){
+      console.warn('persist failed', e);
+      const firstTime = !Store.saveError;
+      Store.saveError = true;
+      // 無反応でデータ喪失に化けないよう、最初の失敗時にはっきり通知する
+      if(firstTime){ try{ UI.toast('⚠ 自動保存に失敗しました（端末の空き容量オーバーの可能性）。「保存」タブからバックアップを書き出してください', {duration:7000}); }catch(_){} }
+    }
+  },
+  mergeSanchi(records){
+    let added=0, updated=0;
+    records.forEach(rec=>{
+      if(Store.sanchi.has(rec.key)) updated++; else added++;
+      Store.sanchi.set(rec.key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice});
+    });
+    if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
+    return {added, updated};
+  },
+  // 未確定だった市況行の箱単価を後から確定させる（keyで特定→数値をセット）。以降の再描画でmySalesが自動再計算される。
+  setSanchiPrice(key, price){
+    const rec = Store.sanchi.get(key);
+    if(!rec) return false;
+    rec.boxPrice = price;
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
+  },
+  jibunExists(rec){
+    return Store.jibun.some(r => r.date===rec.date && r.variety===rec.variety && r.grade===rec.grade && r.count===rec.count && r.boxQty===rec.boxQty && (r.betsuCount||0)===(rec.betsuCount||0));
+  },
+  mergeJibun(records, source){
+    let added=0, skipped=0;
+    records.forEach(rec=>{
+      if(Store.jibunExists(rec)){ skipped++; return; }
+      Store.jibun.push({
+        id: 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+        date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, betsuCount:rec.betsuCount||0,
+        source, addedAt: new Date().toISOString(),
+        plant: (rec.plant==='新植'||rec.plant==='据置'||rec.plant==='mix') ? rec.plant : null, sueokiRatio: rec.sueokiRatio||0
+      });
+      added++;
+    });
+    if(added>0){ Store.dirtyCount += added; Store.persist(); }
+    return {added, skipped};
+  },
+  removeJibun(id){
+    const i = Store.jibun.findIndex(r=>r.id===id);
+    if(i<0) return null;
+    const [removed] = Store.jibun.splice(i,1);
+    Store.dirtyCount += 1;
+    Store.persist();
+    return {rec:removed, index:i};
+  },
+  restoreJibun(rec, index){
+    // 元の位置に戻す（末尾に足すと日内の品種の出現順・マーカー色が変わってしまうため）
+    const i = (typeof index === 'number' && index >= 0 && index <= Store.jibun.length) ? index : Store.jibun.length;
+    Store.jibun.splice(i, 0, rec);
+    Store.persist();
+  },
+  // 出荷行の新植/据置の割り当てをセット（plant='新植'|'据置'|'mix'、mixのみ sueokiRatio 0..1）
+  setJibunPlant(id, plant, sueokiRatio){
+    const rec = Store.jibun.find(r=>r.id===id);
+    if(!rec) return false;
+    rec.plant = plant;
+    rec.sueokiRatio = (plant==='mix') ? (Number(sueokiRatio)||0) : 0;
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
+  },
+  addSakutsuke(rec){
+    const row = {
+      id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      variety: rec.variety, type: rec.type, tsubo: rec.tsubo
+    };
+    Store.sakutsuke.push(row);
+    Store.dirtyCount += 1;
+    Store.persist();
+    return row;
+  },
+  removeSakutsuke(id){
+    const i = Store.sakutsuke.findIndex(r=>r.id===id);
+    if(i<0) return null;
+    const [removed] = Store.sakutsuke.splice(i,1);
+    Store.dirtyCount += 1;
+    Store.persist();
+    return removed;
+  },
+  restoreSakutsuke(rec){
+    Store.sakutsuke.push(rec);
+    Store.dirtyCount += 1;
+    Store.persist();
+  },
+  resetAll(){
+    Store.sanchi = new Map();
+    Store.jibun = [];
+    Store.sakutsuke = [];
+    Store.meta = {lastBackupAt:null};
+    Store.dirtyCount = 0;
+    Store.persist();
+    if(!Store.available){ /* memory mode: nothing to clear in localStorage */ }
+  },
+  exportBackup(){
+    const payload = {
+      version:1,
+      exportedAt: new Date().toISOString(),
+      sanchi: Array.from(Store.sanchi.values()),
+      jibun: Store.jibun,
+      sakutsuke: Store.sakutsuke
+    };
+    return payload;
+  },
+  importBackup(data){
+    const sanchi = new Map();
+    (data.sanchi||[]).forEach(rec=>{
+      const date = Norm.date(rec.date), variety = Norm.text(rec.variety), grade = Norm.grade(rec.grade), count = Norm.num(rec.count);
+      const key = Norm.key(date, variety, grade, count);
+      // 箱単価は未確定(null/「未確定」)をnullのまま保持。NaN化させない。
+      const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : Norm.num(rec.boxPrice);
+      sanchi.set(key, {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice});
+    });
+    const jibun = (data.jibun||[]).map((r,i)=>({
+      id: r.id || ('j'+Date.now().toString(36)+i),
+      date: Norm.date(r.date), variety: Norm.text(r.variety), grade: Norm.grade(r.grade), count: Norm.num(r.count),
+      boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString(),
+      // 新植/据置の割り当て（未割当は null）。混在の据置本数比率のみ保持。
+      plant: (r.plant==='新植'||r.plant==='据置'||r.plant==='mix') ? r.plant : null,
+      sueokiRatio: Norm.num(r.sueokiRatio)||0
+    }));
+    const sakutsuke = (data.sakutsuke||[]).map((r,i)=>({
+      id: r.id || ('s'+Date.now().toString(36)+i),
+      variety: Norm.text(r.variety),
+      type: (r.type==='据置') ? '据置' : '新植',
+      tsubo: Norm.num(r.tsubo)||0
+    })).filter(r=>r.variety);
+    Store.sanchi = sanchi;
+    Store.jibun = jibun;
+    Store.sakutsuke = sakutsuke;
+    Store.dirtyCount = 0;
+    Store.meta.lastBackupAt = new Date().toISOString();
+    Store.persist();
+  },
+  markBackedUp(){
+    Store.meta.lastBackupAt = new Date().toISOString();
+    Store.dirtyCount = 0;
+    Store.persist();
+  },
+  loadSample(){
+    Store.resetAll();
+    const {records} = Parse.sanchiCSV(SAMPLE_SANCHI_CSV);
+    Store.mergeSanchi(records);
+    Store.mergeJibun(SAMPLE_JIBUN.map(r=>({...r})), 'sample');
+  }
+};
+
+/* ============================== Compute ============================== */
+const Compute = {
+  classify(grade, count){
+    if(grade==='秀2L' && count===30) return '2L30';
+    if(grade==='秀2L' && count===50) return '2L50';
+    if(grade==='秀L' && count===50) return 'L50';
+    return 'その他';
+  },
+  varietyList(){
+    const agg = new Map(); // variety -> {boxes, days:Set}
+    Store.sanchi.forEach(rec=>{
+      if(!agg.has(rec.variety)) agg.set(rec.variety, {boxes:0, days:new Set()});
+      const a = agg.get(rec.variety);
+      a.boxes += rec.boxQty;
+      a.days.add(rec.date);
+    });
+    return Array.from(agg.entries()).map(([variety,a])=>({variety, boxes:a.boxes, days:a.days.size}))
+      .sort((a,b)=>b.boxes-a.boxes);
+  },
+  donutData(variety){
+    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
+    let total = 0;
+    Store.sanchi.forEach(rec=>{
+      if(rec.variety !== variety) return;
+      const c = Compute.classify(rec.grade, rec.count);
+      cats[c] += rec.boxQty;
+      total += rec.boxQty;
+    });
+    return {cats, total};
+  },
+  latestDate(){
+    let latest = null;
+    Store.sanchi.forEach(rec=>{
+      if(latest===null || rec.date > latest) latest = rec.date;
+    });
+    return latest;
+  },
+  datesWithData(){
+    // 産地データで出荷情報が取れた日付の集合（カレンダーの選択可否に使用）
+    const s = new Set();
+    Store.sanchi.forEach(rec=> s.add(rec.date));
+    return s;
+  },
+  sortedDates(){
+    // データのある日付の昇順配列（前後移動ボタンに使用）
+    return Array.from(Compute.datesWithData()).sort();
+  },
+  stepDate(current, dir){
+    // dir=-1で前、+1で次のデータのある日。端なら null
+    const arr = Compute.sortedDates();
+    const i = arr.indexOf(current);
+    if(i < 0) return null;
+    const j = i + dir;
+    return (j >= 0 && j < arr.length) ? arr[j] : null;
+  },
+  marketDatesInRange(firstD, lastD){
+    // 産地データに存在する日付（＝市場日）のうち [firstD, lastD] の範囲を昇順で返す
+    return Array.from(Compute.datesWithData()).sort().filter(d=> d>=firstD && d<=lastD);
+  },
+  lineDataDense(variety){
+    // lineData（出荷のあった日のみ）を、初出荷日〜最終出荷日の全市場日に密化。
+    // 出荷の無い市場日は price=null（プロット無し・線は接続側で跨ぐ）。
+    const base = Compute.lineData(variety);
+    if(base.length===0) return [];
+    const byDate = new Map(base.map(p=>[p.date, p]));
+    const axis = Compute.marketDatesInRange(base[0].date, base[base.length-1].date);
+    return axis.map(d=>{
+      const p = byDate.get(d);
+      return p ? {date:d, price:p.price, marker:p.marker} : {date:d, price:null, marker:null};
+    });
+  },
+  donutDataForDay(varieties, date){
+    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
+    let total = 0;
+    const set = new Set(varieties);
+    Store.sanchi.forEach(rec=>{
+      if(rec.date !== date) return;
+      if(!set.has(rec.variety)) return;
+      const c = Compute.classify(rec.grade, rec.count);
+      cats[c] += rec.boxQty;
+      total += rec.boxQty;
+    });
+    return {cats, total};
+  },
+  lineData(variety){
+    const byDate = new Map(); // date -> array of records
+    Store.sanchi.forEach(rec=>{
+      if(rec.variety !== variety) return;
+      if(!byDate.has(rec.date)) byDate.set(rec.date, []);
+      byDate.get(rec.date).push(rec);
+    });
+    const dates = Array.from(byDate.keys()).sort();
+    const points = dates.map(date=>{
+      const rows = byDate.get(date);
+      const calc = (grade)=>{
+        // 価格未確定(boxPrice=null)は平均計算から除外。数量集計(donut/varietyList)には別途算入される。
+        const rs = rows.filter(r=>r.grade===grade && r.boxPrice!=null);
+        if(rs.length===0) return null;
+        const numerator = rs.reduce((s,r)=>s + r.boxPrice*r.boxQty, 0);
+        const denomBoxes = rs.reduce((s,r)=>s + r.count*r.boxQty, 0) / 50;
+        if(!(denomBoxes > 0)) return null;
+        return numerator / denomBoxes;
+      };
+      let price = calc('秀2L'); let marker = '2L';
+      if(price==null){ price = calc('秀L'); marker = 'L'; }
+      if(price==null) return {date, price:null, marker:null};
+      return {date, price, marker};
+    });
+    return points;
+  },
+  // 作付設定から、品種ごとの区分有無と区分別坪を集計
+  allocInfo(){
+    const typesByVariety = new Map(); // variety -> {新植:bool, 据置:bool}
+    const tsuboByType = new Map();    // variety -> {新植:tsubo, 据置:tsubo}
+    Store.sakutsuke.forEach(r=>{
+      const v = r.variety; if(!v) return;
+      const t = (r.type==='据置') ? '据置' : '新植';
+      if(!typesByVariety.has(v)) typesByVariety.set(v, {新植:false, 据置:false});
+      if(!tsuboByType.has(v)) tsuboByType.set(v, {新植:0, 据置:0});
+      if((Number(r.tsubo)||0) > 0 || true) typesByVariety.get(v)[t] = true; // 登録があれば区分ありとみなす
+      tsuboByType.get(v)[t] += (Number(r.tsubo)||0);
+    });
+    return {typesByVariety, tsuboByType};
+  },
+  // 品種が両区分ありのとき、割り当てが要る（plant=null）行を返す。単区分・未登録品種は対象外＝入力不要。
+  unassignedAllocRows(){
+    const {typesByVariety} = Compute.allocInfo();
+    return Store.jibun.filter(r=>{
+      const t = typesByVariety.get(r.variety);
+      return t && t.新植 && t.据置 && !(r.plant==='新植'||r.plant==='据置'||r.plant==='mix');
+    });
+  },
+  // 行の実効「据置比率」f を返す。{f, unassigned, categorized}
+  //  両区分: 新植→0 / 据置→1 / mix→ratio / null→未割当  単区分: その区分に自動確定  未登録: 未分類
+  allocFraction(row, typesByVariety){
+    const t = typesByVariety.get(row.variety);
+    if(!t) return {f:0, unassigned:false, categorized:false};        // 作付設定なし＝分割対象外
+    if(t.新植 && t.据置){
+      if(row.plant==='据置') return {f:1, unassigned:false, categorized:true};
+      if(row.plant==='新植') return {f:0, unassigned:false, categorized:true};
+      if(row.plant==='mix')  return {f:Math.max(0,Math.min(1,Number(row.sueokiRatio)||0)), unassigned:false, categorized:true};
+      return {f:0, unassigned:true, categorized:true};               // 両区分だが未割当
+    }
+    if(t.据置) return {f:1, unassigned:false, categorized:true};      // 据置のみ→自動
+    return {f:0, unassigned:false, categorized:true};                // 新植のみ→自動
+  },
+  matchJibun(){
+    return Store.jibun.map(row=>{
+      const isBetsu = row.betsuCount>0;
+      // 別行は産地の「別（本数0）」の箱単価にマッチ。標準行は従来どおり規格×本数でマッチ
+      const key = isBetsu
+        ? Norm.key(row.date, row.variety, '別', 0)
+        : Norm.key(row.date, row.variety, row.grade, row.count);
+      const stemsPerBox = isBetsu ? row.betsuCount : row.count; // 1箱あたりの本数
+      const s = Store.sanchi.get(key);
+      if(s){
+        const pending = (s.boxPrice==null); // 市況の箱単価が未確定＝金額は出せない
+        const stems = stemsPerBox * row.boxQty;
+        const perStem = (!pending && stemsPerBox>0) ? s.boxPrice / stemsPerBox : null; // 1本単価＝箱単価÷1箱本数
+        return {...row, isBetsu, matched:true, pending, sanchiKey:key, boxPrice: pending?null:s.boxPrice, amount: pending?null:(s.boxPrice * row.boxQty), stems, perStem};
+      }
+      return {...row, isBetsu, matched:false, pending:false, sanchiKey:key, boxPrice:null, amount:0, stems: stemsPerBox * row.boxQty, perStem:null};
+    });
+  },
+  jibunSummary(matched){
+    // matched を confirmed(金額確定) / pending(市況が未確定) / unmatched に3分割
+    const ok = matched.filter(r=>r.matched && !r.pending);   // 売上・平均・内訳は confirmed のみ
+    const pend = matched.filter(r=>r.matched && r.pending);  // 数量には算入、売上は未確定
+    const bad = matched.filter(r=>!r.matched);
+    const total = ok.reduce((s,r)=>s+r.amount,0);
+    const confirmedStems = ok.reduce((s,r)=>s+(r.stems||0),0);
+    // KPIの出荷量（箱数・本数）は実出荷量なので pending も算入
+    const totalBoxes = ok.reduce((s,r)=>s+r.boxQty,0) + pend.reduce((s,r)=>s+r.boxQty,0);
+    const totalStems = confirmedStems + pend.reduce((s,r)=>s+(r.stems||0),0);
+    const avgPerStem = confirmedStems>0 ? total/confirmedStems : null; // 平均1本単価＝確定売上÷確定本数
+    // 未確定行は同一市況行(sanchiKey)ごとに1件へ重複排除（複数出荷が同じ市況価格に紐づく場合）
+    const pendingSeen = new Set();
+    const pendingRows = [];
+    pend.forEach(r=>{ if(pendingSeen.has(r.sanchiKey)) return; pendingSeen.add(r.sanchiKey); pendingRows.push(r); });
+    // 新植/据置の区分別按分（stems・amount）。既存の品種合計は維持しつつ split を追加。
+    const {typesByVariety, tsuboByType} = Compute.allocInfo();
+    const zeroSplit = ()=>({shinshoku:{stems:0,amount:0}, sueoki:{stems:0,amount:0}, unassigned:{stems:0,amount:0}});
+    const byVariety = new Map();
+    ok.forEach(r=>{
+      if(!byVariety.has(r.variety)) byVariety.set(r.variety, {amount:0, boxes:0, stems:0, split:zeroSplit()});
+      const v = byVariety.get(r.variety);
+      v.amount += r.amount; v.boxes += r.boxQty; v.stems += (r.stems||0);
+      const st = r.stems||0, am = r.amount||0;
+      const {f, unassigned} = Compute.allocFraction(r, typesByVariety);
+      if(unassigned){ v.split.unassigned.stems += st; v.split.unassigned.amount += am; }
+      else {
+        v.split.sueoki.stems += f*st;      v.split.sueoki.amount += f*am;
+        v.split.shinshoku.stems += (1-f)*st; v.split.shinshoku.amount += (1-f)*am;
+      }
+    });
+    const varietyRows = Array.from(byVariety.entries()).map(([variety,v])=>{
+      const tt = tsuboByType.get(variety) || {新植:0, 据置:0};
+      const perT = (amount, tsubo)=> tsubo>0 ? amount/tsubo : null;
+      const perS = (amount, stems)=> stems>0 ? amount/stems : null;
+      return {variety, amount:v.amount, boxes:v.boxes, stems:v.stems, perStem: v.stems>0 ? v.amount/v.stems : null,
+        split:{
+          shinshoku:{...v.split.shinshoku, tsubo:tt.新植, perTsubo:perT(v.split.shinshoku.amount, tt.新植), perStem:perS(v.split.shinshoku.amount, v.split.shinshoku.stems)},
+          sueoki:   {...v.split.sueoki,    tsubo:tt.据置, perTsubo:perT(v.split.sueoki.amount, tt.据置),       perStem:perS(v.split.sueoki.amount, v.split.sueoki.stems)},
+          unassigned: v.split.unassigned,
+          hasBoth: !!(typesByVariety.get(variety) && typesByVariety.get(variety).新植 && typesByVariety.get(variety).据置)
+        }};
+    }).sort((a,b)=>b.amount-a.amount);
+    const allocUnassignedCount = Compute.unassignedAllocRows().length;
+    const byDate = new Map();
+    ok.forEach(r=>{
+      byDate.set(r.date, (byDate.get(r.date)||0) + r.amount);
+    });
+    const dateRows = Array.from(byDate.entries()).map(([date,amount])=>({date, amount})).sort((a,b)=>a.date.localeCompare(b.date));
+    let recentAmount = 0, recentDate = null;
+    if(dateRows.length){
+      recentDate = dateRows[dateRows.length-1].date;
+      recentAmount = dateRows[dateRows.length-1].amount;
+    }
+    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, pendingCount:pendingRows.length, unmatchedCount:bad.length, allocUnassignedCount, varietyRows, dateRows, pendingRows, unmatchedRows:bad, recentAmount, recentDate};
+  },
+  optionsForForm(){
+    const varieties = Compute.varietyList().map(v=>v.variety);
+    const gradesByVariety = new Map();
+    const countsByVariety = new Map();
+    const allGrades = new Set(); const allCounts = new Set();
+    Store.sanchi.forEach(rec=>{
+      allGrades.add(rec.grade); allCounts.add(rec.count);
+      if(!gradesByVariety.has(rec.variety)) gradesByVariety.set(rec.variety, new Set());
+      gradesByVariety.get(rec.variety).add(rec.grade);
+      if(!countsByVariety.has(rec.variety)) countsByVariety.set(rec.variety, new Set());
+      countsByVariety.get(rec.variety).add(rec.count);
+    });
+    return {varieties, gradesByVariety, countsByVariety, allGrades:Array.from(allGrades), allCounts:Array.from(allCounts).sort((a,b)=>a-b)};
+  }
+};
+
+/* ============================== SelfTest ============================== */
+const SelfTest = {
+  run(){
+    const key = Norm.key('2026-05-14','パルビフローラ','秀2L', NaN); // placeholder not used
+    const pts = Compute.lineData('パルビフローラ');
+    const day = pts.find(p=>p.date==='2026-05-14');
+    if(day && day.price!=null){
+      const ok = Math.abs(day.price - 7631) < 1;
+      console.assert(ok, '[SelfTest] パルビフローラ 2026-05-14 の2L価格が期待値7631と不一致:', day.price);
+      if(ok) console.info('[SelfTest] OK: パルビフローラ 2026-05-14 =', day.price.toFixed(2));
+    }
+  }
+};
+
+/* ============================== Charts ============================== */
+const PX_PER_1000 = 44; // 1000円あたりの縦ピクセル（品種が変わっても固定。変動幅が大きいほど縦に伸びる）
+const Charts = {
+  // 実データの最小～最大を1000円単位に丸めて、キリのよい目盛りとチャート高さを返す
+  niceYAxis(prices, padT, padB){
+    const dMin = Math.min(...prices), dMax = Math.max(...prices);
+    let loY = Math.floor(dMin/1000)*1000;
+    let hiY = Math.ceil(dMax/1000)*1000;
+    if(hiY<=loY) hiY = loY + 1000;
+    const units = (hiY-loY)/1000;
+    const innerH = units * PX_PER_1000;
+    const H = padT + innerH + padB;
+    const yScale = (v)=> padT + innerH - ((v-loY)/(hiY-loY))*innerH;
+    return {loY, hiY, units, innerH, H, yScale};
+  },
+  // 横スクロールしても左端に固定するY軸ラベル（別レイヤーSVG）
+  yAxisSVG(loY, hiY, yScale, padL, H){
+    let g = '';
+    for(let v=loY; v<=hiY+0.5; v+=1000){
+      const y = yScale(v);
+      g += `<text x="${padL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--ink-muted)">${Fmt.num(v)}</text>`;
+    }
+    return `<svg class="yaxis-svg" viewBox="0 0 ${padL} ${H}" width="${padL}" height="${H}" style="width:${padL}px;height:${H}px">${g}</svg>`;
+  },
+  isSunday(iso){ return new Date(iso+'T00:00:00').getDay()===0; },
+  // 日曜の列に薄赤の縦線＋日付ラベルの薄赤背景（週の起点マーカー）
+  sundayMarks(isoAt, n, xScale, padT, innerH, H){
+    let s = '';
+    for(let i=0;i<n;i++){
+      if(!Charts.isSunday(isoAt(i))) continue;
+      const x = xScale(i);
+      s += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${(padT+innerH).toFixed(1)}" stroke="var(--cal-sun)" stroke-width="1.5" stroke-opacity="0.4"/>`;
+      s += `<rect x="${(x-16).toFixed(1)}" y="${H-19}" width="32" height="15" rx="4" fill="var(--cal-sun)" fill-opacity="0.15"/>`;
+    }
+    return s;
+  },
+  donutSVG(cats, total, colorMap, size, hideCenter){
+    size = size || 150;
+    const r = size*0.36, cx = size/2, cy = size/2, sw = size*0.22;
+    const circumference = 2*Math.PI*r;
+    let offset = 0;
+    const order = Object.keys(cats);
+    let arcs = '';
+    let labels = '';
+    let cumFrac = 0;
+    order.forEach(cat=>{
+      const val = cats[cat];
+      if(val<=0) return;
+      const frac = total>0 ? val/total : 0;
+      let len = frac*circumference;
+      if(len>0 && len<2) len = 2;
+      const gap = circumference - len;
+      arcs += `<circle class="donut-seg" data-cat="${Fmt.esc(cat)}" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorMap[cat]}" stroke-width="${sw}" stroke-dasharray="${len} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" />`;
+      // スライス上に%を表示（小さすぎるスライスは凡例に任せる）
+      const pct = frac*100;
+      if(pct >= 7){
+        const midFrac = cumFrac + frac/2;
+        const ang = (-90 + midFrac*360) * Math.PI/180;
+        const lx = cx + r*Math.cos(ang);
+        const ly = cy + r*Math.sin(ang);
+        labels += `<text x="${lx.toFixed(1)}" y="${(ly+size*0.03).toFixed(1)}" text-anchor="middle" class="donut-slice-lbl" fill="#fff" stroke="rgba(0,0,0,.38)" stroke-width="${(size*0.018).toFixed(1)}" paint-order="stroke" style="font-size:${(size*0.085).toFixed(1)}px;font-weight:700">${Math.round(pct)}%</text>`;
+      }
+      offset += len;
+      cumFrac += frac;
+    });
+    return `<svg class="donut-svg" style="width:${size}px;height:${size}px" viewBox="0 0 ${size} ${size}" role="img" aria-label="規格構成ドーナツ">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>
+      ${arcs}
+      ${labels}
+      ${hideCenter ? '' : `<text x="${cx}" y="${cy-2}" text-anchor="middle" class="donut-center-num tnum" style="font-size:${(size*0.16).toFixed(1)}px">${Fmt.num(total)}</text>
+      <text x="${cx}" y="${(cy+size*0.11).toFixed(1)}" text-anchor="middle" class="donut-center-lbl" style="font-size:${(size*0.06).toFixed(1)}px">総箱数</text>`}
+    </svg>`;
+  },
+  lineSVG(points, opts){
+    opts = opts||{};
+    const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
+    const n = points.length;
+    const W = Math.max(320, padL + padR + Math.max(1,n-1)*COLGAP);
+    const innerW = W-padL-padR;
+    const withPrice = points.filter(p=>p.price!=null);
+    if(withPrice.length===0){
+      const H = 160;
+      return {svg:`<svg viewBox="0 0 ${W} ${H}" style="width:${W}px"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="13">価格データがありません</text></svg>`, isolated:false, yAxis:''};
+    }
+    const prices = withPrice.map(p=>p.price);
+    const {loY, hiY, innerH, H, yScale} = Charts.niceYAxis(prices, padT, padB);
+    // 最初の点をY軸（固定ラベル）から離すため左に18pxインセット
+    const x0 = padL + 18, x1 = W - padR - 4;
+    const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
+
+    // gridlines（1000円刻み。Y軸ラベルは固定レイヤー側で描画）
+    let grid = '';
+    for(let v=loY; v<=hiY+0.5; v+=1000){
+      const y = yScale(v);
+      grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+    // 日曜マーカー（縦線＋ラベル背景）
+    const sunday = Charts.sundayMarks((i)=>points[i].date, n, xScale, padT, innerH, H);
+    // x labels（全ての日付。日曜は赤）
+    let xlabels = '';
+    for(let i=0;i<n;i++){
+      const sun = Charts.isSunday(points[i].date);
+      xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(points[i].date)}</text>`;
+    }
+    // 価格のある点を全て一本の線でつなぐ（出荷の無い日／2L・L欠測日は跨いで接続）
+    const pricedIdx = [];
+    points.forEach((p,i)=>{ if(p.price!=null) pricedIdx.push(i); });
+    let paths = '';
+    let isolated = pricedIdx.length===1;
+    if(pricedIdx.length>=2){
+      const d = pricedIdx.map((i,k)=>`${k===0?'M':'L'} ${xScale(i).toFixed(1)} ${yScale(points[i].price).toFixed(1)}`).join(' ');
+      paths += `<path d="${d}" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    let markers = '';
+    points.forEach((p,i)=>{
+      if(p.price==null) return;
+      const x = xScale(i), y = yScale(p.price);
+      if(p.marker==='2L'){
+        markers += `<circle cx="${x}" cy="${y}" r="6" fill="var(--primary)" stroke="var(--surface)" stroke-width="2" data-pt="${i}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"/>`;
+      } else {
+        markers += `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.5" transform="rotate(45 ${x} ${y})" data-pt="${i}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"/>`;
+      }
+    });
+    // 選択中プロットの縁取り（初期は非表示。タップ時に位置を移動して表示）
+    const highlight = `<circle class="pt-highlight" r="10" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
+    const hitLayer = `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" data-hit="line"/>`;
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="価格推移" data-line-chart data-padl="${padL}" data-padr="${padR}" data-w="${W}" data-n="${n}" data-x0="${x0}" data-x1="${x1}">
+      ${grid}${sunday}${paths}${markers}${highlight}${xlabels}${hitLayer}
+    </svg>`;
+    return {svg, isolated, points, xScale, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
+  },
+  multiLineSVG(series){
+    // series = [{variety, color, points, hidden}], points = Compute.lineData output
+    // hidden:true の系列は線を描かないが、日付軸・価格軸の計算には含める（絞り込みで軸が動かないように）
+    const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
+    const dateSet = new Set();
+    series.forEach(s=> s.points.forEach(p=> dateSet.add(p.date)));
+    const dates = Array.from(dateSet).sort();
+    const n = dates.length;
+    const W = Math.max(320, padL + padR + Math.max(1,n-1)*COLGAP);
+    const innerW = W-padL-padR;
+    const dateIndex = new Map(dates.map((d,i)=>[d,i]));
+    const allPrices = [];
+    series.forEach(s=> s.points.forEach(p=>{ if(p.price!=null) allPrices.push(p.price); }));
+    if(allPrices.length===0){
+      const H = 160;
+      return {svg:`<svg viewBox="0 0 ${W} ${H}" style="width:${W}px"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="13">価格データがありません</text></svg>`, isolated:false, ptMeta:[], w:W, yAxis:''};
+    }
+    const {loY, hiY, innerH, H, yScale} = Charts.niceYAxis(allPrices, padT, padB);
+    // 最初の点をY軸（固定ラベル）から離すため左に18pxインセット
+    const x0 = padL + 18, x1 = W - padR - 4;
+    const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
+
+    let grid = '';
+    for(let v=loY; v<=hiY+0.5; v+=1000){
+      const y = yScale(v);
+      grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+    // 日曜マーカー（縦線＋ラベル背景）
+    const sunday = Charts.sundayMarks((i)=>dates[i], n, xScale, padT, innerH, H);
+    let xlabels = '';
+    for(let i=0;i<n;i++){
+      const sun = Charts.isSunday(dates[i]);
+      xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(dates[i])}</text>`;
+    }
+    let paths = '', markers = '', isolated = false;
+    const ptMeta = [];
+    series.forEach(s=>{
+      if(s.hidden) return; // 軸は維持したまま線・点だけ非表示
+      const pts = s.points.filter(p=>p.price!=null).map(p=>({i:dateIndex.get(p.date), p})).sort((a,b)=>a.i-b.i);
+      // 価格のある点を全て一本の線でつなぐ（欠測日は跨いで接続）
+      if(pts.length>=2){
+        const d = pts.map((it,k)=>`${k===0?'M':'L'} ${xScale(it.i).toFixed(1)} ${yScale(it.p.price).toFixed(1)}`).join(' ');
+        paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+      } else if(pts.length===1){ isolated = true; }
+      pts.forEach(({i,p})=>{
+        const x = xScale(i), y = yScale(p.price);
+        if(p.marker==='2L') markers += `<circle cx="${x}" cy="${y}" r="6" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
+        else markers += `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="var(--surface)" stroke="${s.color}" stroke-width="2.5" transform="rotate(45 ${x} ${y})"/>`;
+        ptMeta.push({x, y, date:p.date, price:p.price, marker:p.marker, variety:s.variety, color:s.color});
+      });
+    });
+    // 選択中プロットの縁取り
+    const highlight = `<circle class="pt-highlight" r="10" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="主要品種の価格推移" data-multiline-chart data-w="${W}">
+      ${grid}${sunday}${paths}${markers}${highlight}${xlabels}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+    </svg>`;
+    return {svg, isolated, ptMeta, w:W, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
+  },
+  barSVG(rows, opts){
+    opts = opts||{};
+    const W = 320, H = 170, padL = 8, padR = 8, padT = 10, padB = 24;
+    const innerW = W-padL-padR, innerH = H-padT-padB;
+    const n = rows.length;
+    if(n===0) return `<svg viewBox="0 0 ${W} ${H}"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="12">データがありません</text></svg>`;
+    const max = Math.max(...rows.map(r=>r.amount), 1);
+    const bw = Math.min(28, innerW/n*0.6);
+    const gap = innerW/n;
+    let bars = '';
+    let xlabels = '';
+    const maxLabels = 6;
+    const step = Math.max(1, Math.ceil(n/maxLabels));
+    rows.forEach((r,i)=>{
+      const h = (r.amount/max) * innerH;
+      const x = padL + gap*i + (gap-bw)/2;
+      const y = padT + innerH - h;
+      const rad = Math.min(6, bw/2, h);
+      const d = `M ${x} ${y+rad} A ${rad} ${rad} 0 0 1 ${x+rad} ${y} L ${x+bw-rad} ${y} A ${rad} ${rad} 0 0 1 ${x+bw} ${y+rad} L ${x+bw} ${y+h} L ${x} ${y+h} Z`;
+      bars += `<path d="${d}" fill="var(--primary)" data-bar="${i}" data-val="${r.amount}"/>`;
+      if(i%step===0) xlabels += `<text x="${x+bw/2}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--ink-muted)">${Fmt.date(r.date)}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日別売上" data-bar-chart>${bars}${xlabels}</svg>`;
+  }
+};
+
+/* ============================== State ============================== */
+const MAJOR_VARIETY_KEY = '__major__';
+const MAJOR_VARIETIES = ['バンコクスプリーム','ホワイト','ピアノホワイト','シャローム','エメラルドチョコゼブラ'];
+
+const State = {
+  tab: 'sanchi',
+  selectedVariety: MAJOR_VARIETY_KEY,
+  selectedDate: null,
+  calendarOpen: false,
+  calendarMonth: null,
+  mineDate: null,        // 自分出荷手入力の選択日付（産地と同じ自作カレンダー）
+  mineVariety: null,     // 手入力で最後に選んだ品種（連続入力のため保持）
+  mineCalMonth: null,    // 手入力カレンダーの表示月
+  mineMode: 'csv',
+  donutHighlight: null,
+  selectedSeries: [],     // 主要5品種チャートで選択中の品種。空＝全表示（初期状態）
+  seriesSelectable: [],   // 凡例をタップできる品種（データのあるもの）
+  pendingBackup: null,
+  pendingRemoved: null,
+  undoTimer: null,
+  sanchiImportSummary: '',
+  mineImportSummary: '',
+  multiMeta: null,
+  lineDetailShow: null    // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
+};
+
+/* ============================== UI ============================== */
+const CAT_LABELS = {'2L30':'2L30','2L50':'2L50','L50':'L','その他':'その他'};
+const CAT_COLORVAR = {'2L30':'var(--chart-2l30)','2L50':'var(--chart-2l50)','L50':'var(--chart-l50)','その他':'var(--chart-other)'};
+// 品種を色分けする際の系列色（将来5品種まで対応）
+const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
+
+const UI = {
+  themeMode(){ return localStorage.getItem('curcuma.theme') || 'auto'; },
+  setThemeMode(mode){
+    try{ localStorage.setItem('curcuma.theme', mode); }catch(e){}
+    UI.applyTheme();
+  },
+  applyTheme(){
+    const mode = UI.themeMode();
+    const root = document.documentElement;
+    if(mode==='auto') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', mode);
+    const btn = document.getElementById('theme-btn');
+    if(btn){
+      btn.innerHTML = mode==='dark' ? Icon.moon : mode==='light' ? Icon.sun : Icon.auto;
+      btn.setAttribute('aria-label', 'テーマ: ' + (mode==='auto'?'自動':mode==='dark'?'ダーク':'ライト'));
+    }
+  },
+  cycleTheme(){
+    const order = ['auto','light','dark'];
+    const cur = UI.themeMode();
+    const next = order[(order.indexOf(cur)+1)%order.length];
+    UI.setThemeMode(next);
+  },
+
+  renderAppBar(){
+    document.getElementById('data-chip').textContent = `産地${Store.sanchi.size}件・自分${Store.jibun.length}件`;
+    const region = document.getElementById('storage-banner-region');
+    if(Store.loadError){
+      region.innerHTML = `<div class="storage-banner">⚠ 前回の保存データを読み込めませんでした（破損の可能性）。壊れたデータは退避しました。「保存」タブのバックアップから復元してください。</div>`;
+    } else if(!Store.available){
+      region.innerHTML = `<div class="storage-banner">この端末では自動保存が効きません。作業内容は「保存」タブから都度バックアップしてください。</div>`;
+    } else if(Store.saveError){
+      region.innerHTML = `<div class="storage-banner">⚠ 自動保存に失敗しています（端末の容量オーバーの可能性）。「保存」タブからバックアップを書き出してください。</div>`;
+    } else {
+      region.innerHTML = '';
+    }
+  },
+
+  renderTabs(){
+    const tabs = [
+      {id:'sanchi', label:'産地', icon:Icon.origin},
+      {id:'mine', label:'自分', icon:Icon.mine},
+      {id:'import', label:'取込', icon:Icon.import},
+      {id:'backup', label:'保存', icon:Icon.backup}
+    ];
+    const bar = document.getElementById('tabbar');
+    bar.setAttribute('role','tablist');
+    bar.innerHTML = tabs.map(t=>`
+      <button class="tab" role="tab" aria-selected="${State.tab===t.id}" data-action="switch-tab" data-tab="${t.id}">
+        ${t.icon}<span>${t.label}</span>
+      </button>`).join('');
+  },
+
+  route(tab){
+    State.tab = tab;
+    UI.renderTabs();
+    UI.renderMain();
+  },
+
+  renderMain(){
+    const main = document.getElementById('main');
+    UI.renderAppBar();
+    if(Store.sanchi.size===0 && Store.jibun.length===0 && State.tab!=='import' && State.tab!=='backup'){
+      State.tab = 'import';
+      UI.renderTabs();
+    }
+    if(State.tab==='sanchi') main.innerHTML = UI.screenSanchi();
+    else if(State.tab==='mine') main.innerHTML = UI.screenMine();
+    else if(State.tab==='import') main.innerHTML = UI.screenImport();
+    else main.innerHTML = UI.screenBackup();
+    UI.afterRender();
+  },
+
+  afterRender(){
+    if(State.tab==='sanchi'){
+      const lineWrap = document.querySelector('[data-line-wrap]');
+      if(lineWrap) UI.wireLineTooltip(lineWrap);
+      const multiWrap = document.querySelector('[data-multiline-wrap]');
+      if(multiWrap) UI.wireMultiLineTooltip(multiWrap);
+      // 折れ線は初期表示を最新日（右端）に。左スクロールで過去へ遡れる。
+      const scroller = document.querySelector('#main .chart-scroll');
+      if(scroller) scroller.scrollLeft = scroller.scrollWidth;
+    }
+    if(State.tab==='mine'){
+      const barWrap = document.querySelector('[data-bar-wrap]');
+      if(barWrap) UI.wireBarTooltip(barWrap);
+    }
+    if(State.tab==='import'){
+      const seg = document.getElementById('mine-mode-csv-panel');
+      const seg2 = document.getElementById('mine-mode-manual-panel');
+      if(seg && seg2){
+        seg.classList.toggle('hidden', State.mineMode!=='csv');
+        seg2.classList.toggle('hidden', State.mineMode!=='manual');
+      }
+    }
+  },
+
+  /* ---------- Screen: 産地分析 ---------- */
+  donutLegendHTML(cats, total){
+    return Object.keys(cats).map(cat=>{
+      const val = cats[cat];
+      return `<div class="legend-item" data-action="legend-toggle" data-cat="${cat}" data-active="${State.donutHighlight===cat}">
+        <span class="legend-dot" style="background:${CAT_COLORVAR[cat]}"></span>
+        <span class="legend-label">${CAT_LABELS[cat]}</span>
+        <span class="legend-val tnum">${Fmt.num(val)}</span>
+      </div>`;
+    }).join('');
+  },
+  screenSanchi(){
+    State.multiMeta = null;
+    const list = Compute.varietyList();
+    if(list.length===0){
+      return `<h1 class="screen-title">産地分析</h1>` + UI.emptyState('産地データがまだありません', '産地CSVを取込むと、品種ごとの規格構成と価格推移を確認できます。', '取込へ進む', 'import');
+    }
+    // 日付の既定＝最新日
+    if(!State.selectedDate) State.selectedDate = Compute.latestDate();
+    // 品種の既定＝主要5品種。単一品種が消えた場合のみリセット
+    if(State.selectedVariety !== MAJOR_VARIETY_KEY && !list.find(v=>v.variety===State.selectedVariety)){
+      State.selectedVariety = MAJOR_VARIETY_KEY;
+    }
+    const isMajor = State.selectedVariety === MAJOR_VARIETY_KEY;
+    const selDate = State.selectedDate;
+
+    // セレクタ（日付＋品種の横並び）。プルダウン上部を指定順に並べ、残りは既存順のまま。
+    const VARIETY_TOP_ORDER = ['バンコクスプリーム','ホワイト','ピアノホワイト','シャローム','エメラルドチョコゼブラ','チェリープリンセスデーン','パルビフローラ','リボン'];
+    const isMix = (name)=> name.includes('ミックス'); // 「ミックス」を含む品種は最下部へ
+    const restList = list.filter(v=>!VARIETY_TOP_ORDER.includes(v.variety));
+    const orderedList = [
+      ...VARIETY_TOP_ORDER.map(name=>list.find(v=>v.variety===name)).filter(Boolean),
+      ...restList.filter(v=>!isMix(v.variety)),
+      ...restList.filter(v=>isMix(v.variety))
+    ];
+    const varietyOptions =
+      `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
+      orderedList.map(v=>`<option value="${Fmt.esc(v.variety)}" ${v.variety===State.selectedVariety?'selected':''}>${Fmt.esc(v.variety)}</option>`).join('');
+    const selectorCard = `
+      <div class="card">
+        <div class="selector-row">
+          <div class="field date-field">日付
+            <div class="date-nav">
+              <button type="button" class="date-step" data-action="date-step-prev" aria-label="前の出荷日へ" ${Compute.stepDate(selDate,-1)?'':'disabled'}>‹</button>
+              <button type="button" class="date-trigger" id="sanchi-date-trigger" data-action="toggle-calendar">
+                <span>${Fmt.esc(Fmt.mmdd(selDate))}</span><span class="caret">▾</span>
+              </button>
+              <button type="button" class="date-step" data-action="date-step-next" aria-label="次の出荷日へ" ${Compute.stepDate(selDate,1)?'':'disabled'}>›</button>
+            </div>
+            ${State.calendarOpen ? UI.calendarHTML() : ''}
+          </div>
+          <label class="field variety-field">品種
+            <div class="select-wrap">
+              <select id="variety-select">${varietyOptions}</select>
+            </div>
+          </label>
+        </div>
+      </div>`;
+
+    let donutCard, lineCard;
+
+    if(isMajor){
+      // 主要5品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
+      donutCard = '';
+
+      // 折れ線＝主要5品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
+      const allSeries = MAJOR_VARIETIES.map((variety,i)=>({variety, color:SERIES_COLORS[i%SERIES_COLORS.length], points:Compute.lineDataDense(variety)}));
+      const anyData = allSeries.some(s=>s.points.some(p=>p.price!=null));
+      if(!anyData){
+        lineCard = `
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            <div class="empty-state"><p>主要5品種の価格データがまだありません。</p></div>
+          </div>`;
+      } else {
+        // 凡例タップ＝絞り込み。選択が空なら全表示（初期状態）
+        const sel = State.selectedSeries || [];
+        const isFiltered = sel.length > 0;
+        State.seriesSelectable = allSeries.filter(s=>s.points.some(p=>p.price!=null)).map(s=>s.variety);
+        const seriesLegend = allSeries.map(s=>{
+          const has = s.points.some(p=>p.price!=null);
+          const off = isFiltered && !sel.includes(s.variety);
+          return `<div class="legend-item ${has?'':'series-muted'} ${off?'series-off':''}"${has?` data-action="series-toggle" data-variety="${Fmt.esc(s.variety)}" role="button"`:''}>
+            <span class="series-dot" style="background:${s.color}"></span>
+            <span class="legend-label">${Fmt.esc(s.variety)}</span>
+            <span class="legend-val">${has?(off?'非表示':''):'データなし'}</span>
+          </div>`;
+        }).join('');
+        // 軸は常に5品種ぶんで固定し、非選択の品種は線だけ消す
+        const chartSeries = allSeries.map(s=>({...s, hidden: isFiltered && !sel.includes(s.variety)}));
+        const anyShown = chartSeries.some(s=> !s.hidden && s.points.some(p=>p.price!=null));
+        let chartInner, isolatedNote='';
+        if(anyShown){
+          const {svg, isolated, ptMeta, w, yAxis} = Charts.multiLineSVG(chartSeries);
+          State.multiMeta = {ptMeta, w};
+          chartInner = `<div class="chart-wrap" data-multiline-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+            <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>`;
+          if(isolated) isolatedNote = `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>`;
+        } else {
+          State.multiMeta = null;
+          chartInner = `<div class="empty-state"><p>表示する品種がありません。凡例をタップして表示してください。</p></div>`;
+        }
+        lineCard = `
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            ${chartInner}
+            <div class="series-legend">${seriesLegend}</div>
+            ${isolatedNote}
+          </div>`;
+      }
+    } else {
+      // 単一品種：ドーナツは選択日の箱数内訳。折れ線は全期間。
+      const variety = State.selectedVariety;
+      const {cats, total} = Compute.donutDataForDay([variety], selDate);
+      const donutBody = total>0
+        ? `<div class="donut-row">${Charts.donutSVG(cats, total, CAT_COLORVAR, 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
+        : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
+      donutCard = `
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">規格構成（${Fmt.esc(Fmt.date(selDate))} <span class="${Fmt.wdClass(selDate)}">${Fmt.esc(Fmt.wd(selDate))}</span>）</h2></div>
+          ${donutBody}
+        </div>`;
+
+      const points = Compute.lineDataDense(variety);
+      const withData = points.filter(p=>p.price!=null);
+      let lineBlock;
+      if(withData.length===0){
+        lineBlock = `<div class="empty-state"><p>この品種の価格データがまだありません。</p></div>`;
+      } else {
+        const {svg, isolated, yAxis} = Charts.lineSVG(points);
+        lineBlock = `
+          <div class="chart-wrap" data-line-wrap data-variety="${Fmt.esc(variety)}"><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>
+          ${isolated ? `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>` : ''}
+        `;
+      }
+      lineCard = `
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価）</h2></div>
+          ${lineBlock}
+        </div>`;
+    }
+
+    const seasonYear = (selDate||'').slice(0,4);
+    return `
+      <h1 class="screen-title">産地分析${seasonYear ? ` <span class="muted" style="font-weight:400">${seasonYear}</span>` : ''}</h1>
+      ${selectorCard}
+      ${donutCard}
+      ${lineCard}
+    `;
+  },
+
+  calendarHTML(){
+    const ym = State.calendarMonth || (State.selectedDate||'').slice(0,7);
+    const parts = ym.split('-');
+    const y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+    if(!y || !m) return '';
+    const first = new Date(y, m-1, 1);
+    const startWD = first.getDay();
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const wds = ['日','月','火','水','木','金','土'];
+    const dataDates = Compute.datesWithData(); // 産地データのある日だけ選択可
+    const wdColor = (wd)=> wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
+    let cells = '';
+    for(let i=0;i<startWD;i++) cells += `<span class="cal-day empty"></span>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const wd = new Date(y, m-1, d).getDay();
+      const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isSel = iso === State.selectedDate;
+      const wc = wdColor(wd);
+      if(dataDates.has(iso)){
+        cells += `<button type="button" class="cal-day enabled ${wc} ${isSel?'selected':''}" data-action="cal-pick" data-date="${iso}">${d}</button>`;
+      } else {
+        cells += `<span class="cal-day disabled ${wc}">${d}</span>`;
+      }
+    }
+    const wdRow = wds.map((w,i)=>`<div class="cal-wd ${wdColor(i)}">${w}</div>`).join('');
+    return `
+      <div class="cal-backdrop" data-action="close-calendar"></div>
+      <div class="cal-pop">
+        <div class="cal-head">
+          <button type="button" data-action="cal-prev" aria-label="前の月">‹</button>
+          <span class="cal-title">${y}年${m}月</span>
+          <button type="button" data-action="cal-next" aria-label="次の月">›</button>
+        </div>
+        <div class="cal-grid">${wdRow}${cells}</div>
+      </div>`;
+  },
+  // 自分出荷手入力の日付ピッカー。産地カレンダーと同一スタイルだが、全日付が選択可（出荷日は自由）。
+  mineCalendarHTML(){
+    const today = new Date();
+    const todayYm = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    const ym = State.mineCalMonth || (State.mineDate||'').slice(0,7) || todayYm;
+    const parts = ym.split('-');
+    const y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+    if(!y || !m) return '';
+    const first = new Date(y, m-1, 1);
+    const startWD = first.getDay();
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const wds = ['日','月','火','水','木','金','土'];
+    const wdColor = (wd)=> wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
+    let cells = '';
+    for(let i=0;i<startWD;i++) cells += `<span class="cal-day empty"></span>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const wd = new Date(y, m-1, d).getDay();
+      const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isSel = iso === State.mineDate;
+      const wc = wdColor(wd);
+      cells += `<button type="button" class="cal-day enabled ${wc} ${isSel?'selected':''}" data-action="mine-cal-pick" data-date="${iso}">${d}</button>`;
+    }
+    const wdRow = wds.map((w,i)=>`<div class="cal-wd ${wdColor(i)}">${w}</div>`).join('');
+    return `
+      <div class="cal-backdrop" data-action="close-mine-calendar"></div>
+      <div class="cal-pop">
+        <div class="cal-head">
+          <button type="button" data-action="mine-cal-prev" aria-label="前の月">‹</button>
+          <span class="cal-title">${y}年${m}月</span>
+          <button type="button" data-action="mine-cal-next" aria-label="次の月">›</button>
+        </div>
+        <div class="cal-grid">${wdRow}${cells}</div>
+      </div>`;
+  },
+
+  /* ---------- Screen: 自分の分析 ---------- */
+  screenMine(){
+    if(Store.jibun.length===0){
+      return `<h1 class="screen-title">自分の分析</h1>` + UI.emptyState('出荷データがまだありません', '自分の出荷をCSVまたは手入力で追加すると、売上を自動集計します。', '取込へ進む', 'import');
+    }
+    const matched = Compute.matchJibun();
+    const sum = Compute.jibunSummary(matched);
+
+    // 今季作付設定の坪（総坪＋品種別坪）。未入力なら坪あたり系は「-」表示。
+    const totalTsubo = Store.sakutsuke.reduce((s,r)=>s+(Number(r.tsubo)||0),0);
+    const tsuboByVariety = {};
+    Store.sakutsuke.forEach(r=>{ tsuboByVariety[r.variety]=(tsuboByVariety[r.variety]||0)+(Number(r.tsubo)||0); });
+
+    const varietyRows = sum.varietyRows;
+    // 品種→色番号：自分出荷データの出現順に割り当て（最大5色で循環）。マーカーとドーナツで共用。
+    const markOrder = [];
+    matched.forEach(r=>{ if(r.variety && !markOrder.includes(r.variety)) markOrder.push(r.variety); });
+    const markMap = {}; markOrder.forEach((v,i)=>{ markMap[v] = (i%5)+1; });
+    const cats = {};
+    varietyRows.forEach((r)=>{ cats[r.variety] = r.amount; });
+    const colorMap = {}; varietyRows.forEach((r)=>{ colorMap[r.variety] = `var(--dn${markMap[r.variety]||1})`; });
+    const donutSvg = varietyRows.length ? Charts.donutSVG(cats, sum.total, colorMap, 150, true) : '';
+    const varietyLegend = varietyRows.map(r=>{
+      return `<div class="legend-item">
+        <span class="legend-dot" style="background:${colorMap[r.variety]}"></span>
+        <span class="legend-label">${Fmt.esc(r.variety)}</span>
+        <span class="legend-val legend-val-strong tnum">${Fmt.yen(r.amount)}</span>
+      </div>`;
+    }).join('');
+
+    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.grade, r.count);
+    // 規格の並び順（2L30→2L50→L→M→別）
+    const specOrder = {'2L30':0,'2L50':1,'L':2,'M':3};
+    const specRank = (r)=> r.betsuCount>0 ? 99 : (specOrder[App.specToStr(r.grade,r.count)] ?? 50);
+    // 日付降順のまま、日付ごとにグループ化（新しい日付が上）
+    // 日付は新しい順。同じ日の中は取込順（配列順）のまま＝品種の出現順を崩さない。
+    // ※以前は addedAt の降順で並べていたが、取込中のミリ秒差で日内の順序が入れ替わることがあった。
+    const sortedShip = matched.slice().sort((a,b)=> b.date.localeCompare(a.date));
+    const shipGroups = [];
+    sortedShip.forEach(r=>{
+      let g = shipGroups.find(x=>x.date===r.date);
+      if(!g){ g={date:r.date, rows:[]}; shipGroups.push(g); }
+      g.rows.push(r);
+    });
+    const shipRows = shipGroups.map(g=>{
+      // 日付内で品種ごとに1枠にまとめる（規格は枠内に明細行として並べる）
+      const byVar = [];
+      g.rows.forEach(r=>{
+        let v = byVar.find(x=>x.variety===r.variety);
+        if(!v){ v={variety:r.variety, rows:[], amount:0}; byVar.push(v); }
+        v.rows.push(r);
+        if(r.matched && !r.pending) v.amount += r.amount; // pendingは金額nullなので売上合計に足さない
+      });
+      const blocks = byVar.map(v=>{
+        v.rows.sort((a,b)=> specRank(a)-specRank(b));
+        const specLines = v.rows.map(r=>`
+          <div class="sv-spec">
+            <div class="sv-spec-main">
+              <span class="sv-grade">${specText(r)}</span>
+              <span class="sv-boxes tnum">${r.boxQty}箱</span>
+            </div>
+            ${r.matched && r.pending
+              ? `<div class="sv-spec-sub"><span class="badge badge-pending">未確定</span><button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button></div>`
+              : r.matched
+                ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
+                : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
+            <button class="sv-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この規格を削除">${Icon.trash}</button>
+          </div>`).join('');
+        return `
+          <div class="ship-variety-block">
+            <div class="sv-head">
+              <span class="ship-name mk mk${markMap[v.variety]||1}">${Fmt.esc(v.variety)}</span>
+              ${v.amount>0 ? `<span class="ship-amount tnum">${Fmt.yen(v.amount)}</span>` : ''}
+            </div>
+            <div class="sv-specs">${specLines}</div>
+          </div>`;
+      }).join('');
+      // 見出し用の曜日（土=青/日=赤）＋その日の売上合計（マッチ分）
+      const dt = new Date(g.date + 'T00:00:00');
+      const wd = dt.getDay();
+      const wdName = ['日','月','火','水','木','金','土'][wd];
+      const wdCls = wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
+      const dayTotal = byVar.reduce((s,v)=>s+v.amount, 0);
+      const dayBoxes = g.rows.reduce((s,r)=>s+(r.boxQty||0), 0);
+      return `
+        <div class="ship-day-card">
+          <div class="ship-date-head">
+            <span class="ship-date-md">${Fmt.date(g.date)}</span>
+            <span class="ship-date-wd ${wdCls}">(${wdName})</span>
+            <span class="ship-date-boxes tnum">${Fmt.num(dayBoxes)}箱</span>
+            ${dayTotal>0 ? `<span class="ship-date-total tnum">${Fmt.yen(dayTotal)}</span>` : ''}
+          </div>
+          ${blocks}
+        </div>`;
+    }).join('');
+
+    const unmatchedBlock = sum.unmatchedRows.length ? `
+      <details class="collapse">
+        <summary>未マッチ（${sum.unmatchedRows.length}件）<span class="badge badge-nomatch">合計から除外</span></summary>
+        <div class="stack" style="margin-top:var(--sp3)">
+          <p class="muted" style="font-size:0.8125rem">産地データに一致する行（別行は同日・同品種の「別」）が見つからない行です。表記ゆれや産地データ未取込の可能性があります。</p>
+          ${sum.unmatchedRows.map(r=>`
+            <div class="ship-row">
+              <div class="ship-main">
+                <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+                <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
+                <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+              </div>
+              <button class="ship-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この行を削除">${Icon.trash}</button>
+            </div>`).join('')}
+        </div>
+      </details>
+    ` : '';
+
+    // 金額未確定（要入力）カード：市況の箱単価が未確定の出荷を一覧。埋め忘れ防止＋その場で金額入力へ。
+    const pendingBlock = sum.pendingRows.length ? `
+      <div class="card card-pending">
+        <div class="card-head"><h2 class="card-title">金額未確定（要入力）<span class="badge badge-pending">${sum.pendingRows.length}件</span></h2></div>
+        <p class="muted" style="font-size:0.8125rem">市況の箱単価がまだ「未確定」の出荷です。箱数・本数には算入していますが、売上・平均単価には未反映です。精算書で金額が分かったら入力してください。</p>
+        <div class="stack" style="margin-top:var(--sp3)">
+          ${sum.pendingRows.map(r=>`
+            <div class="ship-row">
+              <div class="ship-main">
+                <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+                <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
+                <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+              </div>
+              <button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    ` : '';
+
+    // 新植/据置 未割当カード（両区分を作っている品種の未割当出荷）
+    const unassignedRows = Compute.unassignedAllocRows();
+    const allocBlock = unassignedRows.length ? `
+      <div class="card card-alloc">
+        <div class="card-head"><h2 class="card-title">新植/据置 未割当（要割り当て）<span class="badge badge-alloc">${unassignedRows.length}件</span></h2></div>
+        <p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを割り当てると、品種別売上内訳で区分別に見られます。混在は据置の本数比率を入力。</p>
+        <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(unassignedRows)}</div>
+      </div>
+    ` : '';
+
+    return `
+      <h1 class="screen-title">自分の分析</h1>
+      <div class="card kpi-card">
+        <span class="kpi-label">今シーズン累計 売り立て</span>
+        <span class="kpi-value tnum">${Fmt.yen(sum.total)}</span>
+        ${sum.avgPerStem!=null ? `<div class="kpi-secondary">
+          <span class="kpi-sec-label">平均1本単価</span>
+          <span class="kpi-sec-value tnum">${Fmt.yen(sum.avgPerStem)}<small>/本</small></span>
+        </div>` : ''}
+        <div class="kpi-secondary">
+          <span class="kpi-sec-label">坪あたり売上</span>
+          <span class="kpi-sec-value tnum">${totalTsubo>0 ? `${Fmt.yen(sum.total/totalTsubo)}<small>/坪</small>` : '-'}</span>
+        </div>
+        <div class="kpi-sub">
+          <span>出荷箱数計 <b class="tnum">${Fmt.num(sum.totalBoxes)}</b>箱</span>
+          <span>総本数 <b class="tnum">${Fmt.num(sum.totalStems)}</b>本</span>
+        </div>
+      </div>
+      ${pendingBlock}
+      ${allocBlock}
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">品種別売上内訳</h2></div>
+        ${varietyRows.length ? `
+        <div class="donut-col">${donutSvg}<div class="legend">${varietyLegend}</div></div>
+        <ul class="vm-list">${varietyRows.map(r=>{
+          const vt=tsuboByVariety[r.variety]||0;
+          const perT=vt>0?Fmt.yen(r.amount/vt):null;
+          const mk=markMap[r.variety]||1;
+          // 新植/据置の区分別詳細（比較バー＋坪売上・1本単価）
+          const sp=r.split, shin=sp.shinshoku, sue=sp.sueoki;
+          const showShin = shin.stems>0 || shin.tsubo>0;
+          const showSue  = sue.stems>0  || sue.tsubo>0;
+          const maxStems = Math.max(shin.stems, sue.stems, 1);
+          const barRow=(label,cls,s)=>`<div class="pt-bar-row"><span class="pt-bar-label ${cls}">${label}</span><div class="pt-bar-track"><div class="pt-bar-fill ${cls}" style="width:${Math.max(0,Math.min(100,s.stems/maxStems*100)).toFixed(1)}%"></div></div><span class="pt-bar-val tnum">${Fmt.num(Math.round(s.stems))}<span class="vm-unit">本</span></span></div>`;
+          const metricRow=(label,cls,s)=>`<div class="pt-metric"><span class="pt-metric-label ${cls}">${label}</span><span class="pt-metric-cell"><span class="pt-metric-k">坪売上</span><span class="pt-metric-v${s.perTsubo!=null?'':' is-empty'}">${s.perTsubo!=null?`${Fmt.yen(s.perTsubo)}<span class="vm-unit">/坪</span>`:'-'}</span></span><span class="pt-metric-cell"><span class="pt-metric-k">1本単価</span><span class="pt-metric-v${s.perStem!=null?'':' is-empty'}">${s.perStem!=null?`${Fmt.yen(s.perStem)}<span class="vm-unit">/本</span>`:'-'}</span></span></div>`;
+          const detail = (!showShin && !showSue)
+            ? `<p class="muted" style="font-size:0.8125rem">作付設定（新植/据置）が未登録のため、区分別の表示はできません。取込タブの「今季作付設定」で登録できます。</p>`
+            : `<div class="pt-bars">${showShin?barRow('新植','pt-shin',shin):''}${showSue?barRow('据置','pt-sue',sue):''}</div>
+               <div class="pt-metrics">${showShin?metricRow('新植','pt-shin',shin):''}${showSue?metricRow('据置','pt-sue',sue):''}</div>
+               ${sp.unassigned.stems>0?`<p class="pt-unassigned">未割当 ${Fmt.num(Math.round(sp.unassigned.stems))}本 — 下の「未割当」カードから割り当てできます</p>`:''}`;
+          return `<li class="vm-item"><details class="vm-details">
+            <summary class="vm-summary">
+              <div class="vm-name"><span class="ship-name mk mk${mk}">${Fmt.esc(r.variety)}</span><span class="vm-amount">${Fmt.yen(r.amount)}</span><span class="vm-caret">▾</span></div>
+              <div class="vm-grid">
+                <div class="vm-cell"><span class="vm-label">箱数</span><span class="vm-val">${Fmt.num(r.boxes)}<span class="vm-unit">箱</span></span></div>
+                <div class="vm-cell"><span class="vm-label">累計本数</span><span class="vm-val">${Fmt.num(r.stems)}<span class="vm-unit">本</span></span></div>
+                <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${perT?'':' is-empty'}">${perT?`${perT}<span class="vm-unit">/坪</span>`:'-'}</span></div>
+                <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
+              </div>
+            </summary>
+            <div class="vm-detail"><div class="vm-detail-head">新植 / 据置の内訳</div>${detail}</div>
+          </details></li>`;
+        }).join('')}</ul>` : `<p class="muted">一致した出荷がまだありません。</p>`}
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">出荷明細一覧</h2></div>
+        <div class="stack">${shipRows}</div>
+        ${unmatchedBlock}
+      </div>
+    `;
+  },
+
+  /* ---------- Screen: 取込 ---------- */
+  screenImport(){
+    const zeroData = Store.sanchi.size===0 && Store.jibun.length===0;
+    const onboard = zeroData ? `
+      <div class="card">
+        <h2 class="card-title">はじめに（3ステップ）</h2>
+        <div class="stack">
+          <div class="onboard-step"><span class="onboard-num">1</span><div class="onboard-text"><b>産地CSVを取込む</b><span>市場から届いた産地全体データ（日付,品目,品種,規格,本数,箱数量,箱単価）</span></div></div>
+          <div class="onboard-step"><span class="onboard-num">2</span><div class="onboard-text"><b>自分の出荷を追加</b><span>CSV取込、または手入力フォームで1件ずつ追加</span></div></div>
+          <div class="onboard-step"><span class="onboard-num">3</span><div class="onboard-text"><b>分析タブで確認</b><span>「産地」「自分」タブで規格構成・価格推移・売上が見られます</span></div></div>
+        </div>
+      </div>` : '';
+
+    // 手入力の品種プルダウン＝今季作付設定で登録した品種（＋末尾に「その他（自由入力）」）
+    const mineVarieties = Array.from(new Set(Store.sakutsuke.map(r=>r.variety).filter(Boolean)));
+    const selMineV = State.mineVariety; // 直前に選んだ品種を復元（連続入力のため）
+    const varietyOpts = mineVarieties.map(v=>`<option value="${Fmt.esc(v)}" ${v===selMineV?'selected':''}>${Fmt.esc(v)}</option>`).join('')
+      + `<option value="__other__">その他（自由入力）</option>`;
+
+    // ---- 今季作付設定 ----
+    const fmtTsubo = (n)=> (Number(n)||0).toLocaleString('ja-JP');
+    // 品種名の入力補助（産地・自分の既存品種をユニーク化）
+    const varietySuggest = Array.from(new Set([
+      ...Array.from(Store.sanchi.values()).map(r=>r.variety),
+      ...Store.jibun.map(r=>r.variety)
+    ].filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ja'));
+    const varietyDatalist = `<datalist id="variety-suggest">${varietySuggest.map(v=>`<option value="${Fmt.esc(v)}"></option>`).join('')}</datalist>`;
+
+    // 編集用の登録済み行（追加順）
+    const sakuEditRows = Store.sakutsuke.map(r=>`
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(r.variety)} <span class="tag-betsu">${Fmt.esc(r.type)}</span></span>
+          <span class="ship-detail">${fmtTsubo(r.tsubo)}坪</span>
+        </div>
+        <button class="ship-del" data-action="delete-sakutsuke-row" data-id="${r.id}" aria-label="削除">${Icon.trash}</button>
+      </div>`).join('');
+
+    // 内容カード用：品種ごとに新植/据置を集計（表示は品種単位でまとめる）
+    const sakuByVariety = [];
+    Store.sakutsuke.forEach(r=>{
+      let g = sakuByVariety.find(x=>x.variety===r.variety);
+      if(!g){ g = {variety:r.variety, shinshoku:0, sueoki:0}; sakuByVariety.push(g); }
+      if(r.type==='据置') g.sueoki += (Number(r.tsubo)||0); else g.shinshoku += (Number(r.tsubo)||0);
+    });
+    const sakuTotal = sakuByVariety.reduce((s,g)=>s + g.shinshoku + g.sueoki, 0);
+    const sakuContentRows = sakuByVariety.map(g=>{
+      const parts = [];
+      if(g.shinshoku>0) parts.push(`新植 ${fmtTsubo(g.shinshoku)}坪`);
+      if(g.sueoki>0) parts.push(`据置 ${fmtTsubo(g.sueoki)}坪`);
+      const detail = parts.join(' ・ ') || '—';
+      return `
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(g.variety)}</span>
+          <span class="ship-detail">${detail}</span>
+        </div>
+        <div class="ship-amount tnum">計 ${fmtTsubo(g.shinshoku + g.sueoki)}坪</div>
+      </div>`;
+    }).join('');
+
+    return `
+      <h1 class="screen-title">データ取込</h1>
+      ${onboard}
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">産地データCSV</h2></div>
+        <p class="card-caption">ヘッダ: 日付,品目,品種,規格,本数,箱数量,箱単価</p>
+        <label class="dropzone" for="sanchi-file-input">
+          ${Icon.upload}
+          <strong>タップしてCSVを選択</strong>
+        </label>
+        <input type="file" id="sanchi-file-input" accept=".csv,text/csv" data-action="import-sanchi-file">
+        <div class="paste-row">
+          <textarea class="csv-text csv-paste" id="sanchi-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="import-sanchi-paste">貼り付けた内容を取込</button>
+        </div>
+        <div id="sanchi-import-summary">${State.sanchiImportSummary || ''}</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">自分の出荷</h2></div>
+        <div class="segmented" role="tablist">
+          <button role="tab" aria-selected="${State.mineMode==='csv'}" data-action="toggle-mine-mode" data-mode="csv">CSVで取込</button>
+          <button role="tab" aria-selected="${State.mineMode==='manual'}" data-action="toggle-mine-mode" data-mode="manual">手入力で追加</button>
+        </div>
+        <div id="mine-mode-csv-panel">
+          <p class="card-caption">ヘッダ: 出荷日,品種名,規格,箱数,別本数（規格=2L30/2L50/L/M。別扱いの箱は別本数に本数を入れる）</p>
+          <label class="dropzone" for="mine-file-input">
+            ${Icon.upload}
+            <strong>タップしてCSVを選択</strong>
+          </label>
+          <input type="file" id="mine-file-input" accept=".csv,text/csv" data-action="import-mine-file">
+          <div class="paste-row">
+            <textarea class="csv-text csv-paste" id="mine-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="import-mine-paste">貼り付けた内容を取込</button>
+          </div>
+          <div id="mine-import-summary">${State.mineImportSummary || ''}</div>
+        </div>
+        <form id="mine-mode-manual-panel" data-action="submit-manual" class="stack">
+          <div class="field date-field">日付
+            <button type="button" class="date-trigger" id="mine-date-trigger" data-action="toggle-mine-calendar">
+              <span id="mine-date-label">${State.mineDate ? Fmt.esc(Fmt.mmdd(State.mineDate)) : '日付を選択'}</span><span class="caret">▾</span>
+            </button>
+            <div id="mine-cal-mount"></div>
+          </div>
+          <input type="hidden" name="date" id="mine-date-value" value="${State.mineDate||''}">
+          <label class="field">品種
+            <div class="select-wrap"><select name="variety" required>${varietyOpts}</select></div>
+          </label>
+          <div id="variety-other-wrap" class="${mineVarieties.length ? 'hidden' : ''}">
+            <label class="field">品種名（自由入力）
+              <input type="text" name="varietyOther" list="variety-suggest" placeholder="例: シャローム" autocomplete="off">
+            </label>
+            ${varietyDatalist}
+          </div>
+          <label class="field">規格
+            <div class="select-wrap"><select name="spec" required>
+              <option value="2L30">2L30</option>
+              <option value="2L50">2L50</option>
+              <option value="L">L</option>
+              <option value="M">M</option>
+              <option value="別">別</option>
+            </select></div>
+          </label>
+          <div id="betsu-wrap" class="hidden"><label class="field">別本数（1箱あたりの本数）<input type="number" name="betsuCount" inputmode="numeric" min="1" placeholder="例: 30"></label></div>
+          <label class="field">箱数
+            <div class="stepper">
+              <button type="button" data-action="step-boxqty" data-dir="-1" aria-label="減らす">−</button>
+              <input type="number" name="boxQty" value="1" min="1" inputmode="numeric">
+              <button type="button" data-action="step-boxqty" data-dir="1" aria-label="増やす">＋</button>
+            </div>
+          </label>
+          <button type="submit" class="btn btn-primary">追加する</button>
+        </form>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">今季作付内容</h2></div>
+        ${sakuByVariety.length ? `
+          <div class="stack">${sakuContentRows}</div>
+          <div class="row-between" style="margin-top:var(--sp3)">
+            <span class="card-caption">合計作付面積</span>
+            <span class="tnum" style="font-size:0.9375rem;font-weight:600">${fmtTsubo(sakuTotal)}坪</span>
+          </div>
+        ` : '<p class="muted">まだ登録がありません。下の「今季作付設定」から追加してください。</p>'}
+      </div>
+      <details class="card collapse">
+        <summary style="font-size:1rem"><span>今季作付設定</span></summary>
+        <p class="card-caption" style="margin-top:var(--sp2)">今シーズンの品種・作付面積（坪）を登録します。一度登録すれば以降ずっと保持されます。同じ品種で新植分・据置分が両方ある場合は、それぞれ1行ずつ登録してください。</p>
+        <form id="sakutsuke-form" data-action="submit-sakutsuke" class="stack">
+          <label class="field">品種
+            <input type="text" name="variety" placeholder="例: バンコクスプリーム" autocomplete="off" required>
+          </label>
+          <label class="field">区分
+            <div class="select-wrap"><select name="type" required>
+              <option value="新植">新植</option>
+              <option value="据置">据置</option>
+            </select></div>
+          </label>
+          <label class="field">面積（坪）
+            <input type="number" name="tsubo" inputmode="decimal" min="0" step="0.1" placeholder="例: 30" required>
+          </label>
+          <button type="submit" class="btn btn-primary">作付を追加</button>
+        </form>
+        ${Store.sakutsuke.length ? `<div class="stack" style="margin-top:var(--sp3)">${sakuEditRows}</div>` : ''}
+      </details>
+    `;
+  },
+
+  /* ---------- Screen: 保存 ---------- */
+  screenBackup(){
+    const last = Store.meta.lastBackupAt ? new Date(Store.meta.lastBackupAt).toLocaleString('ja-JP') : '未実施';
+    return `
+      <h1 class="screen-title">バックアップ</h1>
+      ${!Store.available ? `<div class="err-box">この端末では自動保存(localStorage)が使えません。作業のたびに書き出しを行ってください。</div>` : ''}
+      <div class="card">
+        <div class="row-between">
+          <span class="card-caption">最終バックアップ</span>
+          <span class="tnum" style="font-size:0.875rem">${last}</span>
+        </div>
+        ${Store.dirtyCount>0 ? `<span class="badge badge-unmatched">未バックアップの変更 ${Store.dirtyCount}件</span>` : `<span class="badge badge-matched">バックアップ済み</span>`}
+      </div>
+      <div class="card stack">
+        <h2 class="card-title">書き出し / 読み込み</h2>
+        <button class="btn btn-primary" data-action="export-backup">バックアップ書き出し（JSON・完全）</button>
+        <button class="btn btn-secondary" data-action="export-csv">CSVで書き出し（産地・自分）</button>
+        <label class="btn btn-ghost" for="backup-file-input">読み込み（バックアップJSONから全復元）</label>
+        <input type="file" id="backup-file-input" accept=".json,application/json" data-action="import-backup-file">
+        <p class="card-caption">JSONは全データを1ファイルに保存する完全バックアップ（復元用）。CSVは「産地」「自分」の2ファイルを書き出します（表計算での閲覧・再取込用）。</p>
+      </div>
+      <details class="card collapse">
+        <summary style="font-size:1rem;color:var(--danger-text)"><span>危険ゾーン</span></summary>
+        <button class="btn btn-danger" data-action="open-reset-modal" style="margin-top:var(--sp3)">全消去（新シーズン開始）</button>
+        <p class="card-caption">産地データ・自分の出荷データを両方とも完全に削除します。事前にバックアップを書き出すことをおすすめします。</p>
+      </details>
+      <div class="card">
+        <h2 class="card-title">保存の仕組み</h2>
+        <p class="card-caption">
+          データは端末内（localStorage）に自動保存されますが、これは一時キャッシュです。ブラウザの設定やプライベートモードによっては消えることがあるため、
+          こまめな「書き出し」による <b>バックアップJSON</b> を正としてご利用ください。
+        </p>
+      </div>
+    `;
+  },
+
+  emptyState(title, body, ctaLabel, ctaTab){
+    return `<div class="card empty-state">
+      ${Icon.import}
+      <p style="font-weight:600;color:var(--ink)">${Fmt.esc(title)}</p>
+      <p>${Fmt.esc(body)}</p>
+      <div class="btn-row" style="justify-content:center; flex-wrap:wrap">
+        <button class="btn btn-primary" style="width:auto" data-action="switch-tab" data-tab="${ctaTab}">${Fmt.esc(ctaLabel)}</button>
+      </div>
+    </div>`;
+  },
+
+  toast(msg, opts){
+    opts = opts || {};
+    const region = document.getElementById('toast-region');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `<span>${Fmt.esc(msg)}</span>${opts.actionLabel ? `<button data-toast-action>${Fmt.esc(opts.actionLabel)}</button>` : ''}`;
+    region.appendChild(el);
+    if(opts.actionLabel && opts.onAction){
+      el.querySelector('[data-toast-action]').addEventListener('click', ()=>{
+        opts.onAction();
+        el.remove();
+      });
+    }
+    setTimeout(()=>{ el.remove(); }, opts.duration || 4000);
+  },
+
+  modal(title, bodyHtml, opts){
+    opts = opts || {};
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">${Fmt.esc(title)}</h2>
+          <div class="modal-body">${bodyHtml}</div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
+            <button class="btn ${opts.danger?'btn-danger':'btn-primary'}" id="modal-confirm-btn">${Fmt.esc(opts.confirmLabel||'確認')}</button>
+          </div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-confirm-btn').addEventListener('click', ()=>{
+      if(opts.onConfirm) opts.onConfirm();
+      UI.closeModal();
+    });
+  },
+  closeModal(){
+    document.getElementById('modal-root').innerHTML = '';
+  },
+  csvExportModal(sections){
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">CSVで書き出し</h2>
+          <div class="modal-body"><b>ダウンロード</b>を押すと保存の確認が出ます。使えない環境では、テキストを<b>コピー</b>して表計算ソフトに貼り付けてください。</div>
+          ${sections.map((s,i)=>`
+            <div class="stack" style="gap:var(--sp2)">
+              <div class="row-between">
+                <strong>${Fmt.esc(s.name)}（${s.rows}行）</strong>
+                <div class="btn-row" style="width:auto; flex:0 0 auto">
+                  <button class="btn btn-sm btn-secondary" data-csv-copy="${i}">コピー</button>
+                  <button class="btn btn-sm btn-ghost" data-csv-dl="${i}">ダウンロード</button>
+                </div>
+              </div>
+              <textarea class="csv-text" id="csv-text-${i}" readonly>${Fmt.esc(s.text)}</textarea>
+            </div>`).join('')}
+          <div class="modal-status" id="csv-status"></div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">閉じる</button></div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#csv-status');
+    const setStatus = (msg, cls)=>{ status.textContent = msg; status.className = 'modal-status ' + (cls||'ok'); };
+    sections.forEach((s,i)=>{
+      root.querySelector(`[data-csv-dl="${i}"]`).addEventListener('click', async (e)=>{
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        setStatus('保存を確認しています…');
+        const res = await App.saveFile(s.filename, s.text, {
+          bom:true, mime:'text/csv;charset=utf-8',
+          altName: s.filename.replace(/\.csv$/i, '.txt') // csv不可の環境では.txtで保存
+        });
+        btn.disabled = false;
+        if(res.ok){
+          setStatus(res.savedAs
+            ? `⤓ 「${s.name}」を ${res.savedAs} として保存しました（拡張子を .csv に変えるとExcelで開けます）`
+            : `⤓ 「${s.name}」を保存しました（保存先をご確認ください）`);
+          UI.toast('保存しました');
+        } else {
+          setStatus(App.saveErrorMessage(res.code), 'warn');
+        }
+      });
+      root.querySelector(`[data-csv-copy="${i}"]`).addEventListener('click', async ()=>{
+        const ta = root.querySelector(`#csv-text-${i}`);
+        ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+        let ok = false;
+        try{ await navigator.clipboard.writeText(s.text); ok = true; }
+        catch(_){ try{ ok = document.execCommand('copy'); }catch(__){ ok = false; } }
+        if(ok){ setStatus(`✓ 「${s.name}」をコピーしました。表計算ソフトに貼り付けてください`); UI.toast('コピーしました'); }
+        else{ setStatus('全選択しました。Ctrl+C（長押し→コピー）で取得してください', 'warn'); }
+      });
+    });
+  },
+
+  backupExportModal(text, filename){
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">バックアップ書き出し（JSON・完全）</h2>
+          <div class="modal-body">この1ファイルに全データ（産地・自分・作付設定）が入っています。<b>ダウンロード</b>を押すと保存の確認が出ます。うまくいかない時は<b>コピー</b>を押し、メモ帳などに貼り付けて拡張子 <code>.json</code> で保存してください（ファイル名は自由。例：<code>${Fmt.esc(filename)}</code>）。</div>
+          <div class="stack" style="gap:var(--sp2)">
+            <div class="row-between">
+              <strong>バックアップ全体</strong>
+              <div class="btn-row" style="width:auto; flex:0 0 auto">
+                <button class="btn btn-sm btn-secondary" id="backup-copy">コピー</button>
+                <button class="btn btn-sm btn-ghost" id="backup-dl">ダウンロード</button>
+              </div>
+            </div>
+            <textarea class="csv-text" id="backup-text" readonly>${Fmt.esc(text)}</textarea>
+          </div>
+          <div class="modal-status" id="backup-status"></div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">閉じる</button></div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#backup-status');
+    const setStatus = (msg, cls)=>{ status.textContent = msg; status.className = 'modal-status ' + (cls||'ok'); };
+    const markDone = ()=>{ Store.markBackedUp(); UI.renderMain(); };
+    root.querySelector('#backup-dl').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      setStatus('保存を確認しています…');
+      const res = await App.saveFile(filename, text, {mime:'application/json'});
+      btn.disabled = false;
+      if(res.ok){
+        markDone();
+        setStatus('⤓ 保存しました（保存先をご確認ください）');
+        UI.toast('保存しました');
+      } else {
+        setStatus(App.saveErrorMessage(res.code), res.code==='declined' ? 'warn' : 'warn');
+      }
+    });
+    root.querySelector('#backup-copy').addEventListener('click', async ()=>{
+      const ta = root.querySelector('#backup-text');
+      ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try{ await navigator.clipboard.writeText(text); ok = true; }
+      catch(_){ try{ ok = document.execCommand('copy'); }catch(__){ ok = false; } }
+      if(ok){ markDone(); setStatus('✓ コピーしました。メモ帳などに貼り付けて .json で保存してください'); UI.toast('コピーしました'); }
+      else { setStatus('全選択しました。Ctrl+C（長押し→コピー）で取得してください', 'warn'); }
+    });
+  },
+
+  // 未確定だった市況行の箱単価を後から確定入力するモーダル
+  fillPriceModal(key){
+    const rec = Store.sanchi.get(key);
+    if(!rec){ UI.toast('対象の市況行が見つかりませんでした（産地データが未取込の可能性）', {duration:5000}); return; }
+    const specLabel = (rec.grade==='別') ? '別' : App.specToStr(rec.grade, rec.count);
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">箱単価を入力</h2>
+          <div class="modal-body">
+            <div class="fill-target">
+              <span class="fill-date tnum">${Fmt.date(rec.date)}</span>
+              <span class="fill-name">${Fmt.esc(rec.variety)}</span>
+              <span class="fill-spec">${Fmt.esc(specLabel)}${rec.grade==='別'?'':`　本数${rec.count}`}</span>
+            </div>
+            <p class="muted" style="font-size:0.8125rem">精算書などで分かった<b>箱単価（円）</b>を入力してください。保存すると、この行に紐づく自分の売上・平均単価・価格推移に反映されます。</p>
+            <label class="fill-input-row">
+              <span class="fill-input-label">箱単価</span>
+              <input type="number" id="fill-price-input" class="fill-input" inputmode="numeric" min="1" step="1" placeholder="例: 7500" />
+              <span class="fill-input-unit">円/箱</span>
+            </label>
+          </div>
+          <div class="modal-status" id="fill-status"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
+            <button class="btn btn-primary" id="fill-save-btn">保存</button>
+          </div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#fill-status');
+    const input = root.querySelector('#fill-price-input');
+    const setStatus = (msg, cls)=>{ status.textContent = msg; status.className = 'modal-status ' + (cls||'warn'); };
+    setTimeout(()=>{ try{ input.focus(); }catch(_){} }, 30);
+    const save = ()=>{
+      const n = Norm.num(input.value);
+      if(Number.isNaN(n) || !(n>0)){ setStatus('正の数値を入力してください'); input.focus(); return; }
+      const okset = Store.setSanchiPrice(key, n);
+      if(!okset){ setStatus('対象の市況行が見つかりませんでした'); return; }
+      UI.closeModal();
+      UI.renderMain();
+      UI.toast(`箱単価 ${Fmt.yen(n)} を保存しました`);
+    };
+    root.querySelector('#fill-save-btn').addEventListener('click', save);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
+  },
+
+  // 新植/据置 割り当ての行マークアップ（カード／モーダル共用）
+  allocRowsHTML(rows){
+    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.grade, r.count);
+    return rows.map(r=>`
+      <div class="alloc-row">
+        <div class="alloc-main">
+          <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+          <span class="ship-name">${Fmt.esc(r.variety)}</span>
+          <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+        </div>
+        <div class="alloc-btns">
+          <button class="btn-plant ${r.plant==='新植'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="新植">新植</button>
+          <button class="btn-plant ${r.plant==='据置'?'is-on':''}" data-action="alloc-set" data-id="${r.id}" data-plant="据置">据置</button>
+          <button class="btn-plant ${r.plant==='mix'?'is-on':''}" data-action="alloc-mix" data-id="${r.id}">混在${r.plant==='mix'?` 据${Math.round((Number(r.sueokiRatio)||0)*100)}%`:''}</button>
+        </div>
+      </div>`).join('');
+  },
+  // CSV取込直後などに開く割り当てモーダル（未割当の出荷を一覧して割り当て）
+  allocModal(){
+    const rows = Compute.unassignedAllocRows();
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet alloc-modal">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">新植/据置の割り当て</h2>
+          <div class="modal-body">
+            ${rows.length ? `<p class="muted" style="font-size:0.8125rem">新植と据置の両方を作っている品種の出荷です。どちらから作った箱かを選んでください（混在は据置の本数比率を入力）。</p>
+            <div class="stack" style="margin-top:var(--sp3)">${UI.allocRowsHTML(rows)}</div>`
+            : `<p class="muted">未割当はありません。すべて割り当て済みです。</p>`}
+          </div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">${rows.length?'あとで':'閉じる'}</button></div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+  },
+  // 混在の据置本数比率(%)を入力
+  mixRatioModal(id, fromModal){
+    const rec = Store.jibun.find(r=>r.id===id);
+    if(!rec){ UI.toast('対象の出荷が見つかりませんでした'); return; }
+    const specText = (rec.betsuCount>0) ? `別 ${rec.betsuCount}本` : App.specToStr(rec.grade, rec.count);
+    const cur = Math.round((Number(rec.sueokiRatio)||0)*100);
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">混在の比率を入力</h2>
+          <div class="modal-body">
+            <div class="fill-target">
+              <span class="fill-date tnum">${Fmt.date(rec.date)}</span>
+              <span class="fill-name">${Fmt.esc(rec.variety)}</span>
+              <span class="fill-spec">${specText}　箱数${rec.boxQty}</span>
+            </div>
+            <p class="muted" style="font-size:0.8125rem">この出荷のうち<b>据置</b>の本数比率(%)を入力してください。残りは新植として計算します。</p>
+            <label class="fill-input-row">
+              <span class="fill-input-label">据置</span>
+              <input type="number" id="mix-input" class="fill-input" inputmode="numeric" min="0" max="100" step="1" value="${cur||''}" placeholder="例: 40" />
+              <span class="fill-input-unit">％</span>
+            </label>
+          </div>
+          <div class="modal-status" id="mix-status"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
+            <button class="btn btn-primary" id="mix-save-btn">保存</button>
+          </div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#mix-status');
+    const input = root.querySelector('#mix-input');
+    const setStatus = (msg)=>{ status.textContent = msg; status.className = 'modal-status warn'; };
+    setTimeout(()=>{ try{ input.focus(); }catch(_){} }, 30);
+    const save = ()=>{
+      const n = Norm.num(input.value);
+      if(Number.isNaN(n) || n<0 || n>100){ setStatus('0〜100の数値を入力してください'); input.focus(); return; }
+      Store.setJibunPlant(id, 'mix', n/100);
+      UI.renderMain();
+      if(fromModal) UI.allocModal(); else UI.closeModal();
+      UI.toast(`混在（据置${Math.round(n)}%）を保存しました`);
+    };
+    root.querySelector('#mix-save-btn').addEventListener('click', save);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
+  },
+
+  showLineDetail(name, infoHtml, color){
+    const detail = document.getElementById('line-detail');
+    if(!detail) return;
+    detail.setAttribute('data-empty','false');
+    detail.innerHTML = `<span class="cd-dot" style="background:${color||'var(--primary)'}"></span>`
+      + `<div class="cd-body"><div class="cd-name">${Fmt.esc(name)}</div><div class="cd-info">${infoHtml}</div></div>`;
+  },
+  moveHighlight(svg, x, y){
+    const hl = svg.querySelector('.pt-highlight');
+    if(!hl) return;
+    hl.setAttribute('cx', x);
+    hl.setAttribute('cy', y);
+    hl.style.opacity = '1';
+  },
+  wireLineTooltip(wrap){
+    const svg = wrap.querySelector('svg[data-line-chart]');
+    if(!svg) return;
+    const variety = wrap.getAttribute('data-variety');
+    const points = Compute.lineDataDense(variety);
+    const W = parseFloat(svg.getAttribute('data-w'));
+    const x0 = parseFloat(svg.getAttribute('data-x0'));
+    const x1 = parseFloat(svg.getAttribute('data-x1'));
+    const n = points.length;
+    const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
+    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span><span class="cd-tag">${p.marker==='2L'?'2L換算':'L代替'}</span>`;
+    const showAt = (i)=>{
+      const m = svg.querySelector(`[data-pt="${i}"]`);
+      if(m) UI.moveHighlight(svg, m.getAttribute('data-x'), m.getAttribute('data-y'));
+      UI.showLineDetail(variety, detailHtml(points[i]), 'var(--primary)');
+    };
+    const handle = (evt)=>{
+      const rect = svg.getBoundingClientRect();
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const svgX = ((clientX - rect.left) / rect.width) * W;
+      let nearestI = -1, best = Infinity;
+      points.forEach((p,i)=>{
+        if(p.price==null) return;
+        const d = Math.abs(xScale(i) - svgX);
+        if(d<best){ best=d; nearestI=i; }
+      });
+      if(nearestI<0) return;
+      evt.stopPropagation();
+      const p = points[nearestI];
+      // タップした点の日付に、日付セレクタ・カレンダー・ドーナツ（規格構成）を連動させる。
+      if(State.selectedDate !== p.date){
+        State.selectedDate = p.date;
+        State.calendarMonth = p.date.slice(0,7);
+        State.lineDetailShow = {variety, date:p.date}; // 再描画後に詳細を復元
+        UI.renderMain();
+        return;
+      }
+      showAt(nearestI); // 同じ日なら詳細だけ更新
+    };
+    svg.addEventListener('click', handle);
+    svg.addEventListener('touchstart', handle, {passive:true});
+    // 日付連動による再描画直後は、対象日の詳細を復元表示（プロットの選択状態を維持）
+    if(State.lineDetailShow && State.lineDetailShow.variety===variety){
+      const idx = points.findIndex(p=>p.date===State.lineDetailShow.date && p.price!=null);
+      if(idx>=0) showAt(idx);
+      State.lineDetailShow = null;
+    }
+  },
+
+  wireMultiLineTooltip(wrap){
+    const svg = wrap.querySelector('svg[data-multiline-chart]');
+    if(!svg || !State.multiMeta) return;
+    const {ptMeta, w:W} = State.multiMeta;
+    if(!ptMeta || ptMeta.length===0) return;
+    const vb = svg.viewBox.baseVal;
+    const handle = (evt)=>{
+      const rect = svg.getBoundingClientRect();
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+      const svgX = ((clientX - rect.left) / rect.width) * W;
+      const svgY = ((clientY - rect.top) / rect.height) * vb.height;
+      let nearest = null, best = Infinity;
+      ptMeta.forEach(m=>{
+        const d = Math.hypot(m.x - svgX, m.y - svgY);
+        if(d<best){ best=d; nearest=m; }
+      });
+      if(!nearest) return;
+      UI.moveHighlight(svg, nearest.x, nearest.y);
+      UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span><span class="cd-tag">${nearest.marker==='2L'?'2L換算':'L代替'}</span>`, nearest.color);
+      evt.stopPropagation();
+    };
+    svg.addEventListener('click', handle);
+    svg.addEventListener('touchstart', handle, {passive:true});
+  },
+
+  wireBarTooltip(wrap){
+    const svg = wrap.querySelector('svg[data-bar-chart]');
+    if(!svg) return;
+    const tooltip = wrap.querySelector('#bar-tooltip');
+    svg.addEventListener('click', (evt)=>{
+      const bar = evt.target.closest('[data-bar]');
+      if(!bar) { tooltip.classList.add('hidden'); return; }
+      const rect = svg.getBoundingClientRect();
+      const bbox = bar.getBBox();
+      const vb = svg.viewBox.baseVal;
+      const px = ((bbox.x+bbox.width/2)/vb.width) * rect.width;
+      tooltip.style.left = px + 'px';
+      tooltip.style.top = '0px';
+      tooltip.textContent = Fmt.yen(parseFloat(bar.getAttribute('data-val')));
+      tooltip.classList.remove('hidden');
+      evt.stopPropagation();
+    });
+    document.addEventListener('click', ()=>{ tooltip.classList.add('hidden'); });
+  }
+};
+
+/* ============================== App / events ============================== */
+const App = {
+  init(){
+    UI.applyTheme();
+    Store.load();
+    SelfTest.run();
+    UI.renderTabs();
+    UI.renderMain();
+    App.bindEvents();
+  },
+  bindEvents(){
+    document.addEventListener('click', App.onClick);
+    document.addEventListener('change', App.onChange);
+    document.addEventListener('submit', App.onSubmit);
+    // モバイル: キーボードが出ると固定タブバーが持ち上げられるので、その分だけ下に押し戻す。
+    // ＝タブの位置は変わらず、キーボードがタブの上に重なるだけになる。
+    App.bindKeyboardShift();
+  },
+  // キーボード表示でタブバーが競り上がるのを打ち消す。
+  // 入力にフォーカスがある時だけ、可視領域が縮んだ分（=キーボード高）を transform で戻す。
+  bindKeyboardShift(){
+    const vv = window.visualViewport;
+    const tabbar = document.getElementById('tabbar');
+    if(!vv || !tabbar) return; // 非対応環境は従来どおり
+    let focused = false;
+    const sync = ()=>{
+      if(!focused){ tabbar.style.transform = ''; return; }
+      // 競り上がり量 = レイアウト高 −(可視高 + 可視領域の上オフセット)
+      const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+      // キーボードと言える大きさの時だけ補正（誤検知でタブを飛ばさない）
+      tabbar.style.transform = (gap > 120) ? `translateY(${gap}px)` : '';
+    };
+    document.addEventListener('focusin', (e)=>{
+      if(e.target.closest('input, textarea, select')){ focused = true; sync(); }
+    });
+    document.addEventListener('focusout', (e)=>{
+      if(e.target.closest('input, textarea, select')){
+        focused = false;
+        tabbar.style.transform = ''; // 位置を必ず戻す
+      }
+    });
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+  },
+  onClick(e){
+    const t = e.target.closest('[data-action]');
+    if(!t) return;
+    const action = t.getAttribute('data-action');
+    switch(action){
+      case 'switch-tab':
+        UI.route(t.getAttribute('data-tab'));
+        break;
+      case 'theme-cycle':
+        UI.cycleTheme();
+        break;
+      case 'legend-toggle':
+        State.donutHighlight = (State.donutHighlight===t.getAttribute('data-cat')) ? null : t.getAttribute('data-cat');
+        UI.renderMain();
+        break;
+      case 'series-toggle': {
+        // 全表示→1品種のみ→タップごとに追加→全部そろったら全表示に戻る
+        const v = t.getAttribute('data-variety');
+        const sel = (State.selectedSeries || []).slice();
+        const at = sel.indexOf(v);
+        const selectableCount = (State.seriesSelectable && State.seriesSelectable.length) || MAJOR_VARIETIES.length;
+        if(sel.length === 0){
+          State.selectedSeries = [v];
+        } else if(at >= 0){
+          sel.splice(at, 1);
+          State.selectedSeries = sel; // 空になれば全表示（初期状態）へ
+        } else {
+          sel.push(v);
+          State.selectedSeries = (sel.length >= selectableCount) ? [] : sel;
+        }
+        UI.renderMain();
+        break;
+      }
+      case 'import-sanchi-paste': {
+        const ta = document.getElementById('sanchi-paste');
+        const txt = ta ? ta.value : '';
+        App.importSanchiText(txt, '貼り付け');
+        break;
+      }
+      case 'import-mine-paste': {
+        const ta = document.getElementById('mine-paste');
+        const txt = ta ? ta.value : '';
+        App.importMineText(txt, '貼り付け');
+        break;
+      }
+      case 'toggle-mine-mode':
+        State.mineMode = t.getAttribute('data-mode');
+        UI.renderMain();
+        break;
+      case 'toggle-calendar':
+        State.calendarOpen = !State.calendarOpen;
+        if(State.calendarOpen) State.calendarMonth = (State.selectedDate || Compute.latestDate() || '').slice(0,7);
+        UI.renderMain();
+        break;
+      case 'close-calendar':
+        State.calendarOpen = false;
+        UI.renderMain();
+        break;
+      case 'cal-prev':
+      case 'cal-next': {
+        const ym = (State.calendarMonth || (State.selectedDate||'').slice(0,7)).split('-');
+        const d = new Date(parseInt(ym[0],10), parseInt(ym[1],10)-1 + (action==='cal-next'?1:-1), 1);
+        State.calendarMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        UI.renderMain();
+        break;
+      }
+      case 'cal-pick':
+        State.selectedDate = t.getAttribute('data-date');
+        State.calendarOpen = false;
+        State.donutHighlight = null;
+        UI.renderMain();
+        break;
+      case 'date-step-prev':
+      case 'date-step-next': {
+        const next = Compute.stepDate(State.selectedDate, action==='date-step-next' ? 1 : -1);
+        if(next){
+          State.selectedDate = next;
+          State.donutHighlight = null;
+          UI.renderMain();
+        }
+        break;
+      }
+      case 'toggle-mine-calendar': {
+        // 手入力フォームの他項目を保持するため、再描画せずポップアップを直接開閉
+        const mount = document.getElementById('mine-cal-mount');
+        if(!mount) break;
+        if(mount.innerHTML.trim()){ mount.innerHTML = ''; }
+        else {
+          const now = new Date();
+          State.mineCalMonth = (State.mineDate || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`).slice(0,7);
+          mount.innerHTML = UI.mineCalendarHTML();
+        }
+        break;
+      }
+      case 'close-mine-calendar': {
+        const mount = document.getElementById('mine-cal-mount');
+        if(mount) mount.innerHTML = '';
+        break;
+      }
+      case 'mine-cal-prev':
+      case 'mine-cal-next': {
+        const now = new Date();
+        const base = State.mineCalMonth || (State.mineDate||'').slice(0,7) || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const ym = base.split('-');
+        const d = new Date(parseInt(ym[0],10), parseInt(ym[1],10)-1 + (action==='mine-cal-next'?1:-1), 1);
+        State.mineCalMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const mount = document.getElementById('mine-cal-mount');
+        if(mount) mount.innerHTML = UI.mineCalendarHTML();
+        break;
+      }
+      case 'mine-cal-pick': {
+        State.mineDate = t.getAttribute('data-date');
+        const label = document.getElementById('mine-date-label');
+        const val = document.getElementById('mine-date-value');
+        if(label) label.textContent = Fmt.mmdd(State.mineDate);
+        if(val) val.value = State.mineDate;
+        const mount = document.getElementById('mine-cal-mount');
+        if(mount) mount.innerHTML = '';
+        break;
+      }
+      case 'delete-mine-row': {
+        const id = t.getAttribute('data-id');
+        const removed = Store.removeJibun(id);
+        UI.renderMain();
+        if(removed){
+          UI.toast('削除しました', {actionLabel:'元に戻す', onAction:()=>{ Store.restoreJibun(removed.rec, removed.index); UI.renderMain(); }, duration:5000});
+        }
+        break;
+      }
+      case 'fill-price': {
+        // 未確定だった市況行の箱単価を後から入力するモーダルを開く
+        UI.fillPriceModal(t.getAttribute('data-key'));
+        break;
+      }
+      case 'alloc-set': {
+        // 出荷行を新植/据置に確定
+        Store.setJibunPlant(t.getAttribute('data-id'), t.getAttribute('data-plant'), 0);
+        UI.renderMain();
+        if(document.querySelector('.alloc-modal')) UI.allocModal(); // モーダル表示中なら残りへ更新
+        break;
+      }
+      case 'alloc-mix': {
+        // 混在の据置比率入力モーダル（モーダル起点なら保存後に一覧へ戻す）
+        const fromModal = !!document.querySelector('.alloc-modal');
+        UI.mixRatioModal(t.getAttribute('data-id'), fromModal);
+        break;
+      }
+      case 'open-alloc-modal': {
+        UI.allocModal();
+        break;
+      }
+      case 'delete-sakutsuke-row': {
+        const id = t.getAttribute('data-id');
+        const removed = Store.removeSakutsuke(id);
+        UI.renderMain();
+        if(removed){
+          UI.toast('作付を削除しました', {actionLabel:'元に戻す', onAction:()=>{ Store.restoreSakutsuke(removed); UI.renderMain(); }, duration:5000});
+        }
+        break;
+      }
+      case 'export-backup':
+        App.exportBackup();
+        break;
+      case 'export-csv':
+        App.exportCSV();
+        break;
+      case 'open-reset-modal':
+        UI.modal('全消去の確認', '産地データ・自分の出荷データを両方とも完全に削除します。この操作は取り消せません。事前にバックアップを書き出すことをおすすめします。', {
+          danger:true, confirmLabel:'完全に消去する',
+          onConfirm:()=>{ Store.resetAll(); UI.toast('全データを消去しました'); State.selectedVariety=MAJOR_VARIETY_KEY; State.selectedDate=null; UI.route('import'); }
+        });
+        break;
+      case 'close-modal':
+        UI.closeModal();
+        break;
+      case 'step-boxqty': {
+        const input = document.querySelector('input[name="boxQty"]');
+        if(input){
+          const dir = parseInt(t.getAttribute('data-dir'),10);
+          const v = Math.max(1, (parseInt(input.value,10)||1) + dir);
+          input.value = v;
+        }
+        break;
+      }
+    }
+  },
+  onChange(e){
+    if(e.target.id==='variety-select'){
+      State.selectedVariety = e.target.value;
+      State.donutHighlight = null;
+      UI.renderMain();
+      return;
+    }
+    if(e.target.id==='sanchi-file-input' && e.target.files[0]){
+      App.handleSanchiFile(e.target.files[0]);
+      e.target.value=''; // 同名ファイルを修正して選び直しても再取込できるように
+      return;
+    }
+    if(e.target.id==='mine-file-input' && e.target.files[0]){
+      App.handleMineFile(e.target.files[0]);
+      e.target.value='';
+      return;
+    }
+    if(e.target.id==='backup-file-input' && e.target.files[0]){
+      App.handleBackupFile(e.target.files[0]);
+      e.target.value='';
+      return;
+    }
+    if(e.target.name==='spec'){
+      // 「別」を選んだ時だけ別本数の入力を表示
+      document.getElementById('betsu-wrap').classList.toggle('hidden', e.target.value!=='別');
+    }
+    if(e.target.name==='variety'){
+      // 「その他（自由入力）」を選んだ時だけ品種名の入力欄を表示
+      const wrap = document.getElementById('variety-other-wrap');
+      if(wrap) wrap.classList.toggle('hidden', e.target.value!=='__other__');
+    }
+  },
+  onSubmit(e){
+    const act = e.target.getAttribute('data-action');
+    if(act==='submit-manual'){
+      e.preventDefault();
+      App.submitManual(e.target);
+    } else if(act==='submit-sakutsuke'){
+      e.preventDefault();
+      App.submitSakutsuke(e.target);
+    }
+  },
+
+  async handleSanchiFile(file){
+    const {text, encoding} = await Parse.readFileSmart(file);
+    App.importSanchiText(text, encoding);
+  },
+  // 産地CSV取込の中核（ファイル・ペースト共通）。encoding は表示用ラベル
+  importSanchiText(text, encoding){
+    try{
+      if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
+      const {records, errors, dupCount} = Parse.sanchiCSV(text);
+      const {added, updated} = Store.mergeSanchi(records);
+      SelfTest.run();
+      State.sanchiImportSummary = `<div class="summary-box ${errors.length?'warn':''}">
+          <span>取り込み元: ${Fmt.esc(encoding)}／取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+        </div>`;
+      UI.renderMain();
+      UI.toast(`産地CSVを取込みました（新規${added}・更新${updated}）`);
+    }catch(err){
+      State.sanchiImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
+      UI.renderMain();
+    }
+  },
+  async handleMineFile(file){
+    const {text, encoding} = await Parse.readFileSmart(file);
+    App.importMineText(text, encoding);
+  },
+  // 自分CSV取込の中核（ファイル・ペースト共通）
+  importMineText(text, encoding){
+    try{
+      if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
+      const {records, errors} = Parse.jibunCSV(text);
+      const {added, skipped} = Store.mergeJibun(records, 'csv');
+      State.mineImportSummary = `<div class="summary-box ${errors.length||skipped?'warn':''}">
+          <span>取り込み元: ${Fmt.esc(encoding)}／取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+        </div>`;
+      UI.renderMain();
+      UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
+      // 取込直後：新植/据置の両方を作っている品種に未割当があれば、その場で割り当てを促す
+      if(added>0 && Compute.unassignedAllocRows().length>0){ UI.allocModal(); }
+    }catch(err){
+      State.mineImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
+      UI.renderMain();
+    }
+  },
+  async handleBackupFile(file){
+    try{
+      const {text} = await Parse.readFileSmart(file);
+      const data = JSON.parse(text);
+      State.pendingBackup = data;
+      const sCount = (data.sanchi||[]).length, jCount = (data.jibun||[]).length;
+      UI.modal('バックアップから復元', `産地データ ${sCount}件・自分の出荷 ${jCount}件を読み込みます。現在の端末内データはすべて置き換えられます。よろしいですか？`, {
+        confirmLabel:'復元する',
+        onConfirm:()=>{
+          Store.importBackup(State.pendingBackup);
+          SelfTest.run();
+          State.selectedVariety = MAJOR_VARIETY_KEY;
+          State.selectedDate = null;
+          UI.route('sanchi');
+          UI.toast('バックアップから復元しました');
+        }
+      });
+    }catch(err){
+      UI.toast('読み込みに失敗しました: ' + err.message);
+    }
+  },
+  exportBackup(){
+    const payload = Store.exportBackup();
+    const text = JSON.stringify(payload, null, 2);
+    const ts = payload.exportedAt.slice(0,10);
+    // ダウンロードはサンドボックス（Artifactプレビュー）では無言でブロックされるため、
+    // コピー/ダウンロードのモーダルを出し、実際に取得できた時だけ「バックアップ済み」にする。
+    UI.backupExportModal(text, `curcuma-backup-${ts}.json`);
+  },
+  // ファイル保存の共通ルート。
+  // Artifact内では <a download> が黙って無視されるため、あればホストの保存機能を使う。
+  // 戻り値: {ok:true} / {ok:false, code:'declined'|'unavailable'|...}
+  async saveFile(name, text, opts){
+    opts = opts || {};
+    const data = opts.bom ? '﻿' + text : text;
+    const dl = (typeof window !== 'undefined') && window.claude && window.claude.downloads;
+    if(dl && typeof dl.save === 'function'){
+      try{
+        await dl.save({filename:name, data});
+        return {ok:true};
+      }catch(err){
+        const code = (err && err.code) || 'unavailable';
+        // csv等は環境により未対応。拡張子違いの代替名があれば一度だけ再試行
+        if(code === 'extension_not_enabled' && opts.altName){
+          try{
+            await dl.save({filename:opts.altName, data});
+            return {ok:true, savedAs:opts.altName};
+          }catch(err2){
+            return {ok:false, code:(err2 && err2.code) || 'unavailable'};
+          }
+        }
+        return {ok:false, code};
+      }
+    }
+    // ファイルを直接開いている場合の従来ルート
+    try{
+      const blob = new Blob([data], {type: opts.mime || 'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      return {ok:true};
+    }catch(e){
+      return {ok:false, code:'unavailable'};
+    }
+  },
+  // 保存失敗時の案内文（コピー導線に誘導）
+  saveErrorMessage(code){
+    switch(code){
+      case 'declined': return 'キャンセルしました';
+      case 'rate_limited': return '保存の確認が混み合っています。少し待ってからもう一度お試しください';
+      case 'too_large': return 'ファイルが大きすぎて保存できません。コピーをお使いください';
+      case 'extension_not_enabled':
+      case 'rejected_extension': return 'この形式は保存できません。コピーをお使いください';
+      default: return 'この環境では保存できませんでした。コピーをお使いください';
+    }
+  },
+  csvCell(v){
+    const s = (v==null ? '' : String(v));
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  },
+  // 保存されている grade+本数 を取込CSVの規格表記に戻す（2Lは常に本数付き、他は50以外のみ付与）
+  specToStr(grade, count){
+    const letter = String(grade).replace(/^秀/,'');
+    if(letter==='2L') return '2L' + count;
+    return letter + (Number(count)!==50 ? count : '');
+  },
+  buildSanchiCSV(){
+    const head = '日付,品種,規格,本数,箱数量,箱単価';
+    const rows = Array.from(Store.sanchi.values())
+      .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
+      .map(r=>[r.date, r.variety, r.grade, r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
+    return {text:[head, ...rows].join('\r\n'), rows:rows.length};
+  },
+  buildJibunCSV(){
+    const head = '出荷日,品種名,規格,箱数,別本数';
+    const rows = Store.jibun.slice()
+      .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
+      .map(r=>{
+        const spec = r.betsuCount>0 ? '別' : App.specToStr(r.grade, r.count);
+        const betsu = r.betsuCount>0 ? r.betsuCount : '';
+        return [r.date, r.variety, spec, r.boxQty, betsu].map(App.csvCell).join(',');
+      });
+    return {text:[head, ...rows].join('\r\n'), rows:rows.length};
+  },
+  exportCSV(){
+    if(Store.sanchi.size===0 && Store.jibun.length===0){ UI.toast('書き出すデータがありません'); return; }
+    const ts = new Date().toISOString().slice(0,10);
+    const sections = [];
+    if(Store.sanchi.size>0){ const s = App.buildSanchiCSV(); sections.push({name:'産地データ', filename:`curcuma-産地-${ts}.csv`, text:s.text, rows:s.rows}); }
+    if(Store.jibun.length>0){ const j = App.buildJibunCSV(); sections.push({name:'自分の出荷', filename:`curcuma-自分-${ts}.csv`, text:j.text, rows:j.rows}); }
+    UI.csvExportModal(sections);
+  },
+  submitManual(form){
+    const fd = new FormData(form);
+    let variety = Norm.text(fd.get('variety'));
+    if(variety==='__other__'){ variety = Norm.text(fd.get('varietyOther')); } // 「その他」選択時は自由入力欄を採用
+    const specRaw = Norm.text(fd.get('spec'));
+    const date = Norm.date(fd.get('date'));
+    const boxQty = Norm.num(fd.get('boxQty'));
+    let grade, count, betsuCount = 0;
+    if(specRaw==='別'){
+      grade = '別'; count = 0; betsuCount = Norm.num(fd.get('betsuCount'));
+      if(!(betsuCount>0)){ UI.toast('別本数を入力してください'); return; }
+    } else {
+      const spec = Parse.parseSpec(specRaw);
+      if(spec){ grade = spec.grade; count = spec.count; }
+    }
+    if(!date || !variety || !grade || Number.isNaN(boxQty) || boxQty<=0){
+      UI.toast('入力内容を確認してください');
+      return;
+    }
+    const {added, skipped} = Store.mergeJibun([{date, variety, grade, count, boxQty, betsuCount}], 'manual');
+    // 追加後も日付と品種は保持（同じ日・同じ品種で規格違いを連続入力しやすく）。規格・箱数は再描画で既定に戻る。
+    if(added){
+      // プルダウンにある品種のみ復元（「その他」自由入力は既定へ戻す）
+      const registered = new Set(Store.sakutsuke.map(r=>r.variety).filter(Boolean));
+      State.mineVariety = registered.has(variety) ? variety : null;
+    }
+    UI.renderMain();
+    UI.toast(added ? '追加しました' : '同じ内容が既に登録されています');
+  },
+  submitSakutsuke(form){
+    const fd = new FormData(form);
+    const variety = Norm.text(fd.get('variety'));
+    const type = Norm.text(fd.get('type'))==='据置' ? '据置' : '新植';
+    const tsubo = Norm.num(fd.get('tsubo'));
+    if(!variety || !(tsubo>0)){
+      UI.toast('品種と面積（坪）を入力してください');
+      return;
+    }
+    Store.addSakutsuke({variety, type, tsubo});
+    UI.renderMain();
+    UI.toast('作付を追加しました');
+  }
+};
+
+App.init();
+
+// 開発用の隠しフック（画面には出ない）。価格計算の回帰チェック用にサンプルを読み込む。
+// 使い方（DevToolsコンソール）: __curcumaDev.loadSample()  → コンソールに [SelfTest] OK が出れば計算は正常。
+window.__curcumaDev = {
+  loadSample(){
+    Store.loadSample();
+    SelfTest.run();
+    State.selectedVariety = MAJOR_VARIETY_KEY;
+    State.selectedDate = null;
+    State.sanchiImportSummary = '';
+    State.mineImportSummary = '';
+    UI.route('sanchi');
+    return 'サンプルを読み込みました（開発用）';
+  },
+  selfTest(){ SelfTest.run(); }
+};
+</script>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
+</body></html>
