@@ -141,6 +141,10 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
 .card-title{font-size:1rem; font-weight:600;}
 /* 見出しに添える補足（表示中の品目名など） */
 .card-sub{margin-left:8px; font-size:0.8125rem; font-weight:600; color:var(--ink-muted);}
+/* マスタ設定の中の小見出し */
+.ms-head{font-size:0.9375rem; font-weight:700; margin:var(--sp5) 0 var(--sp2); padding-top:var(--sp3); border-top:1px solid var(--border);}
+.ms-head:first-of-type{border-top:none; padding-top:0; margin-top:var(--sp4);}
+.ship-del[disabled]{opacity:.3; cursor:default;}
 .card-caption{font-size:0.75rem; color:var(--ink-muted);}
 .screen-title{font-size:1.25rem; font-weight:700;}
 /* 見出しの右にチップを添える行（保存タブの件数など） */
@@ -941,7 +945,8 @@ const Store = {
   sanchi: new Map(), // key -> {date,variety,grade,count,boxQty,boxPrice,item}
   jibun: [], // {id,date,variety,grade,count,boxQty,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
-  items: [], // 品目マスタ [{id,name,specs:[{grade,count,label}]}]
+  sakutsukeMeta: [], // 作付マスタのヘッダ [{item,year,useAllocation}]。作型（新植/据置）を使うかどうか
+  items: [], // 品目マスタ [{id,name,specs:[{grade,count,label}],seasonStartMonth}]
   meta: {lastBackupAt: null},
 
   currentYear(){ return String(new Date().getFullYear()); },
@@ -964,6 +969,77 @@ const Store = {
     const it = Store.items.find(i=>i.name===name);
     const m = it ? Number(it.seasonStartMonth) : 1;
     return (m>=1 && m<=12) ? m : 1;
+  },
+  // 作型（新植/据置）をこの年度×品目で使うか。既定は false＝作型の質問も表示も出さない。
+  // クルクマの既存年度は移行で true が入る（従来どおり作型管理が続く）。
+  useAllocation(item, year){
+    const m = Store.sakutsukeMeta.find(x=>x.item===item && String(x.year)===String(year));
+    return !!(m && m.useAllocation);
+  },
+  setUseAllocation(item, year, on){
+    let m = Store.sakutsukeMeta.find(x=>x.item===item && String(x.year)===String(year));
+    if(!m){ m = {item, year:String(year), useAllocation:false}; Store.sakutsukeMeta.push(m); }
+    m.useAllocation = !!on;
+    Store.dirtyCount += 1;
+    Store.persist();
+  },
+  /* ---- 品目マスタの編集 ---- */
+  addItem(name, startMonth){
+    const n = Norm.text(name);
+    if(!n) return {ok:false, msg:'品目名を入力してください'};
+    if(Store.items.some(i=>i.name===n)) return {ok:false, msg:'同じ名前の品目がすでにあります'};
+    const m = Number(startMonth);
+    Store.items.push({id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      name:n, seasonStartMonth:(m>=1&&m<=12)?m:1, specs:[]});
+    Store.dirtyCount += 1; Store.persist();
+    return {ok:true, name:n};
+  },
+  // その品目のデータが1件も無い時だけ消せる（消すと出荷が行方不明になるため）
+  itemUsage(name){
+    let sanchi = 0, jibun = 0;
+    Store.sanchi.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) sanchi++; });
+    Store.jibun.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) jibun++; });
+    return {sanchi, jibun, total:sanchi+jibun};
+  },
+  removeItem(name){
+    if(Store.items.length<=1) return {ok:false, msg:'品目を0件にはできません'};
+    if(Store.itemUsage(name).total>0) return {ok:false, msg:'この品目にはデータがあるため削除できません'};
+    Store.items = Store.items.filter(i=>i.name!==name);
+    Store.sakutsuke = Store.sakutsuke.filter(r=>r.item!==name);
+    Store.sakutsukeMeta = Store.sakutsukeMeta.filter(r=>r.item!==name);
+    Store.dirtyCount += 1; Store.persist();
+    return {ok:true};
+  },
+  setItemStartMonth(name, m){
+    const it = Store.items.find(i=>i.name===name);
+    if(!it) return false;
+    const n = Number(m);
+    it.seasonStartMonth = (n>=1&&n<=12) ? n : 1;
+    Store.dirtyCount += 1; Store.persist();
+    return true;
+  },
+  /* ---- 規格マスタの編集（品目ごと・年度をまたいで共通） ---- */
+  addSpec(itemName, grade, count, label){
+    const it = Store.items.find(i=>i.name===itemName);
+    if(!it) return {ok:false, msg:'品目が見つかりません'};
+    const g = Norm.grade(grade), c = Norm.num(count), l = Norm.text(label);
+    if(!g) return {ok:false, msg:'規格を選んでください'};
+    if(!(c>0)) return {ok:false, msg:'入り本数を入力してください'};
+    if(!l) return {ok:false, msg:'表示名を入力してください'};
+    if(!Array.isArray(it.specs)) it.specs = [];
+    if(it.specs.some(s=>s.grade===g && Number(s.count)===c)) return {ok:false, msg:'同じ規格・本数の組み合わせがすでにあります'};
+    it.specs.push({grade:g, count:c, label:l});
+    Store.dirtyCount += 1; Store.persist();
+    return {ok:true};
+  },
+  removeSpec(itemName, index){
+    const it = Store.items.find(i=>i.name===itemName);
+    if(!it || !Array.isArray(it.specs)) return false;
+    const i = Number(index);
+    if(!(i>=0 && i<it.specs.length)) return false;
+    it.specs.splice(i,1);
+    Store.dirtyCount += 1; Store.persist();
+    return true;
   },
   // 選択できる年度＝データのある年度 ∪ 今年（降順）。新年度を先に選んで作付設定を入れられるように今年を必ず含める。
   // 年度は暦年ではなく品目ごとのシーズン（開始月から1年間）で数える。
@@ -1003,6 +1079,23 @@ const Store = {
     out.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || dataYear)}));
     out.items     = (Array.isArray(data.items) && data.items.length) ? data.items
                   : [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
+    // 作型（新植/据置）は従来クルクマで使っていた機能。既存データのある年度は使う設定のまま引き継ぐ。
+    if(!Array.isArray(data.sakutsukeMeta)){
+      const seen = new Set();
+      out.sakutsukeMeta = [];
+      out.sakutsuke.forEach(r=>{
+        const k = r.item + '|' + r.year;
+        if(seen.has(k)) return; seen.add(k);
+        out.sakutsukeMeta.push({item:r.item, year:String(r.year), useAllocation:true});
+      });
+      // 作付設定が1件も無くても、出荷のある年度は従来どおり作型を使えるようにしておく
+      out.jibun.forEach(r=>{
+        const y = String(r.date||'').slice(0,4);
+        const k = r.item + '|' + y;
+        if(!/^\d{4}$/.test(y) || seen.has(k)) return; seen.add(k);
+        out.sakutsukeMeta.push({item:r.item, year:y, useAllocation:true});
+      });
+    }
     Store.migratedFrom = v;
     return out;
   },
@@ -1023,6 +1116,7 @@ const Store = {
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || Store.currentYear())}));
+      Store.sakutsukeMeta = (data.sakutsukeMeta||[]).map(m=>({item:m.item||DEFAULT_ITEM, year:String(m.year||''), useAllocation:!!m.useAllocation}));
       Store.items = Array.isArray(data.items) ? data.items.map(i=>({...i, specs:(i.specs||[]).map(s=>({...s}))})) : [];
       Store.ensureItems();
       Store.meta = data.meta || {lastBackupAt:null};
@@ -1046,6 +1140,7 @@ const Store = {
         sanchi: Array.from(Store.sanchi.values()),
         jibun: Store.jibun,
         sakutsuke: Store.sakutsuke,
+        sakutsukeMeta: Store.sakutsukeMeta,
         items: Store.items,
         meta: Store.meta,
         dirtyCount: Store.dirtyCount
@@ -1174,6 +1269,7 @@ const Store = {
     Store.sanchi = new Map();
     Store.jibun = [];
     Store.sakutsuke = [];
+    Store.sakutsukeMeta = [];
     Store.ensureItems(); // 品目マスタ（規格の定義）はデータではなく設定なので消さない
     Store.meta = {lastBackupAt:null};
     Store.dirtyCount = 0;
@@ -1211,6 +1307,7 @@ const Store = {
       sanchi: Array.from(Store.sanchi.values()),
       jibun,
       sakutsuke: Store.sakutsuke,
+      sakutsukeMeta: Store.sakutsukeMeta,
       items: Store.items
     };
     return payload;
@@ -1257,6 +1354,7 @@ const Store = {
     Store.sanchi = sanchi;
     Store.jibun = jibun;
     Store.sakutsuke = sakutsuke;
+    Store.sakutsukeMeta = (Array.isArray(data.sakutsukeMeta)?data.sakutsukeMeta:[]).map(m=>({item:Norm.text(m.item)||DEFAULT_ITEM, year:String(m.year||''), useAllocation:!!m.useAllocation}));
     Store.items = items;
     Store.ensureItems();
     Store.dirtyCount = 0;
@@ -1333,11 +1431,27 @@ const Compute = {
   scopedJibun(){ return Compute._rescope().jibun; },
   scopedSakutsuke(){ return Compute._rescope().sakutsuke; },
 
-  classify(grade, count){
-    if(grade==='秀2L' && count===30) return '2L30';
-    if(grade==='秀2L' && count===50) return '2L50';
-    if(grade==='秀L' && count===50) return 'L50';
+  // 規格の分類は品目マスタの specs を引く。クルクマのマスタは移行時に
+  // 秀2L×30→2L30 / 秀2L×50→2L50 / 秀L×50→L50 が入るので、従来の決め打ちと結果は一致する。
+  classify(grade, count, item){
+    const specs = Store.itemSpecs(item || State.selectedItem || DEFAULT_ITEM);
+    for(let i=0;i<specs.length;i++){
+      if(specs[i].grade===grade && Number(specs[i].count)===Number(count)) return specs[i].label;
+    }
     return 'その他';
+  },
+  // ドーナツのカテゴリ順＝マスタの並び＋末尾に「その他」。品目ごとに規格が違っても崩れない。
+  catKeys(item){
+    const keys = Store.itemSpecs(item || State.selectedItem || DEFAULT_ITEM).map(s=>s.label);
+    const uniq = [];
+    keys.forEach(k=>{ if(k && uniq.indexOf(k)<0) uniq.push(k); });
+    uniq.push('その他');
+    return uniq;
+  },
+  emptyCats(item){
+    const o = {};
+    Compute.catKeys(item).forEach(k=>{ o[k] = 0; });
+    return o;
   },
   varietyList(){
     const agg = new Map(); // variety -> {boxes, days:Set}
@@ -1351,7 +1465,7 @@ const Compute = {
       .sort((a,b)=>b.boxes-a.boxes);
   },
   donutData(variety){
-    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
+    const cats = Compute.emptyCats();
     let total = 0;
     Compute.scopedSanchi().forEach(rec=>{
       if(rec.variety !== variety) return;
@@ -1403,7 +1517,7 @@ const Compute = {
     });
   },
   donutDataForDay(varieties, date){
-    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
+    const cats = Compute.emptyCats();
     let total = 0;
     const set = new Set(varieties);
     Compute.scopedSanchi().forEach(rec=>{
@@ -1459,8 +1573,11 @@ const Compute = {
   },
   // 選択中の年度×品目の作付設定から集計（画面表示はすべてこちら）
   allocInfo(){ return Compute.allocInfoFrom(Compute.scopedSakutsuke()); },
+  // 選択中の年度×品目で作型管理を使うか。false の品目では割り当ての質問も作型の表示も一切出さない。
+  allocEnabled(){ return Store.useAllocation(State.selectedItem, State.selectedYear); },
   // 品種が両区分ありのとき、割り当てが要る（plant=null）行を返す。単区分・未登録品種は対象外＝入力不要。
   unassignedAllocRows(){
+    if(!Compute.allocEnabled()) return [];
     const {typesByVariety} = Compute.allocInfo();
     return Compute.scopedJibun().filter(r=>{
       const t = typesByVariety.get(r.variety);
@@ -1855,8 +1972,20 @@ const State = {
 };
 
 /* ============================== UI ============================== */
-const CAT_LABELS = {'2L30':'2L30','2L50':'2L50','L50':'L','その他':'その他'};
-const CAT_COLORVAR = {'2L30':'var(--chart-2l30)','2L50':'var(--chart-2l50)','L50':'var(--chart-l50)','その他':'var(--chart-other)'};
+// 規格カテゴリの見出しと色。品目ごとに規格が変わるので、キー固定のテーブルではなく
+// 「マスタの並び順に色を割り当て、末尾のその他は灰」という規則で決める。
+// クルクマ（2L30/2L50/L50/その他）では従来の色と一致する。
+const CAT_PALETTE = ['var(--chart-2l30)','var(--chart-2l50)','var(--chart-l50)','var(--chart-blue)','var(--accent)'];
+const CAT_OTHER_COLOR = 'var(--chart-other)';
+// L50 は表示上「L」と出していた。マスタのラベルが L50 のときだけ従来表記を保つ。
+const CAT_LABEL_ALIAS = {'L50':'L'};
+const catLabel = (cat)=> CAT_LABEL_ALIAS[cat] || cat;
+const catColorMap = (item)=>{
+  const map = {};
+  const keys = Compute.catKeys(item);
+  keys.forEach((k,i)=>{ map[k] = (k==='その他') ? CAT_OTHER_COLOR : CAT_PALETTE[i % CAT_PALETTE.length]; });
+  return map;
+};
 // 品種を色分けする際の系列色（将来5品種まで対応）
 const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
 
@@ -2006,11 +2135,12 @@ const UI = {
 
   /* ---------- Screen: 産地分析 ---------- */
   donutLegendHTML(cats, total){
+    const colors = catColorMap();
     return Object.keys(cats).map(cat=>{
       const val = cats[cat];
-      return `<div class="legend-item" data-action="legend-toggle" data-cat="${cat}" data-active="${State.donutHighlight===cat}">
-        <span class="legend-dot" style="background:${CAT_COLORVAR[cat]}"></span>
-        <span class="legend-label">${CAT_LABELS[cat]}</span>
+      return `<div class="legend-item" data-action="legend-toggle" data-cat="${Fmt.esc(cat)}" data-active="${State.donutHighlight===cat}">
+        <span class="legend-dot" style="background:${colors[cat]||CAT_OTHER_COLOR}"></span>
+        <span class="legend-label">${Fmt.esc(catLabel(cat))}</span>
         <span class="legend-val tnum">${Fmt.num(val)}</span>
       </div>`;
     }).join('');
@@ -2119,7 +2249,7 @@ const UI = {
       const variety = State.selectedVariety;
       const {cats, total} = Compute.donutDataForDay([variety], selDate);
       const donutBody = total>0
-        ? `<div class="donut-row">${Charts.donutSVG(cats, total, CAT_COLORVAR, 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
+        ? `<div class="donut-row">${Charts.donutSVG(cats, total, catColorMap(), 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
         : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
       donutCard = `
         <div class="card">
@@ -2394,6 +2524,8 @@ const UI = {
     ` : '';
 
     // 作型 未割当カード（両区分を作っている品種の未割当出荷。日付×規格ごとに質問）
+    // ※この年度×品目で作型管理が off なら unassignedAllocGroups() は常に空を返す
+    const allocOn = Compute.allocEnabled();
     const unassignedGroups = Compute.unassignedAllocGroups();
     const allocBlock = unassignedGroups.length ? `
       <div class="card card-alloc">
@@ -2423,6 +2555,11 @@ const UI = {
       </div>
       ${pendingBlock}
       ${allocBlock}
+      ${Compute.scopedSakutsuke().length===0 ? `
+      <div class="card">
+        <p class="card-caption">この年度・品目の<b>作付設定がまだありません</b>。坪あたりの数字は作付面積から計算するため、登録するまで「-」のままになります。
+        <button class="btn btn-ghost" style="width:auto;margin-top:var(--sp2)" data-action="switch-tab" data-tab="import">取込タブで登録する</button></p>
+      </div>` : ''}
       <div class="card">
         <div class="card-head"><h2 class="card-title">品種別売上内訳</h2></div>
         ${varietyRows.length ? `
@@ -2431,8 +2568,9 @@ const UI = {
           const vt=tsuboByVariety[r.variety]||0;
           const perT=vt>0?Fmt.yen(r.amount/vt):null;
           const mk=markMap[r.variety]||1;
-          const category=r.category;
-          const isKon=category==='混植';
+          // 作型管理を使わない品目では、区分チップも見開きも出さない（新植/据置という概念自体が無い）
+          const category = allocOn ? r.category : null;
+          const isKon = category==='混植';
           // 区分インジケータ（品種名行の右）：混植=色丸「混」（=見開きトグル）／新植・据置=薄い楕円チップ
           const indicator = isKon
             ? `<span class="vm-kon" style="color:var(--dn${mk});background:var(--mk${mk})">混</span>`
@@ -2628,18 +2766,103 @@ const UI = {
           <label class="field">品種
             <input type="text" name="variety" placeholder="例: バンコクスプリーム" autocomplete="off" required>
           </label>
-          <label class="field">区分
+          ${Compute.allocEnabled() ? `<label class="field">区分
             <div class="select-wrap"><select name="type" required>
               <option value="新植">新植</option>
               <option value="据置">据置</option>
             </select></div>
-          </label>
+          </label>` : `<input type="hidden" name="type" value="新植">`}
           <label class="field">面積（坪）
             <input type="number" name="tsubo" inputmode="decimal" min="0" step="0.1" placeholder="例: 30" required>
           </label>
           <button type="submit" class="btn btn-primary">作付を追加</button>
         </form>
         ${Compute.scopedSakutsuke().length ? `<div class="stack" style="margin-top:var(--sp3)">${sakuEditRows}</div>` : ''}
+      </details>
+      ${UI.masterSettings()}
+    `;
+  },
+
+  /* ---------- 取込タブ最下部：マスタ設定 ----------
+     品目マスタ・規格マスタは年度をまたいで共通。作付マスタ（作型を使うか）は年度ごと。 */
+  masterSettings(){
+    const cur = State.selectedItem;
+    const specs = Store.itemSpecs(cur);
+    const allocOn = Compute.allocEnabled();
+    const monthOpts = (sel)=> Array.from({length:12},(_,i)=>i+1)
+      .map(m=>`<option value="${m}"${m===Number(sel)?' selected':''}>${m}月</option>`).join('');
+
+    const itemRows = Store.items.map(it=>{
+      const use = Store.itemUsage(it.name);
+      const rng = Compute.seasonRange('2026', it.name);
+      return `
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(it.name)}</span>
+          <span class="ship-detail">開始 ${Number(it.seasonStartMonth)||1}月${rng?'（年をまたぐ）':'（暦年）'}　規格${(it.specs||[]).length}件　データ${use.total}件</span>
+        </div>
+        <div class="alloc-btns">
+          <div class="select-wrap" style="min-width:96px">
+            <select data-action="set-item-month" data-name="${Fmt.esc(it.name)}" aria-label="${Fmt.esc(it.name)}の開始月">${monthOpts(it.seasonStartMonth)}</select>
+          </div>
+          <button class="ship-del" data-action="delete-item" data-name="${Fmt.esc(it.name)}" aria-label="${Fmt.esc(it.name)}を削除"${use.total>0||Store.items.length<=1?' disabled':''}>${Icon.trash}</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    const specRows = specs.length ? specs.map((s,i)=>`
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(s.label)}</span>
+          <span class="ship-detail">${Fmt.esc(s.grade)}　1箱 ${Fmt.num(s.count)}本</span>
+        </div>
+        <button class="ship-del" data-action="delete-spec" data-index="${i}" aria-label="${Fmt.esc(s.label)}を削除">${Icon.trash}</button>
+      </div>`).join('') : '<p class="muted">規格がまだありません。下から追加してください（規格が無いと、すべて「その他」に分類されます）。</p>';
+
+    return `
+      <details class="card collapse">
+        <summary style="font-size:1rem"><span>マスタ設定</span></summary>
+        <p class="card-caption" style="margin-top:var(--sp2)">品目と規格は<b>年度をまたいで共通</b>の設定です。作付の内容は年度ごとに変わります。</p>
+
+        <h3 class="ms-head">品目マスタ</h3>
+        <p class="card-caption">開始月は「その品目の作付を何月から1年とみなすか」の宣言です。実際の出荷開始月とは関係なく固定されます（例：11月にすると、11月〜翌10月がひとつの年度になります）。</p>
+        <div class="stack" style="margin-top:var(--sp2)">${itemRows}</div>
+        <form data-action="submit-item" class="stack" style="margin-top:var(--sp3)">
+          <label class="field">新しい品目名
+            <input type="text" name="name" placeholder="例: トルコギキョウ" autocomplete="off" required>
+          </label>
+          <label class="field">開始月
+            <div class="select-wrap"><select name="startMonth">${monthOpts(1)}</select></div>
+          </label>
+          <button type="submit" class="btn btn-secondary">品目を追加</button>
+        </form>
+
+        <h3 class="ms-head">規格マスタ<span class="card-sub">${Fmt.esc(cur)}</span></h3>
+        <p class="card-caption">規格構成のドーナツと1本単価の計算に使います。ここに無い組み合わせは「その他」になります。</p>
+        <div class="stack" style="margin-top:var(--sp2)">${specRows}</div>
+        <form data-action="submit-spec" class="stack" style="margin-top:var(--sp3)">
+          <label class="field">規格
+            <div class="select-wrap"><select name="grade" required>
+              <option value="秀2L">秀2L</option><option value="秀L">秀L</option>
+              <option value="秀M">秀M</option><option value="秀S">秀S</option>
+            </select></div>
+          </label>
+          <label class="field">1箱の入り本数
+            <input type="number" name="count" inputmode="numeric" min="1" placeholder="例: 30" required>
+          </label>
+          <label class="field">表示名
+            <input type="text" name="label" placeholder="例: 2L30" autocomplete="off" required>
+          </label>
+          <button type="submit" class="btn btn-secondary">規格を追加</button>
+        </form>
+
+        <h3 class="ms-head">作付マスタ<span class="card-sub">${Fmt.esc(String(State.selectedYear))}年 × ${Fmt.esc(cur)}</span></h3>
+        <p class="card-caption">新植と据置を分けて管理するかどうかを、この年度・品目について決めます。使わない場合、作型の割り当てや区分表示は一切出ません。</p>
+        <div class="row-between" style="margin-top:var(--sp2)">
+          <span style="font-size:0.875rem;font-weight:600">作型（新植／据置）を使う</span>
+          <button class="btn-plant ${allocOn?'is-on':''}" style="flex:0 0 auto;min-width:80px"
+                  data-action="toggle-alloc" data-on="${allocOn?'1':'0'}">${allocOn?'使う':'使わない'}</button>
+        </div>
       </details>
     `;
   },
@@ -3194,6 +3417,37 @@ const App = {
       case 'theme-cycle':
         UI.cycleTheme();
         break;
+      case 'delete-item': {
+        const name = t.getAttribute('data-name');
+        const use = Store.itemUsage(name);
+        if(use.total>0){ UI.toast(`「${name}」には産地${use.sanchi}件・自分${use.jibun}件のデータがあるため削除できません`, {duration:6000}); break; }
+        UI.modal('品目を削除', `「${Fmt.esc(name)}」を削除します。この品目の作付設定と規格の登録も消えます。`, {
+          danger:true, confirmLabel:'削除する',
+          onConfirm:()=>{
+            const r = Store.removeItem(name);
+            if(!r.ok){ UI.toast(r.msg); return; }
+            UI.ensureScope(); UI.renderMain(); UI.toast(`「${name}」を削除しました`);
+          }
+        });
+        break;
+      }
+      case 'delete-spec': {
+        const i = t.getAttribute('data-index');
+        const specs = Store.itemSpecs(State.selectedItem);
+        const label = specs[Number(i)] ? specs[Number(i)].label : '';
+        if(Store.removeSpec(State.selectedItem, i)){
+          UI.renderMain();
+          UI.toast(`規格「${label}」を削除しました（該当する出荷は「その他」に分類されます）`, {duration:5000});
+        }
+        break;
+      }
+      case 'toggle-alloc': {
+        const next = t.getAttribute('data-on') !== '1';
+        Store.setUseAllocation(State.selectedItem, State.selectedYear, next);
+        UI.renderMain();
+        UI.toast(next ? '作型（新植／据置）を使う設定にしました' : '作型を使わない設定にしました');
+        break;
+      }
       case 'legend-toggle':
         State.donutHighlight = (State.donutHighlight===t.getAttribute('data-cat')) ? null : t.getAttribute('data-cat');
         UI.renderMain();
@@ -3388,6 +3642,14 @@ const App = {
       UI.renderMain();
       return;
     }
+    if(e.target.getAttribute && e.target.getAttribute('data-action')==='set-item-month'){
+      const name = e.target.getAttribute('data-name');
+      Store.setItemStartMonth(name, e.target.value);
+      UI.ensureScope(); // 開始月が変わると年度の割り振りも変わるため、選択中の年度を立て直す
+      UI.renderMain();
+      UI.toast(`「${name}」の開始月を${e.target.value}月にしました`);
+      return;
+    }
     if(e.target.id==='variety-select'){
       State.selectedVariety = e.target.value;
       State.donutHighlight = null;
@@ -3427,6 +3689,25 @@ const App = {
     } else if(act==='submit-sakutsuke'){
       e.preventDefault();
       App.submitSakutsuke(e.target);
+    } else if(act==='submit-item'){
+      e.preventDefault();
+      const f = e.target;
+      const r = Store.addItem(f.name.value, f.startMonth.value);
+      if(!r.ok){ UI.toast(r.msg); return; }
+      f.reset();
+      // 追加した品目にそのまま切り替える（続けて規格を登録できるように）
+      State.selectedItem = r.name;
+      UI.ensureScope();
+      UI.renderMain();
+      UI.toast(`品目「${r.name}」を追加しました。続けて規格を登録してください`, {duration:5000});
+    } else if(act==='submit-spec'){
+      e.preventDefault();
+      const f = e.target;
+      const r = Store.addSpec(State.selectedItem, f.grade.value, f.count.value, f.label.value);
+      if(!r.ok){ UI.toast(r.msg); return; }
+      f.reset();
+      UI.renderMain();
+      UI.toast('規格を追加しました');
     }
   },
 
