@@ -366,6 +366,24 @@ input[type="file"]{display:none;}
 .ship-del{width:44px; height:44px; border-radius:var(--r-pill); border:none; background:transparent; color:var(--ink-muted); cursor:pointer; flex-shrink:0;}
 .ship-del svg{width:18px; height:18px;}
 
+/* 未確定（要入力）：金額が後日確定する行のバッジ＋入力ボタン */
+.badge-pending{background:var(--warn-soft); color:var(--warn-text);}
+.btn-fill{min-height:32px; padding:0 12px; border-radius:var(--r-pill); border:1px solid var(--warn); background:var(--warn-soft); color:var(--warn-text); font-size:0.8125rem; font-weight:700; cursor:pointer; flex-shrink:0; white-space:nowrap;}
+.btn-fill:active{background:var(--warn); color:#fff;}
+.card-pending{border-color:var(--warn); background:var(--warn-soft);}
+.card-pending .card-title{color:var(--warn-text);}
+.card-pending .ship-row{background:var(--surface); border-radius:var(--r-sm); padding:8px 10px;}
+/* 箱単価入力モーダル */
+.fill-target{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px; padding:10px 12px; margin-bottom:var(--sp3); background:var(--surface-2); border-radius:var(--r-md); font-variant-numeric:tabular-nums;}
+.fill-target .fill-date{font-weight:700; color:var(--ink);}
+.fill-target .fill-name{font-weight:700; color:var(--ink);}
+.fill-target .fill-spec{color:var(--ink-muted); font-size:0.9375rem;}
+.fill-input-row{display:flex; align-items:center; gap:8px; margin-top:var(--sp3);}
+.fill-input-label{font-weight:600; color:var(--ink); flex-shrink:0;}
+.fill-input{flex:1; min-width:0; min-height:48px; padding:0 12px; font-size:1.125rem; text-align:right; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); color:var(--ink); font-variant-numeric:tabular-nums;}
+.fill-input:focus{outline:2px solid var(--primary); outline-offset:1px;}
+.fill-input-unit{color:var(--ink-muted); flex-shrink:0;}
+
 /* 品種別指標：品種ごとの label:value スタック（桁数が増えても崩れない） */
 .vm-list{list-style:none; margin:0; padding:0;}
 .vm-item{padding:12px 0; border-top:1px solid var(--border);}
@@ -403,7 +421,6 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 </style>
 </head>
 <body>
-
 
 <div id="app">
   <header id="appbar">
@@ -559,8 +576,10 @@ const Parse = {
       const grade = Norm.grade(row[idx['規格']]);
       const count = Norm.num(row[idx['本数']]);
       const boxQty = Norm.num(row[idx['箱数量']]);
-      const boxPrice = Norm.num(row[idx['箱単価']]);
-      if(!date || !variety || !grade || Number.isNaN(count) || Number.isNaN(boxQty) || Number.isNaN(boxPrice)){
+      // 箱単価は「未確定」(文字列)を許容＝pendingとしてnullで保持。空欄・ゴミ数値は従来どおりエラー。
+      const priceRaw = Norm.text(row[idx['箱単価']]);
+      const boxPrice = (priceRaw === '未確定') ? null : Norm.num(priceRaw);
+      if(!date || !variety || !grade || Number.isNaN(count) || Number.isNaN(boxQty) || (boxPrice!==null && Number.isNaN(boxPrice))){
         errors.push({line:r+1, raw:row.join(',')});
         continue;
       }
@@ -836,7 +855,9 @@ const Store = {
       Store.sanchi = new Map();
       (data.sanchi||[]).forEach(rec=>{
         const key = Norm.key(rec.date, rec.variety, rec.grade, rec.count);
-        Store.sanchi.set(key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice});
+        // 未確定は null で保持（旧データに文字列「未確定」が混じっていても null に正規化）
+        const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : rec.boxPrice;
+        Store.sanchi.set(key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice});
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r}));
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r}));
@@ -878,6 +899,15 @@ const Store = {
     });
     if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
     return {added, updated};
+  },
+  // 未確定だった市況行の箱単価を後から確定させる（keyで特定→数値をセット）。以降の再描画でmySalesが自動再計算される。
+  setSanchiPrice(key, price){
+    const rec = Store.sanchi.get(key);
+    if(!rec) return false;
+    rec.boxPrice = price;
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
   },
   jibunExists(rec){
     return Store.jibun.some(r => r.date===rec.date && r.variety===rec.variety && r.grade===rec.grade && r.count===rec.count && r.boxQty===rec.boxQty && (r.betsuCount||0)===(rec.betsuCount||0));
@@ -957,7 +987,9 @@ const Store = {
     (data.sanchi||[]).forEach(rec=>{
       const date = Norm.date(rec.date), variety = Norm.text(rec.variety), grade = Norm.grade(rec.grade), count = Norm.num(rec.count);
       const key = Norm.key(date, variety, grade, count);
-      sanchi.set(key, {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice:Norm.num(rec.boxPrice)});
+      // 箱単価は未確定(null/「未確定」)をnullのまま保持。NaN化させない。
+      const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : Norm.num(rec.boxPrice);
+      sanchi.set(key, {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice});
     });
     const jibun = (data.jibun||[]).map((r,i)=>({
       id: r.id || ('j'+Date.now().toString(36)+i),
@@ -1085,7 +1117,8 @@ const Compute = {
     const points = dates.map(date=>{
       const rows = byDate.get(date);
       const calc = (grade)=>{
-        const rs = rows.filter(r=>r.grade===grade);
+        // 価格未確定(boxPrice=null)は平均計算から除外。数量集計(donut/varietyList)には別途算入される。
+        const rs = rows.filter(r=>r.grade===grade && r.boxPrice!=null);
         if(rs.length===0) return null;
         const numerator = rs.reduce((s,r)=>s + r.boxPrice*r.boxQty, 0);
         const denomBoxes = rs.reduce((s,r)=>s + r.count*r.boxQty, 0) / 50;
@@ -1109,20 +1142,29 @@ const Compute = {
       const stemsPerBox = isBetsu ? row.betsuCount : row.count; // 1箱あたりの本数
       const s = Store.sanchi.get(key);
       if(s){
+        const pending = (s.boxPrice==null); // 市況の箱単価が未確定＝金額は出せない
         const stems = stemsPerBox * row.boxQty;
-        const perStem = stemsPerBox>0 ? s.boxPrice / stemsPerBox : null; // 1本単価＝箱単価÷1箱本数
-        return {...row, isBetsu, matched:true, boxPrice:s.boxPrice, amount: s.boxPrice * row.boxQty, stems, perStem};
+        const perStem = (!pending && stemsPerBox>0) ? s.boxPrice / stemsPerBox : null; // 1本単価＝箱単価÷1箱本数
+        return {...row, isBetsu, matched:true, pending, sanchiKey:key, boxPrice: pending?null:s.boxPrice, amount: pending?null:(s.boxPrice * row.boxQty), stems, perStem};
       }
-      return {...row, isBetsu, matched:false, boxPrice:null, amount:0, stems: stemsPerBox * row.boxQty, perStem:null};
+      return {...row, isBetsu, matched:false, pending:false, sanchiKey:key, boxPrice:null, amount:0, stems: stemsPerBox * row.boxQty, perStem:null};
     });
   },
   jibunSummary(matched){
-    const ok = matched.filter(r=>r.matched);
+    // matched を confirmed(金額確定) / pending(市況が未確定) / unmatched に3分割
+    const ok = matched.filter(r=>r.matched && !r.pending);   // 売上・平均・内訳は confirmed のみ
+    const pend = matched.filter(r=>r.matched && r.pending);  // 数量には算入、売上は未確定
     const bad = matched.filter(r=>!r.matched);
     const total = ok.reduce((s,r)=>s+r.amount,0);
-    const totalBoxes = ok.reduce((s,r)=>s+r.boxQty,0);
-    const totalStems = ok.reduce((s,r)=>s+(r.stems||0),0);
-    const avgPerStem = totalStems>0 ? total/totalStems : null; // 平均1本単価＝総売上÷総本数
+    const confirmedStems = ok.reduce((s,r)=>s+(r.stems||0),0);
+    // KPIの出荷量（箱数・本数）は実出荷量なので pending も算入
+    const totalBoxes = ok.reduce((s,r)=>s+r.boxQty,0) + pend.reduce((s,r)=>s+r.boxQty,0);
+    const totalStems = confirmedStems + pend.reduce((s,r)=>s+(r.stems||0),0);
+    const avgPerStem = confirmedStems>0 ? total/confirmedStems : null; // 平均1本単価＝確定売上÷確定本数
+    // 未確定行は同一市況行(sanchiKey)ごとに1件へ重複排除（複数出荷が同じ市況価格に紐づく場合）
+    const pendingSeen = new Set();
+    const pendingRows = [];
+    pend.forEach(r=>{ if(pendingSeen.has(r.sanchiKey)) return; pendingSeen.add(r.sanchiKey); pendingRows.push(r); });
     const byVariety = new Map();
     ok.forEach(r=>{
       if(!byVariety.has(r.variety)) byVariety.set(r.variety, {amount:0, boxes:0, stems:0});
@@ -1141,7 +1183,7 @@ const Compute = {
       recentDate = dateRows[dateRows.length-1].date;
       recentAmount = dateRows[dateRows.length-1].amount;
     }
-    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, unmatchedCount:bad.length, varietyRows, dateRows, unmatchedRows:bad, recentAmount, recentDate};
+    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, pendingCount:pendingRows.length, unmatchedCount:bad.length, varietyRows, dateRows, pendingRows, unmatchedRows:bad, recentAmount, recentDate};
   },
   optionsForForm(){
     const varieties = Compute.varietyList().map(v=>v.variety);
@@ -1786,7 +1828,7 @@ const UI = {
         let v = byVar.find(x=>x.variety===r.variety);
         if(!v){ v={variety:r.variety, rows:[], amount:0}; byVar.push(v); }
         v.rows.push(r);
-        if(r.matched) v.amount += r.amount;
+        if(r.matched && !r.pending) v.amount += r.amount; // pendingは金額nullなので売上合計に足さない
       });
       const blocks = byVar.map(v=>{
         v.rows.sort((a,b)=> specRank(a)-specRank(b));
@@ -1796,9 +1838,11 @@ const UI = {
               <span class="sv-grade">${specText(r)}</span>
               <span class="sv-boxes tnum">${r.boxQty}箱</span>
             </div>
-            ${r.matched
-              ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
-              : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
+            ${r.matched && r.pending
+              ? `<div class="sv-spec-sub"><span class="badge badge-pending">未確定</span><button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button></div>`
+              : r.matched
+                ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
+                : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
             <button class="sv-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この規格を削除">${Icon.trash}</button>
           </div>`).join('');
         return `
@@ -1847,6 +1891,25 @@ const UI = {
       </details>
     ` : '';
 
+    // 金額未確定（要入力）カード：市況の箱単価が未確定の出荷を一覧。埋め忘れ防止＋その場で金額入力へ。
+    const pendingBlock = sum.pendingRows.length ? `
+      <div class="card card-pending">
+        <div class="card-head"><h2 class="card-title">金額未確定（要入力）<span class="badge badge-pending">${sum.pendingRows.length}件</span></h2></div>
+        <p class="muted" style="font-size:0.8125rem">市況の箱単価がまだ「未確定」の出荷です。箱数・本数には算入していますが、売上・平均単価には未反映です。精算書で金額が分かったら入力してください。</p>
+        <div class="stack" style="margin-top:var(--sp3)">
+          ${sum.pendingRows.map(r=>`
+            <div class="ship-row">
+              <div class="ship-main">
+                <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+                <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
+                <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+              </div>
+              <button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    ` : '';
+
     return `
       <h1 class="screen-title">自分の分析</h1>
       <div class="card kpi-card">
@@ -1865,6 +1928,7 @@ const UI = {
           <span>総本数 <b class="tnum">${Fmt.num(sum.totalStems)}</b>本</span>
         </div>
       </div>
+      ${pendingBlock}
       <div class="card">
         <div class="card-head"><h2 class="card-title">品種別売上内訳</h2></div>
         ${varietyRows.length ? `
@@ -2262,6 +2326,58 @@ const UI = {
     });
   },
 
+  // 未確定だった市況行の箱単価を後から確定入力するモーダル
+  fillPriceModal(key){
+    const rec = Store.sanchi.get(key);
+    if(!rec){ UI.toast('対象の市況行が見つかりませんでした（産地データが未取込の可能性）', {duration:5000}); return; }
+    const specLabel = (rec.grade==='別') ? '別' : App.specToStr(rec.grade, rec.count);
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">箱単価を入力</h2>
+          <div class="modal-body">
+            <div class="fill-target">
+              <span class="fill-date tnum">${Fmt.date(rec.date)}</span>
+              <span class="fill-name">${Fmt.esc(rec.variety)}</span>
+              <span class="fill-spec">${Fmt.esc(specLabel)}${rec.grade==='別'?'':`　本数${rec.count}`}</span>
+            </div>
+            <p class="muted" style="font-size:0.8125rem">精算書などで分かった<b>箱単価（円）</b>を入力してください。保存すると、この行に紐づく自分の売上・平均単価・価格推移に反映されます。</p>
+            <label class="fill-input-row">
+              <span class="fill-input-label">箱単価</span>
+              <input type="number" id="fill-price-input" class="fill-input" inputmode="numeric" min="1" step="1" placeholder="例: 7500" />
+              <span class="fill-input-unit">円/箱</span>
+            </label>
+          </div>
+          <div class="modal-status" id="fill-status"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
+            <button class="btn btn-primary" id="fill-save-btn">保存</button>
+          </div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const status = root.querySelector('#fill-status');
+    const input = root.querySelector('#fill-price-input');
+    const setStatus = (msg, cls)=>{ status.textContent = msg; status.className = 'modal-status ' + (cls||'warn'); };
+    setTimeout(()=>{ try{ input.focus(); }catch(_){} }, 30);
+    const save = ()=>{
+      const n = Norm.num(input.value);
+      if(Number.isNaN(n) || !(n>0)){ setStatus('正の数値を入力してください'); input.focus(); return; }
+      const okset = Store.setSanchiPrice(key, n);
+      if(!okset){ setStatus('対象の市況行が見つかりませんでした'); return; }
+      UI.closeModal();
+      UI.renderMain();
+      UI.toast(`箱単価 ${Fmt.yen(n)} を保存しました`);
+    };
+    root.querySelector('#fill-save-btn').addEventListener('click', save);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
+  },
+
   showLineDetail(name, infoHtml, color){
     const detail = document.getElementById('line-detail');
     if(!detail) return;
@@ -2527,6 +2643,11 @@ const App = {
         }
         break;
       }
+      case 'fill-price': {
+        // 未確定だった市況行の箱単価を後から入力するモーダルを開く
+        UI.fillPriceModal(t.getAttribute('data-key'));
+        break;
+      }
       case 'delete-sakutsuke-row': {
         const id = t.getAttribute('data-id');
         const removed = Store.removeSakutsuke(id);
@@ -2738,7 +2859,7 @@ const App = {
     const head = '日付,品種,規格,本数,箱数量,箱単価';
     const rows = Array.from(Store.sanchi.values())
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
-      .map(r=>[r.date, r.variety, r.grade, r.count, r.boxQty, r.boxPrice].map(App.csvCell).join(','));
+      .map(r=>[r.date, r.variety, r.grade, r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
     return {text:[head, ...rows].join('\r\n'), rows:rows.length};
   },
   buildJibunCSV(){
