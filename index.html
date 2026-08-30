@@ -388,13 +388,16 @@ input[type="file"]{display:none;}
 .vm-list{list-style:none; margin:0; padding:0;}
 .vm-item{padding:12px 0; border-top:1px solid var(--border);}
 .vm-item:first-child{border-top:0; padding-top:2px;}
-.vm-name{display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp3); margin-bottom:8px;}
-.vm-name .ship-name{white-space:normal; overflow:visible; text-overflow:clip; font-size:1.0625rem; font-weight:600; min-width:0;}
-.vm-amount{flex-shrink:0; font-size:1.1875rem; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
+/* 見出し：1段目=品種名（1行・末尾見切れ）＋右に区分／2段目=右詰の金額 */
+.vm-head{margin-bottom:8px;}
+.vm-titlerow{display:flex; align-items:center; gap:8px; min-width:0;}
+.vm-titlerow .ship-name{flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:1.0625rem; font-weight:600;}
+.vm-amountrow{text-align:right; margin-top:4px;}
+.vm-amount{font-size:1.1875rem; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
 .vm-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px;}
 .vm-cell{display:flex; flex-direction:column; gap:2px; padding:6px 10px; border-radius:8px; background:var(--surface-2);}
 .vm-label{font-size:0.6875rem; color:var(--ink-muted);}
-.vm-val{font-size:1rem; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums;}
+.vm-val{font-size:1rem; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap;}
 .vm-val.is-empty{color:var(--ink-muted); font-weight:500;}
 .vm-unit{font-size:0.75rem; font-weight:500; color:var(--ink-muted); margin-left:1px;}
 @media (min-width:480px){ .vm-grid{grid-template-columns:repeat(4,1fr);} }
@@ -402,15 +405,13 @@ input[type="file"]{display:none;}
 /* 品種別内訳の展開（混植のみ：新植/据置の内訳） */
 .vm-details > summary{list-style:none; cursor:pointer;}
 .vm-details > summary::-webkit-details-marker{display:none;}
-.vm-summary .ship-name{flex:1 1 auto;}
-/* 区分ラベル（新植/据置/混植）。色は後で差し替え予定。今は新植=緑・据置=ピンク・混植=中間色 */
-.plant-cat{flex:0 0 auto; font-size:0.6875rem; font-weight:700; padding:2px 7px; border-radius:var(--r-pill); line-height:1.4; white-space:nowrap;}
+/* 区分ラベル（薄い楕円チップ・共通）。色は後で差し替え予定。今は新植=緑・据置=ピンク */
+.plant-cat{flex:0 0 auto; font-size:0.6875rem; font-weight:700; padding:2px 9px; border-radius:var(--r-pill); line-height:1.5; white-space:nowrap;}
 .plant-cat-shin{background:var(--primary-soft); color:var(--primary);}
 .plant-cat-sue{background:var(--accent-soft); color:var(--accent-text);}
 .plant-cat-kon{background:var(--surface-2); color:var(--ink-muted); border:1px solid var(--border);}
-/* 混植の目立つ▽（その品種の色）。開くと回転 */
-.vm-caret{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:var(--r-pill); font-size:0.95rem; font-weight:900; transition:transform var(--dur);}
-.vm-details[open] .vm-caret{transform:rotate(180deg);}
+/* 混植インジケータ＝色丸「混」（=見開きトグル・その品種の色） */
+.vm-kon{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:var(--r-pill); font-size:0.8125rem; font-weight:800;}
 .vm-detail{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);}
 /* 本数比率の1本バー（数値なし・直感用） */
 .pt-ratiobar{display:flex; height:18px; border-radius:var(--r-pill); overflow:hidden; background:var(--surface-2);}
@@ -418,18 +419,13 @@ input[type="file"]{display:none;}
 .pt-seg.pt-shin{background:var(--primary);}
 .pt-seg.pt-sue{background:var(--accent);}
 .pt-seg.pt-un{background:var(--border);}
-/* 本数 / 坪売上 / 1本単価 の表 */
-.pt-table{margin-top:12px; display:flex; flex-direction:column; gap:6px;}
-.pt-trow{display:grid; grid-template-columns:44px 1fr 1fr 1fr; align-items:center; gap:8px;}
-.pt-thead{color:var(--ink-muted); font-size:0.6875rem;}
-.pt-thead .pt-tcell{font-weight:600;}
-.pt-tlabel{font-size:0.8125rem; font-weight:700;}
-.pt-tlabel.pt-shin{color:var(--primary);}
-.pt-tlabel.pt-sue{color:var(--accent-text);}
-.pt-tlabel.pt-un{color:var(--ink-muted);}
-.pt-tcell{font-size:0.9375rem; font-weight:600; font-variant-numeric:tabular-nums; text-align:right;}
-.pt-thead .pt-tcell{text-align:right;}
-.pt-tcell.is-empty{color:var(--ink-muted); font-weight:500;}
+/* 区分別カード（本数 / 坪売上 / 1本単価）。数値は折り返さず、長ければ左へ伸びる */
+.pt-cards{margin-top:12px; display:flex; flex-direction:column; gap:10px;}
+.pt-cardrow{display:flex; flex-direction:column; gap:6px;}
+.pt-cardrow > .plant-cat{align-self:flex-start;}
+.pt-ccells{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
+.pt-ccells .vm-cell{align-items:flex-end;}
+.pt-ccells .vm-label{align-self:flex-start;}
 .pt-unassigned{margin-top:10px; font-size:0.8125rem; color:var(--warn-text);}
 
 /* 新植/据置 割り当てカード・行 */
@@ -1913,11 +1909,14 @@ const UI = {
     const tsuboByVariety = {};
     Store.sakutsuke.forEach(r=>{ tsuboByVariety[r.variety]=(tsuboByVariety[r.variety]||0)+(Number(r.tsubo)||0); });
 
-    const varietyRows = sum.varietyRows;
     // 品種→色番号：自分出荷データの出現順に割り当て（最大5色で循環）。マーカーとドーナツで共用。
     const markOrder = [];
     matched.forEach(r=>{ if(r.variety && !markOrder.includes(r.variety)) markOrder.push(r.variety); });
     const markMap = {}; markOrder.forEach((v,i)=>{ markMap[v] = (i%5)+1; });
+    // ドーナツ・凡例・品種別内訳の並びは「出荷明細の出現順（日付降順→日内は取込順）」で固定＝金額順で入れ替えない
+    const orderSeq = [];
+    matched.slice().sort((a,b)=> b.date.localeCompare(a.date)).forEach(r=>{ if(r.variety && !orderSeq.includes(r.variety)) orderSeq.push(r.variety); });
+    const varietyRows = sum.varietyRows.slice().sort((a,b)=> orderSeq.indexOf(a.variety) - orderSeq.indexOf(b.variety));
     const cats = {};
     varietyRows.forEach((r)=>{ cats[r.variety] = r.amount; });
     const colorMap = {}; varietyRows.forEach((r)=>{ colorMap[r.variety] = `var(--dn${markMap[r.variety]||1})`; });
@@ -2071,37 +2070,43 @@ const UI = {
           const vt=tsuboByVariety[r.variety]||0;
           const perT=vt>0?Fmt.yen(r.amount/vt):null;
           const mk=markMap[r.variety]||1;
-          // 作付設定に基づく区分ラベル（新植/据置/混植）。混植のみ展開可。
           const category=r.category;
-          const catCls=category==='混植'?'kon':category==='据置'?'sue':category==='新植'?'shin':'';
-          const catChip=category?`<span class="plant-cat plant-cat-${catCls}">${category}</span>`:'';
           const isKon=category==='混植';
-          // 混植のみ、色付きの目立つ▽を付ける
-          const caret=isKon?`<span class="vm-caret" style="color:var(--dn${mk});background:var(--mk${mk})">▾</span>`:'';
-          const nameRow=`<div class="vm-name">${catChip}<span class="ship-name mk mk${mk}">${Fmt.esc(r.variety)}</span><span class="vm-amount">${Fmt.yen(r.amount)}</span>${caret}</div>`;
-          const grid=`<div class="vm-grid">
-                <div class="vm-cell"><span class="vm-label">箱数</span><span class="vm-val">${Fmt.num(r.boxes)}<span class="vm-unit">箱</span></span></div>
-                <div class="vm-cell"><span class="vm-label">累計本数</span><span class="vm-val">${Fmt.num(r.stems)}<span class="vm-unit">本</span></span></div>
-                <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${perT?'':' is-empty'}">${perT?`${perT}<span class="vm-unit">/坪</span>`:'-'}</span></div>
-                <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
-              </div>`;
-          const summaryInner=`${nameRow}${grid}`;
-          if(!isKon){ return `<li class="vm-item"><div class="vm-summary">${summaryInner}</div></li>`; }
-          // 混植：本数比率の1本バー（数値なし）＋ 本数/坪売上/1本単価の表
+          // 区分インジケータ（品種名行の右）：混植=色丸「混」（=見開きトグル）／新植・据置=薄い楕円チップ
+          const indicator = isKon
+            ? `<span class="vm-kon" style="color:var(--dn${mk});background:var(--mk${mk})">混</span>`
+            : category==='新植' ? `<span class="plant-cat plant-cat-shin">新植</span>`
+            : category==='据置' ? `<span class="plant-cat plant-cat-sue">据置</span>`
+            : '';
+          // 見出し＝1段目：品種名（1行・末尾は見切れ）＋右に区分。2段目：右詰の金額。下に指標カード。
+          const head=`<div class="vm-head">
+              <div class="vm-titlerow"><span class="ship-name mk mk${mk}">${Fmt.esc(r.variety)}</span>${indicator}</div>
+              <div class="vm-amountrow"><span class="vm-amount tnum">${Fmt.yen(r.amount)}</span></div>
+            </div>
+            <div class="vm-grid">
+              <div class="vm-cell"><span class="vm-label">箱数</span><span class="vm-val">${Fmt.num(r.boxes)}<span class="vm-unit">箱</span></span></div>
+              <div class="vm-cell"><span class="vm-label">累計本数</span><span class="vm-val">${Fmt.num(r.stems)}<span class="vm-unit">本</span></span></div>
+              <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${perT?'':' is-empty'}">${perT?`${perT}<span class="vm-unit">/坪</span>`:'-'}</span></div>
+              <div class="vm-cell"><span class="vm-label">単価</span><span class="vm-val${r.perStem!=null?'':' is-empty'}">${r.perStem!=null?`${Fmt.yen(r.perStem)}<span class="vm-unit">/本</span>`:'—'}</span></div>
+            </div>`;
+          if(!isKon){ return `<li class="vm-item"><div class="vm-summary">${head}</div></li>`; }
+          // 混植：本数比率の1本バー（数値なし）＋ 区分別カード（本数/坪売上/1本単価）
           const sp=r.split, shin=sp.shinshoku, sue=sp.sueoki, un=sp.unassigned;
           const totalS=shin.stems+sue.stems+un.stems;
           const pct=(x)=> totalS>0 ? (x/totalS*100) : 0;
           const seg=(cls,x)=> x>0 ? `<div class="pt-seg ${cls}" style="width:${pct(x).toFixed(2)}%"></div>` : '';
           const bar=`<div class="pt-ratiobar">${seg('pt-shin',shin.stems)}${seg('pt-sue',sue.stems)}${seg('pt-un',un.stems)}</div>`;
-          const trow=(label,cls,s,metrics)=>`<div class="pt-trow"><span class="pt-tlabel ${cls}">${label}</span><span class="pt-tcell tnum">${Fmt.num(Math.round(s.stems))}<span class="vm-unit">本</span></span><span class="pt-tcell tnum${metrics&&s.perTsubo!=null?'':' is-empty'}">${metrics&&s.perTsubo!=null?`${Fmt.yen(s.perTsubo)}<span class="vm-unit">/坪</span>`:'-'}</span><span class="pt-tcell tnum${metrics&&s.perStem!=null?'':' is-empty'}">${metrics&&s.perStem!=null?`${Fmt.yen(s.perStem)}<span class="vm-unit">/本</span>`:'-'}</span></div>`;
-          const table=`<div class="pt-table">
-            <div class="pt-trow pt-thead"><span class="pt-tlabel"></span><span class="pt-tcell">本数</span><span class="pt-tcell">坪売上</span><span class="pt-tcell">1本単価</span></div>
-            ${trow('新植','pt-shin',shin,true)}
-            ${trow('据置','pt-sue',sue,true)}
-            ${un.stems>0?trow('未割当','pt-un',un,false):''}
-          </div>`;
-          const detail=`${bar}${table}${un.stems>0?`<p class="pt-unassigned">未割当分は下の「未割当」カードから割り当てできます</p>`:''}`;
-          return `<li class="vm-item"><details class="vm-details"><summary class="vm-summary">${summaryInner}</summary><div class="vm-detail">${detail}</div></details></li>`;
+          const card=(label,cls,s,metrics)=>`<div class="pt-cardrow">
+              <span class="plant-cat ${cls}">${label}</span>
+              <div class="pt-ccells">
+                <div class="vm-cell"><span class="vm-label">本数</span><span class="vm-val">${Fmt.num(Math.round(s.stems))}<span class="vm-unit">本</span></span></div>
+                <div class="vm-cell"><span class="vm-label">坪売上</span><span class="vm-val${metrics&&s.perTsubo!=null?'':' is-empty'}">${metrics&&s.perTsubo!=null?`${Fmt.yen(s.perTsubo)}<span class="vm-unit">/坪</span>`:'-'}</span></div>
+                <div class="vm-cell"><span class="vm-label">1本単価</span><span class="vm-val${metrics&&s.perStem!=null?'':' is-empty'}">${metrics&&s.perStem!=null?`${Fmt.yen(s.perStem)}<span class="vm-unit">/本</span>`:'-'}</span></div>
+              </div>
+            </div>`;
+          const cards=`<div class="pt-cards">${card('新植','plant-cat-shin',shin,true)}${card('据置','plant-cat-sue',sue,true)}${un.stems>0?card('未割当','plant-cat-kon',un,false):''}</div>`;
+          const detail=`${bar}${cards}${un.stems>0?`<p class="pt-unassigned">未割当分は下の「未割当」カードから割り当てできます</p>`:''}`;
+          return `<li class="vm-item"><details class="vm-details"><summary class="vm-summary">${head}</summary><div class="vm-detail">${detail}</div></details></li>`;
         }).join('')}</ul>` : `<p class="muted">一致した出荷がまだありません。</p>`}
       </div>
       <div class="card">
