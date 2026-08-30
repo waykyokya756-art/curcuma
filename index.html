@@ -332,12 +332,17 @@ input[type="file"]{display:none;}
 .ship-day-card{padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
 .ship-day-card + .ship-day-card{margin-top:var(--sp3);}
 /* 月ごとの格納（既定は閉じる）。開くとその月の日別カードが並ぶ */
-.ship-month{border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp3);}
+.ship-month{border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp3); background:var(--surface-2);}
 .ship-month + .ship-month{margin-top:var(--sp2);}
-.ship-month > summary{font-size:1rem; min-height:44px;}
-.ship-month .sm-title{font-size:1.0625rem; font-weight:700; color:var(--ink);}
-.ship-month .sm-meta{margin-left:auto; font-size:0.875rem; font-weight:600; color:var(--ink-muted);}
-.ship-month .sm-total{font-size:1rem; font-weight:700; color:var(--ink);}
+/* 見出しは折り返さず1行に収める。幅が足りない時は中央の meta だけを … で切り、
+   年月と金額は最後まで削らない（flex:0 0 auto で固定、meta のみ 0 1 auto で縮む）。 */
+.ship-month > summary{font-size:1rem; min-height:44px; gap:6px; flex-wrap:nowrap;}
+.ship-month > summary > span{white-space:nowrap; overflow:hidden;}
+.ship-month .sm-title{font-size:1rem; font-weight:700; color:var(--ink); flex:0 0 auto;}
+.ship-month .sm-meta{margin-left:auto; font-size:0.8125rem; font-weight:600; color:var(--ink-muted); flex:0 1 auto; min-width:0; text-overflow:ellipsis;}
+.ship-month .sm-total{font-size:0.9375rem; font-weight:700; color:var(--ink); flex:0 0 auto;}
+/* 開閉マーカーは指で狙える大きさに（既定の小さい ▸ を上書き） */
+.ship-month > summary::before{font-size:1.125rem; line-height:1; color:var(--ink-muted); flex:0 0 auto;}
 .ship-date-head{display:flex; align-items:baseline; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
 .ship-date-md{font-size:1.3125rem; font-weight:800; color:var(--ink);}
 .ship-date-wd{font-size:0.9375rem; font-weight:700; color:var(--ink-muted);}
@@ -2089,13 +2094,17 @@ const UI = {
       m.boxes += d.boxes;
       m.total += d.total;
     });
+    // 一覧が単一年に収まっている間は見出しから年を省く（「8月」）。年をまたぐ時だけ「2026年8月」に戻す。
+    // ＝スマホ幅で見出しを1行に収めるため。冗長な年を落とすのが一番効く。
+    const shipYears = new Set(shipMonths.map(m=>m.ym.slice(0,4)));
+    const singleYear = shipYears.size <= 1;
     const shipRows = shipMonths.map(m=>{
       const [y, mo] = m.ym.split('-');
       const open = State.shipMonthsOpen.includes(m.ym) ? ' open' : '';
       return `
         <details class="collapse ship-month" data-ym="${m.ym}"${open}>
           <summary>
-            <span class="sm-title">${Number(y)}年${Number(mo)}月</span>
+            <span class="sm-title">${singleYear ? '' : `${Number(y)}年`}${Number(mo)}月</span>
             <span class="sm-meta tnum">${m.days.length}日・${Fmt.num(m.boxes)}箱</span>
             ${m.total>0 ? `<span class="sm-total tnum">${Fmt.yen(m.total)}</span>` : ''}
           </summary>
@@ -2414,16 +2423,16 @@ const UI = {
         <button class="btn btn-danger" data-action="open-reset-modal" style="margin-top:var(--sp3)">全消去（新シーズン開始）</button>
         <p class="card-caption">産地データ・自分の出荷データを両方とも完全に削除します。事前にバックアップを書き出すことをおすすめします。</p>
       </details>
-      <div class="card">
-        <h2 class="card-title">保存の仕組み</h2>
-        <div class="save-how">
+      <details class="card collapse">
+        <summary style="font-size:1rem"><span>保存の仕組み</span></summary>
+        <div class="save-how" style="margin-top:var(--sp3)">
           <p><b>データはこの端末の中だけにあります。</b>入力・取込のたびに、ブラウザの保存領域（localStorage・キー <code>curcuma.v1</code>）へ自動保存されます。サーバーには何も送っていません。</p>
           <p><b>アプリを更新してもデータは消えません。</b>ホーム画面のアプリ（GitHub Pages のPWA）は、プログラムとデータが別物です。新しい版に入れ替わっても、保存済みの産地・出荷データはそのまま残ります。</p>
           <p><b>端末をまたいだ共有はしません。</b>iPhoneとPCは別々の保存領域です。同じ内容を見たいときは、JSONを書き出して、もう一方で読み込んでください。</p>
           <p><b>消えることもあります。</b>ブラウザの「サイトデータを削除」、プライベートモード、端末の機種変更・初期化では失われます。だから <b>書き出したバックアップJSONが正本</b> です。区切りのいいところで書き出してください。</p>
           <p class="muted">保存に失敗したとき（容量超過など）と、読み込み時にデータが壊れていたときは、画面上部に警告を出します。壊れたデータは消さずに <code>curcuma.v1.corrupt</code> へ退避するので、黙って全部なくなることはありません。</p>
         </div>
-      </div>
+      </details>
     `;
   },
 
