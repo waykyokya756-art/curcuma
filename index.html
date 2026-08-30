@@ -685,13 +685,19 @@ const Parse = {
     return {grade:'秀'+m[1], count: m[2] ? parseInt(m[2],10) : 50};
   },
   // 出荷日が m/d のみなら産地のシーズン年を補完
-  resolveShipDate(raw, seasonYear){
+  // 出荷日が m/d のみなら、選択中シーズンの暦年を補完する。
+  // 年をまたぐシーズン（例：11月始まり）では、開始月より前の月＝翌暦年に入る。
+  // 例）シーズン2026・開始月11 → 「11/05」は2026年、「03/20」は2027年。
+  resolveShipDate(raw, seasonYear, startMonth){
     const t = Norm.text(raw);
     const full = Norm.date(t);
     if(/^\d{4}-\d{2}-\d{2}$/.test(full)) return full;
     const parts = t.split(/[\/\-.年月]/).map(p=>p.replace(/日$/,'').trim()).filter(p=>p!=='');
     if(parts.length===2){
-      return `${seasonYear}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+      const mm = parseInt(parts[0],10);
+      const start = (startMonth>=1 && startMonth<=12) ? startMonth : 1;
+      const y = (Number.isFinite(mm) && mm < start) ? (Number(seasonYear)+1) : Number(seasonYear);
+      return `${y}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
     }
     return full;
   },
@@ -703,12 +709,15 @@ const Parse = {
     const missing = need.filter(k=>!(k in idx));
     if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
     const hasBetsu = '別本数' in idx;
-    const seasonYear = (Compute.latestDate() || (new Date().getFullYear()+'')).slice(0,4);
+    // 月日だけの日付は「いま選んでいるシーズン」に入れる（データの最終日から推測すると、
+    // 空のシーズンへ取り込んだ時に別の年に飛ぶ）。
+    const seasonYear = String(State.selectedYear || Store.currentYear());
+    const startMonth = Store.itemStartMonth(State.selectedItem || DEFAULT_ITEM);
     const records = []; const errors = [];
     for(let r=1;r<rows.length;r++){
       const row = rows[r];
       if(row.every(f=>Norm.text(f)==='')) continue;
-      const date = Parse.resolveShipDate(row[idx['出荷日']], seasonYear);
+      const date = Parse.resolveShipDate(row[idx['出荷日']], seasonYear, startMonth);
       const variety = Norm.text(row[idx['品種名']]);
       const boxQty = Norm.num(row[idx['箱数']]);
       const betsuRaw = hasBetsu ? Norm.num(row[idx['別本数']]) : NaN;
@@ -939,20 +948,30 @@ const Store = {
   // 品目マスタが空ならクルクマを作る（新規インストール・全消去後の保険）
   ensureItems(){
     if(!Array.isArray(Store.items) || Store.items.length===0){
-      Store.items = [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s}))}];
+      Store.items = [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
     }
+    // 旧データ（開始月が無い品目）は暦年扱いに寄せる
+    Store.items.forEach(i=>{ if(!(Number(i.seasonStartMonth)>=1 && Number(i.seasonStartMonth)<=12)) i.seasonStartMonth = 1; });
   },
   itemNames(){ return Store.items.map(i=>i.name); },
   itemSpecs(name){
     const it = Store.items.find(i=>i.name===name);
     return (it && Array.isArray(it.specs)) ? it.specs : [];
   },
+  // 管理上のシーズン開始月。宣言値であって、実際の出荷開始月から推測はしない
+  // （クルクマは4月始まりの年も5月始まりの年もあるため、観測値に依存させると区切りが毎年動く）。
+  itemStartMonth(name){
+    const it = Store.items.find(i=>i.name===name);
+    const m = it ? Number(it.seasonStartMonth) : 1;
+    return (m>=1 && m<=12) ? m : 1;
+  },
   // 選択できる年度＝データのある年度 ∪ 今年（降順）。新年度を先に選んで作付設定を入れられるように今年を必ず含める。
+  // 年度は暦年ではなく品目ごとのシーズン（開始月から1年間）で数える。
   years(){
     const s = new Set([Store.currentYear()]);
-    const add = (d)=>{ const y = String(d||'').slice(0,4); if(/^\d{4}$/.test(y)) s.add(y); };
-    Store.sanchi.forEach(r=>add(r.date));
-    Store.jibun.forEach(r=>add(r.date));
+    const add = (r)=>{ const y = Compute.seasonYear(r.date, r.item || DEFAULT_ITEM); if(y) s.add(y); };
+    Store.sanchi.forEach(add);
+    Store.jibun.forEach(add);
     return Array.from(s).sort().reverse();
   },
 
@@ -973,6 +992,7 @@ const Store = {
     // 作付設定の年度は「データに入っている最新の出荷年」を採る。
     // 今日の年で埋めると、更新を跨いだ翌年に開いた時に前年の作付が今年に化けるため。
     let dataYear = null;
+    // v1のデータは品目の概念が入る前＝すべてクルクマ（開始月1＝暦年）なので、ここは暦年で数えて等価。
     const scanYear = (d)=>{ const y = String(d||'').slice(0,4); if(/^\d{4}$/.test(y) && (dataYear===null || y > dataYear)) dataYear = y; };
     (data.jibun||[]).forEach(r=>scanYear(r.date));
     if(!dataYear) (data.sanchi||[]).forEach(r=>scanYear(r.date));
@@ -982,7 +1002,7 @@ const Store = {
     out.jibun     = (data.jibun ||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
     out.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || dataYear)}));
     out.items     = (Array.isArray(data.items) && data.items.length) ? data.items
-                  : [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s}))}];
+                  : [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
     Store.migratedFrom = v;
     return out;
   },
@@ -1174,7 +1194,7 @@ const Store = {
       return infoCache.get(k);
     };
     const jibun = Store.jibun.map(r=>{
-      const {typesByVariety} = infoFor(String(r.date||'').slice(0,4), r.item || DEFAULT_ITEM);
+      const {typesByVariety} = infoFor(Compute.seasonYear(r.date, r.item || DEFAULT_ITEM), r.item || DEFAULT_ITEM);
       const stems = Compute.rowStems(r);
       const t = typesByVariety.get(r.variety);
       const varietyCategory = !t ? null : (t.新植 && t.据置 ? '混植' : (t.据置 ? '据置' : '新植'));
@@ -1230,6 +1250,7 @@ const Store = {
     const items = (Array.isArray(data.items) ? data.items : []).map((it,i)=>({
       id: it.id || ('i'+Date.now().toString(36)+i),
       name: Norm.text(it.name),
+      seasonStartMonth: (Number(it.seasonStartMonth)>=1 && Number(it.seasonStartMonth)<=12) ? Number(it.seasonStartMonth) : 1,
       specs: (Array.isArray(it.specs)?it.specs:[]).map(sp=>({grade:Norm.grade(sp.grade), count:Norm.num(sp.count), label:Norm.text(sp.label)}))
                                                   .filter(sp=>sp.grade && sp.label)
     })).filter(it=>it.name);
@@ -1260,6 +1281,30 @@ const Store = {
 
 /* ============================== Compute ============================== */
 const Compute = {
+  /* ---- シーズン（年度）の判定 ----
+     年度＝品目ごとの「管理上の開始月」から1年間。開始月は品目マスタの宣言値。
+       クルクマ（開始月1）  : 2026-01-01〜2026-12-31 ＝暦年。従来と完全に同じ。
+       冬品目（開始月11）   : 2026-11-01〜2027-10-31 が「2026年」＝11月〜翌3月の出荷が1つに収まる。
+     開始月が固定なので時間軸は隙間なく敷き詰められる＝どのシーズンにも入らない日付は存在しない。 */
+  seasonYear(date, item){
+    const s = String(date||'');
+    if(!/^\d{4}-\d{2}/.test(s)) return '';
+    const y = parseInt(s.slice(0,4),10);
+    const m = parseInt(s.slice(5,7),10);
+    const start = Store.itemStartMonth(item || DEFAULT_ITEM);
+    return String(m >= start ? y : y-1);
+  },
+  // シーズンの期間（表示用）。開始月が1月なら暦年なので範囲表示は不要＝null を返す。
+  seasonRange(year, item){
+    const start = Store.itemStartMonth(item || DEFAULT_ITEM);
+    if(start === 1) return null;
+    const y = parseInt(year,10);
+    if(!Number.isFinite(y)) return null;
+    const endY = start === 1 ? y : y+1;
+    const endM = start === 1 ? 12 : start-1;
+    return `${y}年${start}月〜${endY}年${endM}月`;
+  },
+
   /* ---- 年度×品目の絞り込み ----
      集計はすべてこの3つを経由して読む（Store を直接見ない）。
      年度は date の先頭4桁＝暦年。品目は各レコードの item（旧データは移行でクルクマが入る）。
@@ -1272,7 +1317,7 @@ const Compute = {
     if(Compute._scope.key === key) return Compute._scope;
     const y = String(State.selectedYear || '');
     const it = State.selectedItem || DEFAULT_ITEM;
-    const inScope = (r)=> String(r.date||'').slice(0,4) === y && (r.item || DEFAULT_ITEM) === it;
+    const inScope = (r)=> Compute.seasonYear(r.date, r.item || DEFAULT_ITEM) === y && (r.item || DEFAULT_ITEM) === it;
     const sanchi = new Map();
     Store.sanchi.forEach((rec, k)=>{ if(inScope(rec)) sanchi.set(k, rec); });
     Compute._scope = {
@@ -1859,7 +1904,7 @@ const UI = {
       // 既定は「その品目のデータがある最新年度」。今年を既定にすると、年が明けた直後に
       // 空の年度が開いて全部消えたように見えるため、実データのある年を優先する。
       const withData = new Set();
-      const add = (r)=>{ if((r.item||DEFAULT_ITEM)===State.selectedItem){ const y=String(r.date||'').slice(0,4); if(/^\d{4}$/.test(y)) withData.add(y); } };
+      const add = (r)=>{ if((r.item||DEFAULT_ITEM)===State.selectedItem){ const y=Compute.seasonYear(r.date, State.selectedItem); if(y) withData.add(y); } };
       Store.sanchi.forEach(add);
       Store.jibun.forEach(add);
       State.selectedYear = Array.from(withData).sort().pop() || Store.currentYear();
@@ -2102,7 +2147,7 @@ const UI = {
         </div>`;
     }
 
-    const seasonYear = (selDate||'').slice(0,4);
+    const seasonYear = Compute.seasonYear(selDate, State.selectedItem);
     return `
       <h1 class="screen-title">産地分析${seasonYear ? ` <span class="muted" style="font-weight:400">${seasonYear}</span>` : ''}</h1>
       ${selectorCard}
@@ -2565,6 +2610,9 @@ const UI = {
       </div>
       <div class="card">
         <div class="card-head"><h2 class="card-title">${Fmt.esc(String(State.selectedYear))}年の作付内容<span class="card-sub">${Fmt.esc(String(State.selectedItem))}</span></h2></div>
+        ${(()=>{ const rng = Compute.seasonRange(State.selectedYear, State.selectedItem);
+          // 暦年と違うシーズン（年をまたぐ品目）のときだけ、何月から何月までを指すのかを明示する
+          return rng ? `<p class="card-caption" style="margin-bottom:var(--sp2)">この年度が指す期間: <b>${Fmt.esc(rng)}</b></p>` : ''; })()}
         ${sakuByVariety.length ? `
           <div class="stack">${sakuContentRows}</div>
           <div class="row-between" style="margin-top:var(--sp3)">
@@ -3412,7 +3460,7 @@ const App = {
     const {added, updated} = Store.mergeSanchi(records);
     SelfTest.run();
     // 取り込んだデータが選択中の年度の外にあると、画面に出ずに「消えた」と誤解されるので知らせる
-    const years = Array.from(new Set(records.map(r=>String(r.date||'').slice(0,4)).filter(Boolean)));
+    const years = Array.from(new Set(records.map(r=>Compute.seasonYear(r.date, State.selectedItem)).filter(Boolean)));
     const outside = years.filter(y=> y !== String(State.selectedYear));
     State.sanchiImportSummary = `<div class="summary-box ${errors.length||outside.length?'warn':''}">
         <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
