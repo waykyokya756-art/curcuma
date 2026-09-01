@@ -100,7 +100,6 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
 .appbar-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp2);}
 /* 2段目は右詰め。末尾のスペーサーがテーマボタンの幅を埋め、品目の右端が年度の右端と揃う */
 .appbar-row2{justify-content:flex-end;}
-.appbar-spacer{flex:0 0 auto; width:36px;}
 /* 年度・品目セレクタを必ず操作できるようにする。幅が足りない時に削るのは飾りであるアプリ名の側。 */
 .wordmark{font-weight:700; font-size:1rem; display:flex; align-items:center; gap:var(--sp2); white-space:nowrap;
   flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;}
@@ -117,8 +116,12 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
 }
 .scope-sel.select-wrap::after{right:11px; width:6px; height:6px;}
 #year-select{min-width:92px;}
-/* 品目は7文字程度が入る幅。長い名前は … で切る */
-#item-select{min-width:92px; max-width:152px;}
+/* 品目は全角7文字が入る幅で固定し、名前を右詰めにする。
+   幅を可変にすると品目名の長さで右端が動き、年度セレクタとの揃いが崩れる。
+   156px＝border 2px ＋ 左右padding 40px ＋ 本文114px。
+   全角7文字は 0.875rem(=15.75px) で 110.3px なので収まる（8文字は126pxで … に切れる）。
+   矢印は右端から11px・6px幅、テキスト領域は右端から28pxなので、右詰めでも重ならない。 */
+#item-select{width:156px; text-align:right;}
 .icon-btn{
   width:36px; height:36px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -141,10 +144,6 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
 .card-title{font-size:1rem; font-weight:600;}
 /* 見出しに添える補足（表示中の品目名など） */
 .card-sub{margin-left:8px; font-size:0.8125rem; font-weight:600; color:var(--ink-muted);}
-/* マスタ設定の中の小見出し */
-.ms-head{font-size:0.9375rem; font-weight:700; margin:var(--sp5) 0 var(--sp2); padding-top:var(--sp3); border-top:1px solid var(--border);}
-.ms-head:first-of-type{border-top:none; padding-top:0; margin-top:var(--sp4);}
-.ship-del[disabled]{opacity:.3; cursor:default;}
 .card-caption{font-size:0.75rem; color:var(--ink-muted);}
 .screen-title{font-size:1.25rem; font-weight:700;}
 /* 見出しの右にチップを添える行（保存タブの件数など） */
@@ -205,6 +204,9 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
 .modal-status{font-size:0.8125rem; font-weight:700; min-height:1.2em; text-align:center;}
 .modal-status.ok{color:var(--primary);}
 .modal-status.warn{color:var(--warn-text);}
+/* 設定モーダルの小見出し */
+.set-head{font-size:0.9375rem; font-weight:700; color:var(--ink); margin-bottom:var(--sp2);}
+.settings-modal .ship-del[disabled]{opacity:.3; cursor:default;}
 /* font-size は 16px 以上を維持（iOSは16px未満の入力にフォーカスすると自動ズームする） */
 .csv-text{width:100%; min-height:110px; max-height:200px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; line-height:1.5; white-space:pre; overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface-2); color:var(--ink); padding:8px;}
 
@@ -485,6 +487,8 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 .save-how{display:flex; flex-direction:column; gap:var(--sp3); font-size:0.875rem; line-height:1.6; color:var(--ink);}
 .save-how .muted{color:var(--ink-muted); font-size:0.8125rem;}
 .save-how code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.8125em; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:1px 5px;}
+/* 保存タブ末尾の版数。本番に新しい版が届いたかを目視で確かめるためだけのもの */
+.app-build{text-align:center; font-size:0.75rem; color:var(--ink-muted); margin:var(--sp2) 0 var(--sp4);}
 
 .onboard-step{display:flex; gap:var(--sp3); align-items:flex-start;}
 .onboard-num{width:26px; height:26px; border-radius:var(--r-pill); background:var(--primary-soft); color:var(--primary); font-weight:700; font-size:0.8125rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
@@ -501,13 +505,14 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 .stack{display:flex; flex-direction:column; gap:var(--sp3);}
 .row-between{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
 </style>
-</head><body>
+</head>
+<body>
 
 
 <div id="app">
-  <!-- 2段構成。1段目＝アプリ名／年度＋テーマ、2段目＝品目のみ。
-       2段目の右端は年度セレクタの右端に揃える（テーマボタンの下は空ける）ため、
-       同じ幅のスペーサーを置いて位置を合わせている。 -->
+  <!-- 2段構成。1段目＝アプリ名／年度＋テーマ、2段目＝品目＋設定。
+       テーマボタンと設定ボタンは同じ .icon-btn（36px）なので、
+       2段目の品目セレクタの右端が1段目の年度セレクタの右端と揃う。 -->
   <header id="appbar">
     <div class="appbar-row">
       <div class="wordmark">🌸 出荷分析</div>
@@ -518,7 +523,7 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
     </div>
     <div class="appbar-row appbar-row2">
       <div class="select-wrap scope-sel"><select id="item-select" data-action="scope-item" aria-label="品目を選ぶ"></select></div>
-      <span class="appbar-spacer" aria-hidden="true"></span>
+      <button class="icon-btn" id="settings-btn" data-action="open-settings" aria-label="設定"></button>
     </div>
   </header>
   <div id="storage-banner-region"></div>
@@ -540,7 +545,8 @@ const Icon = {
   sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
-  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
 };
 
 /* ============================== Fmt ============================== */
@@ -606,9 +612,15 @@ const Norm = {
     const n = Number(t);
     return n;
   },
-  key(date, variety, grade, count){
-    return JSON.stringify([Norm.date(date), Norm.text(variety), Norm.grade(grade), Norm.num(count)]);
-  }
+  // 産地レコードの一意キー。先頭に品目を含めるのが必須。
+  // 含めないと、同じ(日付・品種・規格・本数)を持つ別品目の行が Store.sanchi の Map で衝突し、
+  // 後から取り込んだ側が先の品目のレコードを黙って上書きする（上書きされた側は画面から消える）。
+  // このキーは永続化されない派生値で、load / importBackup が起動のたびに計算し直している。
+  key(item, date, variety, grade, count){
+    return JSON.stringify([Norm.text(item) || DEFAULT_ITEM, Norm.date(date), Norm.text(variety), Norm.grade(grade), Norm.num(count)]);
+  },
+  // レコード1個からキーを作る。引数の並び間違いを防ぐため、可能な限りこちらを使う。
+  keyOf(rec){ return Norm.key(rec.item, rec.date, rec.variety, rec.grade, rec.count); }
 };
 
 /* ============================== Parse ============================== */
@@ -661,7 +673,11 @@ const Parse = {
     for(let r=1;r<rows.length;r++){
       const row = rows[r];
       if(row.every(f=>Norm.text(f)==='')) continue;
-      const date = Norm.date(row[idx['日付']]);
+      // 日付は完全な YYYY-MM-DD であることを要求する。Norm.date は3要素に分解できない値
+      // （「5/14」など）を原文のまま返すので、ここで弾かないと年度のどこにも属さない
+      // 見えないレコードとして保存されてしまう。
+      const dateRaw = Norm.date(row[idx['日付']]);
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : '';
       const variety = Norm.text(row[idx['品種']]);
       const grade = Norm.grade(row[idx['規格']]);
       const count = Norm.num(row[idx['本数']]);
@@ -673,11 +689,13 @@ const Parse = {
         errors.push({line:r+1, raw:row.join(',')});
         continue;
       }
-      const key = Norm.key(date, variety, grade, count);
-      if(seen.has(key)) dupCount++;
-      seen.add(key);
+      // CSV内の重複検出用のキー。1つのCSVは1つの品目に取り込まれるので、ここは品目抜きで足りる。
+      // 保存先の Map のキーは mergeSanchi が品目込みで作り直す。
+      const dupKey = JSON.stringify([date, variety, grade, count]);
+      if(seen.has(dupKey)) dupCount++;
+      seen.add(dupKey);
       // csvItem＝CSVの品目列（あれば）。保存には使わず、選択中の品目との食い違い警告にだけ使う。
-      records.push({date, variety, grade, count, boxQty, boxPrice, key, csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
+      records.push({date, variety, grade, count, boxQty, boxPrice, csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
     return {records, errors, dupCount};
   },
@@ -737,7 +755,8 @@ const Parse = {
         errors.push({line:r+1, raw:row.join(',')});
         continue;
       }
-      records.push({date, variety, grade, count, boxQty, betsuCount});
+      // csvItem＝CSVの品目列（あれば）。産地CSVと同じく、保存には使わず食い違い警告にだけ使う。
+      records.push({date, variety, grade, count, boxQty, betsuCount, csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
     return {records, errors};
   }
@@ -926,6 +945,10 @@ const SAMPLE_JIBUN = [
 
 /* ============================== Store ============================== */
 const STORAGE_KEY = 'curcuma.v1';
+// 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
+// index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
+// 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
+const APP_BUILD = '2026-09-01c';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year、品目マスタ items）。
 const SCHEMA_VERSION = 2;
 const DEFAULT_ITEM = 'クルクマ';
@@ -945,8 +968,7 @@ const Store = {
   sanchi: new Map(), // key -> {date,variety,grade,count,boxQty,boxPrice,item}
   jibun: [], // {id,date,variety,grade,count,boxQty,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
-  sakutsukeMeta: [], // 作付マスタのヘッダ [{item,year,useAllocation}]。作型（新植/据置）を使うかどうか
-  items: [], // 品目マスタ [{id,name,specs:[{grade,count,label}],seasonStartMonth}]
+  items: [], // 品目マスタ [{id,name,specs:[{grade,count,label}]}]
   meta: {lastBackupAt: null},
 
   currentYear(){ return String(new Date().getFullYear()); },
@@ -955,13 +977,49 @@ const Store = {
     if(!Array.isArray(Store.items) || Store.items.length===0){
       Store.items = [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
     }
-    // 旧データ（開始月が無い品目）は暦年扱いに寄せる
+  },
+  // 旧データ（開始月が無い品目）は暦年扱いに寄せる。
+  // ensureItems から切り出してある：ensureItems は UI.ensureScope 経由で毎描画呼ばれるのに対し、
+  // こちらは items を読み込んだ直後にだけ走らせたい。毎描画で items を書き換えると、
+  // 絞り込みキャッシュのキー（State.selectedYear|selectedItem|Store.rev）に現れない状態変化になる。
+  normalizeItems(){
     Store.items.forEach(i=>{ if(!(Number(i.seasonStartMonth)>=1 && Number(i.seasonStartMonth)<=12)) i.seasonStartMonth = 1; });
   },
   itemNames(){ return Store.items.map(i=>i.name); },
-  itemSpecs(name){
-    const it = Store.items.find(i=>i.name===name);
-    return (it && Array.isArray(it.specs)) ? it.specs : [];
+  /* ---- 品目の登録（設定 → 品目設定）----
+     規格やドーナツの設定は持たない。品目ごとの見せ方が要るようになったら、
+     その時にソースを直す方針（市場ごとに規格の体系が違うので、登録制にすると
+     CSVとの照合ずれが新しい問題になる）。ここで持つのは名前と年度の開始月だけ。 */
+  addItem(name, startMonth){
+    const n = Norm.text(name);
+    if(!n) return {ok:false, msg:'品目名を入力してください'};
+    // 同名が2つあると Store.items.find が先頭しか拾わず、開始月の参照が片方だけに当たる
+    if(Store.items.some(i=>i.name===n)) return {ok:false, msg:`「${n}」はすでに登録されています`};
+    const m = Number(startMonth);
+    Store.items.push({
+      id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      name: n, seasonStartMonth: (m>=1 && m<=12) ? m : 1, specs: []
+    });
+    Store.dirtyCount += 1;
+    Store.persist(); // rev を上げて年度×品目の絞り込みキャッシュを無効化する
+    return {ok:true, name:n};
+  },
+  // その品目のデータが1件も無い時だけ消せる（消すと出荷が行方不明になるため）
+  itemUsage(name){
+    let sanchi = 0, jibun = 0, sakutsuke = 0;
+    Store.sanchi.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) sanchi++; });
+    Store.jibun.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) jibun++; });
+    Store.sakutsuke.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) sakutsuke++; });
+    return {sanchi, jibun, sakutsuke, total: sanchi + jibun + sakutsuke};
+  },
+  removeItem(name){
+    if(Store.items.length<=1) return {ok:false, msg:'品目を0件にはできません'};
+    const use = Store.itemUsage(name);
+    if(use.total>0) return {ok:false, msg:`「${name}」には産地${use.sanchi}件・自分${use.jibun}件・作付${use.sakutsuke}件のデータがあるため削除できません`};
+    Store.items = Store.items.filter(i=>i.name!==name);
+    Store.dirtyCount += 1;
+    Store.persist();
+    return {ok:true};
   },
   // 管理上のシーズン開始月。宣言値であって、実際の出荷開始月から推測はしない
   // （クルクマは4月始まりの年も5月始まりの年もあるため、観測値に依存させると区切りが毎年動く）。
@@ -970,84 +1028,20 @@ const Store = {
     const m = it ? Number(it.seasonStartMonth) : 1;
     return (m>=1 && m<=12) ? m : 1;
   },
-  // 作型（新植/据置）をこの年度×品目で使うか。既定は false＝作型の質問も表示も出さない。
-  // クルクマの既存年度は移行で true が入る（従来どおり作型管理が続く）。
-  useAllocation(item, year){
-    const m = Store.sakutsukeMeta.find(x=>x.item===item && String(x.year)===String(year));
-    return !!(m && m.useAllocation);
-  },
-  setUseAllocation(item, year, on){
-    let m = Store.sakutsukeMeta.find(x=>x.item===item && String(x.year)===String(year));
-    if(!m){ m = {item, year:String(year), useAllocation:false}; Store.sakutsukeMeta.push(m); }
-    m.useAllocation = !!on;
-    Store.dirtyCount += 1;
-    Store.persist();
-  },
-  /* ---- 品目マスタの編集 ---- */
-  addItem(name, startMonth){
-    const n = Norm.text(name);
-    if(!n) return {ok:false, msg:'品目名を入力してください'};
-    if(Store.items.some(i=>i.name===n)) return {ok:false, msg:'同じ名前の品目がすでにあります'};
-    const m = Number(startMonth);
-    Store.items.push({id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-      name:n, seasonStartMonth:(m>=1&&m<=12)?m:1, specs:[]});
-    Store.dirtyCount += 1; Store.persist();
-    return {ok:true, name:n};
-  },
-  // その品目のデータが1件も無い時だけ消せる（消すと出荷が行方不明になるため）
-  itemUsage(name){
-    let sanchi = 0, jibun = 0;
-    Store.sanchi.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) sanchi++; });
-    Store.jibun.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) jibun++; });
-    return {sanchi, jibun, total:sanchi+jibun};
-  },
-  removeItem(name){
-    if(Store.items.length<=1) return {ok:false, msg:'品目を0件にはできません'};
-    if(Store.itemUsage(name).total>0) return {ok:false, msg:'この品目にはデータがあるため削除できません'};
-    Store.items = Store.items.filter(i=>i.name!==name);
-    Store.sakutsuke = Store.sakutsuke.filter(r=>r.item!==name);
-    Store.sakutsukeMeta = Store.sakutsukeMeta.filter(r=>r.item!==name);
-    Store.dirtyCount += 1; Store.persist();
-    return {ok:true};
-  },
-  setItemStartMonth(name, m){
-    const it = Store.items.find(i=>i.name===name);
-    if(!it) return false;
-    const n = Number(m);
-    it.seasonStartMonth = (n>=1&&n<=12) ? n : 1;
-    Store.dirtyCount += 1; Store.persist();
-    return true;
-  },
-  /* ---- 規格マスタの編集（品目ごと・年度をまたいで共通） ---- */
-  addSpec(itemName, grade, count, label){
-    const it = Store.items.find(i=>i.name===itemName);
-    if(!it) return {ok:false, msg:'品目が見つかりません'};
-    const g = Norm.grade(grade), c = Norm.num(count), l = Norm.text(label);
-    if(!g) return {ok:false, msg:'規格を選んでください'};
-    if(!(c>0)) return {ok:false, msg:'入り本数を入力してください'};
-    if(!l) return {ok:false, msg:'表示名を入力してください'};
-    if(!Array.isArray(it.specs)) it.specs = [];
-    if(it.specs.some(s=>s.grade===g && Number(s.count)===c)) return {ok:false, msg:'同じ規格・本数の組み合わせがすでにあります'};
-    it.specs.push({grade:g, count:c, label:l});
-    Store.dirtyCount += 1; Store.persist();
-    return {ok:true};
-  },
-  removeSpec(itemName, index){
-    const it = Store.items.find(i=>i.name===itemName);
-    if(!it || !Array.isArray(it.specs)) return false;
-    const i = Number(index);
-    if(!(i>=0 && i<it.specs.length)) return false;
-    it.specs.splice(i,1);
-    Store.dirtyCount += 1; Store.persist();
-    return true;
-  },
   // 選択できる年度＝データのある年度 ∪ 今年（降順）。新年度を先に選んで作付設定を入れられるように今年を必ず含める。
   // 年度は暦年ではなく品目ごとのシーズン（開始月から1年間）で数える。
-  years(){
+  // 品目で絞るのが要点：全品目の和集合にすると、品目を切り替えたときに
+  // その品目にはデータの無い年度が選択候補に残り、空の画面が開く。
+  years(item){
+    const target = item || State.selectedItem || DEFAULT_ITEM;
     const s = new Set([Store.currentYear()]);
-    const add = (r)=>{ const y = Compute.seasonYear(r.date, r.item || DEFAULT_ITEM); if(y) s.add(y); };
+    const add = (r)=>{
+      if((r.item || DEFAULT_ITEM) !== target) return;
+      const y = Compute.seasonYear(r.date, target); if(y) s.add(y);
+    };
     Store.sanchi.forEach(add);
     Store.jibun.forEach(add);
+    Store.sakutsuke.forEach(r=>{ if((r.item||DEFAULT_ITEM)===target && r.year) s.add(String(r.year)); });
     return Array.from(s).sort().reverse();
   },
 
@@ -1079,23 +1073,6 @@ const Store = {
     out.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || dataYear)}));
     out.items     = (Array.isArray(data.items) && data.items.length) ? data.items
                   : [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
-    // 作型（新植/据置）は従来クルクマで使っていた機能。既存データのある年度は使う設定のまま引き継ぐ。
-    if(!Array.isArray(data.sakutsukeMeta)){
-      const seen = new Set();
-      out.sakutsukeMeta = [];
-      out.sakutsuke.forEach(r=>{
-        const k = r.item + '|' + r.year;
-        if(seen.has(k)) return; seen.add(k);
-        out.sakutsukeMeta.push({item:r.item, year:String(r.year), useAllocation:true});
-      });
-      // 作付設定が1件も無くても、出荷のある年度は従来どおり作型を使えるようにしておく
-      out.jibun.forEach(r=>{
-        const y = String(r.date||'').slice(0,4);
-        const k = r.item + '|' + y;
-        if(!/^\d{4}$/.test(y) || seen.has(k)) return; seen.add(k);
-        out.sakutsukeMeta.push({item:r.item, year:y, useAllocation:true});
-      });
-    }
     Store.migratedFrom = v;
     return out;
   },
@@ -1109,16 +1086,18 @@ const Store = {
       const data = Store.migrateIfNeeded(JSON.parse(raw), raw);
       Store.sanchi = new Map();
       (data.sanchi||[]).forEach(rec=>{
-        const key = Norm.key(rec.date, rec.variety, rec.grade, rec.count);
         // 未確定は null で保持（旧データに文字列「未確定」が混じっていても null に正規化）
         const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : rec.boxPrice;
-        Store.sanchi.set(key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice, item: rec.item || DEFAULT_ITEM});
+        const row = {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice, item: rec.item || DEFAULT_ITEM};
+        Store.sanchi.set(Norm.keyOf(row), row);
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || Store.currentYear())}));
-      Store.sakutsukeMeta = (data.sakutsukeMeta||[]).map(m=>({item:m.item||DEFAULT_ITEM, year:String(m.year||''), useAllocation:!!m.useAllocation}));
-      Store.items = Array.isArray(data.items) ? data.items.map(i=>({...i, specs:(i.specs||[]).map(s=>({...s}))})) : [];
+      // 品目名は importBackup と同じ Norm.text を通す。片方だけ正規化すると、
+      // localStorage 経由で読んだ場合とバックアップ復元で読んだ場合とで正規形が変わる。
+      Store.items = Array.isArray(data.items) ? data.items.map(i=>({...i, name:Norm.text(i.name), specs:(i.specs||[]).map(s=>({...s}))})).filter(i=>i.name) : [];
       Store.ensureItems();
+      Store.normalizeItems();
       Store.meta = data.meta || {lastBackupAt:null};
       Store.dirtyCount = data.dirtyCount || 0;
       // 移行が走ったならその場で保存し直す（次回起動から version 2 で読める）
@@ -1140,7 +1119,6 @@ const Store = {
         sanchi: Array.from(Store.sanchi.values()),
         jibun: Store.jibun,
         sakutsuke: Store.sakutsuke,
-        sakutsukeMeta: Store.sakutsukeMeta,
         items: Store.items,
         meta: Store.meta,
         dirtyCount: Store.dirtyCount
@@ -1157,10 +1135,13 @@ const Store = {
   },
   mergeSanchi(records){
     let added=0, updated=0;
+    // 品目は「取込時に選択中の品目」を正とする（CSVの品目列は取込前の食い違い警告にのみ使う）
+    const item = State.selectedItem || DEFAULT_ITEM;
     records.forEach(rec=>{
-      if(Store.sanchi.has(rec.key)) updated++; else added++;
-      // 品目は「取込時に選択中の品目」を正とする（CSVの品目列は取込前の食い違い警告にのみ使う）
-      Store.sanchi.set(rec.key, {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice, item: State.selectedItem || DEFAULT_ITEM});
+      const row = {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice, item};
+      const key = Norm.keyOf(row);
+      if(Store.sanchi.has(key)) updated++; else added++;
+      Store.sanchi.set(key, row);
     });
     if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
     return {added, updated};
@@ -1174,8 +1155,11 @@ const Store = {
     Store.persist();
     return true;
   },
+  // 取込済みかどうかの判定。品目を見ないと、別品目に同じ内容の出荷を入れようとしたときに
+  // 全件「スキップ」になって1件も登録できない。
   jibunExists(rec){
-    return Store.jibun.some(r => r.date===rec.date && r.variety===rec.variety && r.grade===rec.grade && r.count===rec.count && r.boxQty===rec.boxQty && (r.betsuCount||0)===(rec.betsuCount||0));
+    const item = rec.item || State.selectedItem || DEFAULT_ITEM;
+    return Store.jibun.some(r => (r.item||DEFAULT_ITEM)===item && r.date===rec.date && r.variety===rec.variety && r.grade===rec.grade && r.count===rec.count && r.boxQty===rec.boxQty && (r.betsuCount||0)===(rec.betsuCount||0));
   },
   mergeJibun(records, source){
     let added=0, skipped=0;
@@ -1269,7 +1253,6 @@ const Store = {
     Store.sanchi = new Map();
     Store.jibun = [];
     Store.sakutsuke = [];
-    Store.sakutsukeMeta = [];
     Store.ensureItems(); // 品目マスタ（規格の定義）はデータではなく設定なので消さない
     Store.meta = {lastBackupAt:null};
     Store.dirtyCount = 0;
@@ -1307,7 +1290,6 @@ const Store = {
       sanchi: Array.from(Store.sanchi.values()),
       jibun,
       sakutsuke: Store.sakutsuke,
-      sakutsukeMeta: Store.sakutsukeMeta,
       items: Store.items
     };
     return payload;
@@ -1321,10 +1303,10 @@ const Store = {
     const sanchi = new Map();
     (data.sanchi||[]).forEach(rec=>{
       const date = Norm.date(rec.date), variety = Norm.text(rec.variety), grade = Norm.grade(rec.grade), count = Norm.num(rec.count);
-      const key = Norm.key(date, variety, grade, count);
       // 箱単価は未確定(null/「未確定」)をnullのまま保持。NaN化させない。
       const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : Norm.num(rec.boxPrice);
-      sanchi.set(key, {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice, item: Norm.text(rec.item) || DEFAULT_ITEM});
+      const row = {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice, item: Norm.text(rec.item) || DEFAULT_ITEM};
+      sanchi.set(Norm.keyOf(row), row);
     });
     const jibun = (data.jibun||[]).map((r,i)=>({
       id: r.id || ('j'+Date.now().toString(36)+i),
@@ -1354,7 +1336,6 @@ const Store = {
     Store.sanchi = sanchi;
     Store.jibun = jibun;
     Store.sakutsuke = sakutsuke;
-    Store.sakutsukeMeta = (Array.isArray(data.sakutsukeMeta)?data.sakutsukeMeta:[]).map(m=>({item:Norm.text(m.item)||DEFAULT_ITEM, year:String(m.year||''), useAllocation:!!m.useAllocation}));
     Store.items = items;
     Store.ensureItems();
     Store.dirtyCount = 0;
@@ -1431,27 +1412,11 @@ const Compute = {
   scopedJibun(){ return Compute._rescope().jibun; },
   scopedSakutsuke(){ return Compute._rescope().sakutsuke; },
 
-  // 規格の分類は品目マスタの specs を引く。クルクマのマスタは移行時に
-  // 秀2L×30→2L30 / 秀2L×50→2L50 / 秀L×50→L50 が入るので、従来の決め打ちと結果は一致する。
-  classify(grade, count, item){
-    const specs = Store.itemSpecs(item || State.selectedItem || DEFAULT_ITEM);
-    for(let i=0;i<specs.length;i++){
-      if(specs[i].grade===grade && Number(specs[i].count)===Number(count)) return specs[i].label;
-    }
+  classify(grade, count){
+    if(grade==='秀2L' && count===30) return '2L30';
+    if(grade==='秀2L' && count===50) return '2L50';
+    if(grade==='秀L' && count===50) return 'L50';
     return 'その他';
-  },
-  // ドーナツのカテゴリ順＝マスタの並び＋末尾に「その他」。品目ごとに規格が違っても崩れない。
-  catKeys(item){
-    const keys = Store.itemSpecs(item || State.selectedItem || DEFAULT_ITEM).map(s=>s.label);
-    const uniq = [];
-    keys.forEach(k=>{ if(k && uniq.indexOf(k)<0) uniq.push(k); });
-    uniq.push('その他');
-    return uniq;
-  },
-  emptyCats(item){
-    const o = {};
-    Compute.catKeys(item).forEach(k=>{ o[k] = 0; });
-    return o;
   },
   varietyList(){
     const agg = new Map(); // variety -> {boxes, days:Set}
@@ -1465,7 +1430,7 @@ const Compute = {
       .sort((a,b)=>b.boxes-a.boxes);
   },
   donutData(variety){
-    const cats = Compute.emptyCats();
+    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
     let total = 0;
     Compute.scopedSanchi().forEach(rec=>{
       if(rec.variety !== variety) return;
@@ -1517,7 +1482,7 @@ const Compute = {
     });
   },
   donutDataForDay(varieties, date){
-    const cats = Compute.emptyCats();
+    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
     let total = 0;
     const set = new Set(varieties);
     Compute.scopedSanchi().forEach(rec=>{
@@ -1529,9 +1494,15 @@ const Compute = {
     });
     return {cats, total};
   },
-  lineData(variety){
+  // 選択中の年度×品目での価格推移。計算そのものは lineDataFrom にある。
+  lineData(variety){ return Compute.lineDataFrom(Compute.scopedSanchi(), variety); },
+  // 【保護対象】価格推移の計算本体。Store も State も読まない純粋関数で、rows は Map でも配列でもよい。
+  // lineData から切り出してあるのは、SelfTest がサンプルデータを直接流し込んで
+  // 全18品種82点を基準値と突き合わせられるようにするため（旧SelfTestは表示中の年度×品目に依存し、
+  // 品目を切り替えていると何も検証せず正常終了していた）。計算式は切り出し前と1文字も変えていない。
+  lineDataFrom(rows, variety){
     const byDate = new Map(); // date -> array of records
-    Compute.scopedSanchi().forEach(rec=>{
+    rows.forEach(rec=>{
       if(rec.variety !== variety) return;
       if(!byDate.has(rec.date)) byDate.set(rec.date, []);
       byDate.get(rec.date).push(rec);
@@ -1573,11 +1544,8 @@ const Compute = {
   },
   // 選択中の年度×品目の作付設定から集計（画面表示はすべてこちら）
   allocInfo(){ return Compute.allocInfoFrom(Compute.scopedSakutsuke()); },
-  // 選択中の年度×品目で作型管理を使うか。false の品目では割り当ての質問も作型の表示も一切出さない。
-  allocEnabled(){ return Store.useAllocation(State.selectedItem, State.selectedYear); },
   // 品種が両区分ありのとき、割り当てが要る（plant=null）行を返す。単区分・未登録品種は対象外＝入力不要。
   unassignedAllocRows(){
-    if(!Compute.allocEnabled()) return [];
     const {typesByVariety} = Compute.allocInfo();
     return Compute.scopedJibun().filter(r=>{
       const t = typesByVariety.get(r.variety);
@@ -1624,8 +1592,8 @@ const Compute = {
       const isBetsu = row.betsuCount>0;
       // 別行は産地の「別（本数0）」の箱単価にマッチ。標準行は従来どおり規格×本数でマッチ
       const key = isBetsu
-        ? Norm.key(row.date, row.variety, '別', 0)
-        : Norm.key(row.date, row.variety, row.grade, row.count);
+        ? Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, '別', 0)
+        : Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, row.grade, row.count);
       const stemsPerBox = isBetsu ? row.betsuCount : row.count; // 1箱あたりの本数
       const s = Compute.scopedSanchi().get(key);
       if(s){
@@ -1713,15 +1681,69 @@ const Compute = {
 };
 
 /* ============================== SelfTest ============================== */
+// 価格計算の回帰チェック。サンプルCSVを直接流し込むので Store も State も読まない
+// ＝どの品目・どの年度を表示していても必ず走る。
+// （旧版は Compute.lineData 経由でスコープ済みデータを読んでいたため、クルクマ以外を選択中や
+//   2026年以外を表示中だと console.assert に到達せず無言で正常終了した。つまり
+//   「OKが出ない」と「不合格」が区別できなかった。）
+//
+// 基準値＝サンプルCSV(153件)を現行の計算に通した実測値。1品種1行で
+//   [品種名, 点数, 価格が出た点数, 価格合計(小数4桁), マーカー列]
+// マーカー列は日付順の '2L'(秀2L基準) / 'L'(秀Lへフォールバック) / '-'(価格なし)。
+// これで「30本行と50本行の合算」「秀Lへのフォールバック」「未確定(boxPrice=null)の除外」が
+// すべて1つの表で守られる。合計値が変わればどの品種で変わったかが即座に分かる。
+const SELFTEST_GOLDEN = [
+  ['エメラルドチョコゼブラ', 6, 6, '59188.6468', '2L2L2L2L2L2L'],
+  ['エメラルドパゴタ', 3, 3, '19998.5315', '2L2L2L'],
+  ['クルクマミックス(ミニ)', 1, 1, '5000.0000', 'L'],
+  ['グリーンアイス', 3, 3, '37000.0000', '2L2L2L'],
+  ['シャローム', 4, 4, '37300.0000', '2L2L2L2L'],
+  ['チェリープリンセスデーン', 5, 5, '34552.5882', '2L2L2L2L2L'],
+  ['バンコクスプリーム', 6, 6, '58600.0000', '2L2L2L2L2L2L'],
+  ['パルビフローラ', 10, 10, '75810.7487', 'LLL2L2L2LL2L2L2L'],
+  ['ピアノホワイト', 1, 0, '0.0000', '-'],
+  ['プラートーン', 2, 2, '14200.0000', '2L2L'],
+  ['プーディンレッド', 6, 4, '38791.6667', '--2L2L2L2L'],
+  ['ホワイト', 6, 6, '61833.3333', '2L2L2L2LL2L'],
+  ['ホワイトジャスミン', 6, 6, '63800.9220', '2L2L2L2L2L2L'],
+  ['ミックス', 7, 3, '27500.0000', '-2L-2L2L--'],
+  ['メージョーインプレッシブピンク', 3, 3, '34190.0000', '2L2L2L'],
+  ['メージョージャスミン', 2, 2, '17600.0000', '2L2L'],
+  ['リボン', 6, 6, '65920.0000', '2L2L2L2L2L2L'],
+  ['ロージーレッド', 5, 5, '41550.0000', '2L2L2L2L2L']
+];
+const SELFTEST_ANCHOR = 7630.714285714285; // パルビフローラ 2026-05-14（表示は 7630.71）
 const SelfTest = {
   run(){
-    const key = Norm.key('2026-05-14','パルビフローラ','秀2L', NaN); // placeholder not used
-    const pts = Compute.lineData('パルビフローラ');
-    const day = pts.find(p=>p.date==='2026-05-14');
-    if(day && day.price!=null){
-      const ok = Math.abs(day.price - 7631) < 1;
-      console.assert(ok, '[SelfTest] パルビフローラ 2026-05-14 の2L価格が期待値7631と不一致:', day.price);
-      if(ok) console.info('[SelfTest] OK: パルビフローラ 2026-05-14 =', day.price.toFixed(2));
+    try{
+      const {records} = Parse.sanchiCSV(SAMPLE_SANCHI_CSV);
+      const fails = [];
+      let points = 0;
+      SELFTEST_GOLDEN.forEach(([variety, nPts, nPriced, sumStr, markers])=>{
+        const pts = Compute.lineDataFrom(records, variety);
+        const priced = pts.filter(p=>p.price!=null);
+        const sum = priced.reduce((s,p)=>s+p.price, 0).toFixed(4);
+        const mk = pts.map(p=>p.marker==null?'-':p.marker).join('');
+        points += pts.length;
+        if(pts.length!==nPts || priced.length!==nPriced || sum!==sumStr || mk!==markers){
+          fails.push({品種:variety, 点数:`${pts.length}/${nPts}`, 価格あり:`${priced.length}/${nPriced}`,
+                      合計:`${sum} / ${sumStr}`, マーカー:`${mk} / ${markers}`});
+        }
+      });
+      const anchor = Compute.lineDataFrom(records, 'パルビフローラ').find(p=>p.date==='2026-05-14');
+      if(!(anchor && anchor.price!=null && Math.abs(anchor.price - SELFTEST_ANCHOR) < 1e-9)){
+        fails.push({品種:'パルビフローラ 2026-05-14（アンカー）', 実測: anchor ? anchor.price : null, 期待: SELFTEST_ANCHOR});
+      }
+      if(fails.length){
+        console.error(`[SelfTest] NG: 価格計算が基準値と一致しません（${fails.length}件）`);
+        console.table(fails);
+        return false;
+      }
+      console.info(`[SelfTest] OK: ${SELFTEST_GOLDEN.length}品種${points}点すべて基準値と一致 / パルビフローラ 2026-05-14 = ${anchor.price.toFixed(2)}`);
+      return true;
+    }catch(e){
+      console.error('[SelfTest] NG: 検査そのものが失敗しました', e);
+      return false;
     }
   }
 };
@@ -1943,7 +1965,12 @@ const Charts = {
 
 /* ============================== State ============================== */
 const MAJOR_VARIETY_KEY = '__major__';
+// クルクマの主要品種。他の品目には当てはまらないので、実際に重ねる品種は
+// UI.majorVarieties() が「この一覧のうち表示中の品目にあるもの」を選び、
+// 1つも無ければ箱数の多い順に上位を代用する（品目を切り替えた直後に
+// 既定の画面が空カードになって、アプリが壊れたように見えるのを防ぐ）。
 const MAJOR_VARIETIES = ['バンコクスプリーム','ホワイト','ピアノホワイト','シャローム','エメラルドチョコゼブラ'];
+const MAJOR_MAX = 5;
 
 const State = {
   tab: 'sanchi',
@@ -1958,7 +1985,7 @@ const State = {
   mineCalMonth: null,    // 手入力カレンダーの表示月
   mineMode: 'csv',
   donutHighlight: null,
-  selectedSeries: [],     // 主要5品種チャートで選択中の品種。空＝全表示（初期状態）
+  selectedSeries: [],     // 主要品種チャートで選択中の品種。空＝全表示（初期状態）
   seriesSelectable: [],   // 凡例をタップできる品種（データのあるもの）
   pendingBackup: null,
   pendingRemoved: null,
@@ -1972,20 +1999,8 @@ const State = {
 };
 
 /* ============================== UI ============================== */
-// 規格カテゴリの見出しと色。品目ごとに規格が変わるので、キー固定のテーブルではなく
-// 「マスタの並び順に色を割り当て、末尾のその他は灰」という規則で決める。
-// クルクマ（2L30/2L50/L50/その他）では従来の色と一致する。
-const CAT_PALETTE = ['var(--chart-2l30)','var(--chart-2l50)','var(--chart-l50)','var(--chart-blue)','var(--accent)'];
-const CAT_OTHER_COLOR = 'var(--chart-other)';
-// L50 は表示上「L」と出していた。マスタのラベルが L50 のときだけ従来表記を保つ。
-const CAT_LABEL_ALIAS = {'L50':'L'};
-const catLabel = (cat)=> CAT_LABEL_ALIAS[cat] || cat;
-const catColorMap = (item)=>{
-  const map = {};
-  const keys = Compute.catKeys(item);
-  keys.forEach((k,i)=>{ map[k] = (k==='その他') ? CAT_OTHER_COLOR : CAT_PALETTE[i % CAT_PALETTE.length]; });
-  return map;
-};
+const CAT_LABELS = {'2L30':'2L30','2L50':'2L50','L50':'L','その他':'その他'};
+const CAT_COLORVAR = {'2L30':'var(--chart-2l30)','2L50':'var(--chart-2l50)','L50':'var(--chart-l50)','その他':'var(--chart-other)'};
 // 品種を色分けする際の系列色（将来5品種まで対応）
 const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
 
@@ -2135,15 +2150,21 @@ const UI = {
 
   /* ---------- Screen: 産地分析 ---------- */
   donutLegendHTML(cats, total){
-    const colors = catColorMap();
     return Object.keys(cats).map(cat=>{
       const val = cats[cat];
-      return `<div class="legend-item" data-action="legend-toggle" data-cat="${Fmt.esc(cat)}" data-active="${State.donutHighlight===cat}">
-        <span class="legend-dot" style="background:${colors[cat]||CAT_OTHER_COLOR}"></span>
-        <span class="legend-label">${Fmt.esc(catLabel(cat))}</span>
+      return `<div class="legend-item" data-action="legend-toggle" data-cat="${cat}" data-active="${State.donutHighlight===cat}">
+        <span class="legend-dot" style="background:${CAT_COLORVAR[cat]}"></span>
+        <span class="legend-label">${CAT_LABELS[cat]}</span>
         <span class="legend-val tnum">${Fmt.num(val)}</span>
       </div>`;
     }).join('');
+  },
+  // 重ねて表示する品種。MAJOR_VARIETIES に載っていて実際にデータがあるものを優先し、
+  // 1件も無い品目では箱数の多い順に上位を代用する。list は Compute.varietyList()（箱数降順）。
+  majorVarieties(list){
+    const names = list.map(v=>v.variety);
+    const hit = MAJOR_VARIETIES.filter(v=>names.includes(v));
+    return hit.length ? hit : names.slice(0, MAJOR_MAX);
   },
   screenSanchi(){
     State.multiMeta = null;
@@ -2153,7 +2174,7 @@ const UI = {
     }
     // 日付の既定＝最新日
     if(!State.selectedDate) State.selectedDate = Compute.latestDate();
-    // 品種の既定＝主要5品種。単一品種が消えた場合のみリセット
+    // 品種の既定＝主要品種。単一品種が消えた場合のみリセット
     if(State.selectedVariety !== MAJOR_VARIETY_KEY && !list.find(v=>v.variety===State.selectedVariety)){
       State.selectedVariety = MAJOR_VARIETY_KEY;
     }
@@ -2170,7 +2191,7 @@ const UI = {
       ...restList.filter(v=>isMix(v.variety))
     ];
     const varietyOptions =
-      `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
+      `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要品種</option>` +
       orderedList.map(v=>`<option value="${Fmt.esc(v.variety)}" ${v.variety===State.selectedVariety?'selected':''}>${Fmt.esc(v.variety)}</option>`).join('');
     const selectorCard = `
       <div class="card">
@@ -2196,17 +2217,17 @@ const UI = {
     let donutCard, lineCard;
 
     if(isMajor){
-      // 主要5品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
+      // 主要品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
       donutCard = '';
 
-      // 折れ線＝主要5品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
-      const allSeries = MAJOR_VARIETIES.map((variety,i)=>({variety, color:SERIES_COLORS[i%SERIES_COLORS.length], points:Compute.lineDataDense(variety)}));
+      // 折れ線＝主要品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
+      const allSeries = UI.majorVarieties(list).map((variety,i)=>({variety, color:SERIES_COLORS[i%SERIES_COLORS.length], points:Compute.lineDataDense(variety)}));
       const anyData = allSeries.some(s=>s.points.some(p=>p.price!=null));
       if(!anyData){
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
-            <div class="empty-state"><p>主要5品種の価格データがまだありません。</p></div>
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要品種）</h2></div>
+            <div class="empty-state"><p>主要品種の価格データがまだありません。</p></div>
           </div>`;
       } else {
         // 凡例タップ＝絞り込み。選択が空なら全表示（初期状態）
@@ -2238,7 +2259,7 @@ const UI = {
         }
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要品種）</h2></div>
             ${chartInner}
             <div class="series-legend">${seriesLegend}</div>
             ${isolatedNote}
@@ -2249,7 +2270,7 @@ const UI = {
       const variety = State.selectedVariety;
       const {cats, total} = Compute.donutDataForDay([variety], selDate);
       const donutBody = total>0
-        ? `<div class="donut-row">${Charts.donutSVG(cats, total, catColorMap(), 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
+        ? `<div class="donut-row">${Charts.donutSVG(cats, total, CAT_COLORVAR, 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
         : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
       donutCard = `
         <div class="card">
@@ -2524,8 +2545,6 @@ const UI = {
     ` : '';
 
     // 作型 未割当カード（両区分を作っている品種の未割当出荷。日付×規格ごとに質問）
-    // ※この年度×品目で作型管理が off なら unassignedAllocGroups() は常に空を返す
-    const allocOn = Compute.allocEnabled();
     const unassignedGroups = Compute.unassignedAllocGroups();
     const allocBlock = unassignedGroups.length ? `
       <div class="card card-alloc">
@@ -2555,11 +2574,6 @@ const UI = {
       </div>
       ${pendingBlock}
       ${allocBlock}
-      ${Compute.scopedSakutsuke().length===0 ? `
-      <div class="card">
-        <p class="card-caption">この年度・品目の<b>作付設定がまだありません</b>。坪あたりの数字は作付面積から計算するため、登録するまで「-」のままになります。
-        <button class="btn btn-ghost" style="width:auto;margin-top:var(--sp2)" data-action="switch-tab" data-tab="import">取込タブで登録する</button></p>
-      </div>` : ''}
       <div class="card">
         <div class="card-head"><h2 class="card-title">品種別売上内訳</h2></div>
         ${varietyRows.length ? `
@@ -2568,9 +2582,8 @@ const UI = {
           const vt=tsuboByVariety[r.variety]||0;
           const perT=vt>0?Fmt.yen(r.amount/vt):null;
           const mk=markMap[r.variety]||1;
-          // 作型管理を使わない品目では、区分チップも見開きも出さない（新植/据置という概念自体が無い）
-          const category = allocOn ? r.category : null;
-          const isKon = category==='混植';
+          const category=r.category;
+          const isKon=category==='混植';
           // 区分インジケータ（品種名行の右）：混植=色丸「混」（=見開きトグル）／新植・据置=薄い楕円チップ
           const indicator = isKon
             ? `<span class="vm-kon" style="color:var(--dn${mk});background:var(--mk${mk})">混</span>`
@@ -2766,103 +2779,18 @@ const UI = {
           <label class="field">品種
             <input type="text" name="variety" placeholder="例: バンコクスプリーム" autocomplete="off" required>
           </label>
-          ${Compute.allocEnabled() ? `<label class="field">区分
+          <label class="field">区分
             <div class="select-wrap"><select name="type" required>
               <option value="新植">新植</option>
               <option value="据置">据置</option>
             </select></div>
-          </label>` : `<input type="hidden" name="type" value="新植">`}
+          </label>
           <label class="field">面積（坪）
             <input type="number" name="tsubo" inputmode="decimal" min="0" step="0.1" placeholder="例: 30" required>
           </label>
           <button type="submit" class="btn btn-primary">作付を追加</button>
         </form>
         ${Compute.scopedSakutsuke().length ? `<div class="stack" style="margin-top:var(--sp3)">${sakuEditRows}</div>` : ''}
-      </details>
-      ${UI.masterSettings()}
-    `;
-  },
-
-  /* ---------- 取込タブ最下部：マスタ設定 ----------
-     品目マスタ・規格マスタは年度をまたいで共通。作付マスタ（作型を使うか）は年度ごと。 */
-  masterSettings(){
-    const cur = State.selectedItem;
-    const specs = Store.itemSpecs(cur);
-    const allocOn = Compute.allocEnabled();
-    const monthOpts = (sel)=> Array.from({length:12},(_,i)=>i+1)
-      .map(m=>`<option value="${m}"${m===Number(sel)?' selected':''}>${m}月</option>`).join('');
-
-    const itemRows = Store.items.map(it=>{
-      const use = Store.itemUsage(it.name);
-      const rng = Compute.seasonRange('2026', it.name);
-      return `
-      <div class="ship-row">
-        <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(it.name)}</span>
-          <span class="ship-detail">開始 ${Number(it.seasonStartMonth)||1}月${rng?'（年をまたぐ）':'（暦年）'}　規格${(it.specs||[]).length}件　データ${use.total}件</span>
-        </div>
-        <div class="alloc-btns">
-          <div class="select-wrap" style="min-width:96px">
-            <select data-action="set-item-month" data-name="${Fmt.esc(it.name)}" aria-label="${Fmt.esc(it.name)}の開始月">${monthOpts(it.seasonStartMonth)}</select>
-          </div>
-          <button class="ship-del" data-action="delete-item" data-name="${Fmt.esc(it.name)}" aria-label="${Fmt.esc(it.name)}を削除"${use.total>0||Store.items.length<=1?' disabled':''}>${Icon.trash}</button>
-        </div>
-      </div>`;
-    }).join('');
-
-    const specRows = specs.length ? specs.map((s,i)=>`
-      <div class="ship-row">
-        <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(s.label)}</span>
-          <span class="ship-detail">${Fmt.esc(s.grade)}　1箱 ${Fmt.num(s.count)}本</span>
-        </div>
-        <button class="ship-del" data-action="delete-spec" data-index="${i}" aria-label="${Fmt.esc(s.label)}を削除">${Icon.trash}</button>
-      </div>`).join('') : '<p class="muted">規格がまだありません。下から追加してください（規格が無いと、すべて「その他」に分類されます）。</p>';
-
-    return `
-      <details class="card collapse">
-        <summary style="font-size:1rem"><span>マスタ設定</span></summary>
-        <p class="card-caption" style="margin-top:var(--sp2)">品目と規格は<b>年度をまたいで共通</b>の設定です。作付の内容は年度ごとに変わります。</p>
-
-        <h3 class="ms-head">品目マスタ</h3>
-        <p class="card-caption">開始月は「その品目の作付を何月から1年とみなすか」の宣言です。実際の出荷開始月とは関係なく固定されます（例：11月にすると、11月〜翌10月がひとつの年度になります）。</p>
-        <div class="stack" style="margin-top:var(--sp2)">${itemRows}</div>
-        <form data-action="submit-item" class="stack" style="margin-top:var(--sp3)">
-          <label class="field">新しい品目名
-            <input type="text" name="name" placeholder="例: トルコギキョウ" autocomplete="off" required>
-          </label>
-          <label class="field">開始月
-            <div class="select-wrap"><select name="startMonth">${monthOpts(1)}</select></div>
-          </label>
-          <button type="submit" class="btn btn-secondary">品目を追加</button>
-        </form>
-
-        <h3 class="ms-head">規格マスタ<span class="card-sub">${Fmt.esc(cur)}</span></h3>
-        <p class="card-caption">規格構成のドーナツと1本単価の計算に使います。ここに無い組み合わせは「その他」になります。</p>
-        <div class="stack" style="margin-top:var(--sp2)">${specRows}</div>
-        <form data-action="submit-spec" class="stack" style="margin-top:var(--sp3)">
-          <label class="field">規格
-            <div class="select-wrap"><select name="grade" required>
-              <option value="秀2L">秀2L</option><option value="秀L">秀L</option>
-              <option value="秀M">秀M</option><option value="秀S">秀S</option>
-            </select></div>
-          </label>
-          <label class="field">1箱の入り本数
-            <input type="number" name="count" inputmode="numeric" min="1" placeholder="例: 30" required>
-          </label>
-          <label class="field">表示名
-            <input type="text" name="label" placeholder="例: 2L30" autocomplete="off" required>
-          </label>
-          <button type="submit" class="btn btn-secondary">規格を追加</button>
-        </form>
-
-        <h3 class="ms-head">作付マスタ<span class="card-sub">${Fmt.esc(String(State.selectedYear))}年 × ${Fmt.esc(cur)}</span></h3>
-        <p class="card-caption">新植と据置を分けて管理するかどうかを、この年度・品目について決めます。使わない場合、作型の割り当てや区分表示は一切出ません。</p>
-        <div class="row-between" style="margin-top:var(--sp2)">
-          <span style="font-size:0.875rem;font-weight:600">作型（新植／据置）を使う</span>
-          <button class="btn-plant ${allocOn?'is-on':''}" style="flex:0 0 auto;min-width:80px"
-                  data-action="toggle-alloc" data-on="${allocOn?'1':'0'}">${allocOn?'使う':'使わない'}</button>
-        </div>
       </details>
     `;
   },
@@ -2909,6 +2837,7 @@ const UI = {
           <p class="muted">保存に失敗したとき（容量超過など）と、読み込み時にデータが壊れていたときは、画面上部に警告を出します。壊れたデータは消さずに <code>curcuma.v1.corrupt</code> へ退避するので、黙って全部なくなることはありません。</p>
         </div>
       </details>
+      <p class="app-build">版 ${APP_BUILD}　データ形式 v${SCHEMA_VERSION}</p>
     `;
   },
 
@@ -3149,6 +3078,55 @@ const UI = {
         </div>
       </div>`).join('');
   },
+  /* ---------- 設定（アプリバーの歯車から開く） ----------
+     いまは品目設定だけ。行内のボタンは data-action でグローバル委譲し、
+     更新はモーダルを開き直して反映する（allocModal と同じやり方）。 */
+  settingsModal(){
+    const root = document.getElementById('modal-root');
+    const monthOpts = Array.from({length:12},(_,i)=>i+1)
+      .map(m=>`<option value="${m}"${m===1?' selected':''}>${m}月</option>`).join('');
+    const rows = Store.items.map(it=>{
+      const use = Store.itemUsage(it.name);
+      const start = Number(it.seasonStartMonth) || 1;
+      const counts = use.total ? `産地${use.sanchi}件・自分${use.jibun}件・作付${use.sakutsuke}件` : 'データなし';
+      const locked = use.total>0 || Store.items.length<=1;
+      return `
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(it.name)}${it.name===State.selectedItem?' <span class="tag-betsu">表示中</span>':''}</span>
+          <span class="ship-detail">開始 ${start}月${start===1?'（暦年）':'（年をまたぐ）'}　${counts}</span>
+        </div>
+        <button class="ship-del" data-action="delete-item" data-name="${Fmt.esc(it.name)}"
+                aria-label="${Fmt.esc(it.name)}を削除"${locked?' disabled':''}>${Icon.trash}</button>
+      </div>`;
+    }).join('');
+    root.innerHTML = `
+      <div class="modal-backdrop">
+        <div class="modal-sheet settings-modal">
+          <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
+          <h2 class="modal-title">設定</h2>
+          <div class="modal-body">
+            <h3 class="set-head">品目設定</h3>
+            <p class="muted" style="font-size:0.8125rem">ここに登録した品目が、上の品目セレクタに出ます。開始月は「その品目の1年を何月から数えるか」で、年度セレクタの区切りになります（例：11月にすると2026年度＝2026年11月〜2027年10月）。</p>
+            <div class="stack" style="margin-top:var(--sp3)">${rows}</div>
+            <form data-action="submit-item" class="stack" style="margin-top:var(--sp4)">
+              <label class="field">品目名
+                <input type="text" name="name" placeholder="例: スイートピー" autocomplete="off" required>
+              </label>
+              <label class="field">年度の開始月
+                <div class="select-wrap"><select name="startMonth">${monthOpts}</select></div>
+              </label>
+              <button type="submit" class="btn btn-secondary">品目を追加</button>
+            </form>
+          </div>
+          <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">閉じる</button></div>
+        </div>
+      </div>`;
+    const backdrop = root.querySelector('.modal-backdrop');
+    backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
+    root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
+    root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+  },
   // CSV取込直後などに開く割り当てモーダル（未割当を日付×品種×規格ごとに一覧）
   allocModal(){
     const groups = Compute.unassignedAllocGroups();
@@ -3362,6 +3340,9 @@ const UI = {
 const App = {
   init(){
     UI.applyTheme();
+    // アプリバーの設定ボタンは静的HTML。アイコンはテーマボタンと同じくJSで入れる
+    const sBtn = document.getElementById('settings-btn');
+    if(sBtn) sBtn.innerHTML = Icon.gear;
     Store.load();
     UI.ensureScope(); // 集計は年度×品目の絞り込み経由なので、SelfTest より先に対象を決めておく
     SelfTest.run();
@@ -3417,35 +3398,24 @@ const App = {
       case 'theme-cycle':
         UI.cycleTheme();
         break;
+      case 'open-settings':
+        UI.settingsModal();
+        break;
       case 'delete-item': {
         const name = t.getAttribute('data-name');
         const use = Store.itemUsage(name);
-        if(use.total>0){ UI.toast(`「${name}」には産地${use.sanchi}件・自分${use.jibun}件のデータがあるため削除できません`, {duration:6000}); break; }
-        UI.modal('品目を削除', `「${Fmt.esc(name)}」を削除します。この品目の作付設定と規格の登録も消えます。`, {
+        // ボタンは disabled 済みだが、二重にガードしておく
+        if(use.total>0){ UI.toast(`「${name}」にはデータがあるため削除できません`, {duration:5000}); break; }
+        UI.modal('品目を削除', `「${Fmt.esc(name)}」を削除します。この品目にはまだデータがありません。`, {
           danger:true, confirmLabel:'削除する',
           onConfirm:()=>{
             const r = Store.removeItem(name);
             if(!r.ok){ UI.toast(r.msg); return; }
-            UI.ensureScope(); UI.renderMain(); UI.toast(`「${name}」を削除しました`);
+            UI.renderMain();      // ensureScope が選択中品目を立て直す
+            UI.settingsModal();   // 一覧を出し直す
+            UI.toast(`「${name}」を削除しました`);
           }
         });
-        break;
-      }
-      case 'delete-spec': {
-        const i = t.getAttribute('data-index');
-        const specs = Store.itemSpecs(State.selectedItem);
-        const label = specs[Number(i)] ? specs[Number(i)].label : '';
-        if(Store.removeSpec(State.selectedItem, i)){
-          UI.renderMain();
-          UI.toast(`規格「${label}」を削除しました（該当する出荷は「その他」に分類されます）`, {duration:5000});
-        }
-        break;
-      }
-      case 'toggle-alloc': {
-        const next = t.getAttribute('data-on') !== '1';
-        Store.setUseAllocation(State.selectedItem, State.selectedYear, next);
-        UI.renderMain();
-        UI.toast(next ? '作型（新植／据置）を使う設定にしました' : '作型を使わない設定にしました');
         break;
       }
       case 'legend-toggle':
@@ -3627,8 +3597,14 @@ const App = {
   onChange(e){
     // 年度・品目を切り替えたら、その年度に無い品種などが選ばれたままにならないよう表示状態を初期化する
     if(e.target.id==='year-select' || e.target.id==='item-select'){
-      if(e.target.id==='year-select') State.selectedYear = e.target.value;
-      else State.selectedItem = e.target.value;
+      if(e.target.id==='year-select'){
+        State.selectedYear = e.target.value;
+      } else {
+        State.selectedItem = e.target.value;
+        // 年度の選択肢は品目ごとに違う。切り替えた品目に無い年度を持ち越すと空の画面が開くので、
+        // 年度を一度捨てて UI.ensureScope に「その品目のデータがある最新年度」を選ばせる。
+        State.selectedYear = null;
+      }
       State.selectedVariety = MAJOR_VARIETY_KEY;
       State.selectedDate = null;
       State.calendarOpen = false;
@@ -3640,14 +3616,6 @@ const App = {
       State.shipMonthsOpen = [];
       State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
       UI.renderMain();
-      return;
-    }
-    if(e.target.getAttribute && e.target.getAttribute('data-action')==='set-item-month'){
-      const name = e.target.getAttribute('data-name');
-      Store.setItemStartMonth(name, e.target.value);
-      UI.ensureScope(); // 開始月が変わると年度の割り振りも変わるため、選択中の年度を立て直す
-      UI.renderMain();
-      UI.toast(`「${name}」の開始月を${e.target.value}月にしました`);
       return;
     }
     if(e.target.id==='variety-select'){
@@ -3693,21 +3661,10 @@ const App = {
       e.preventDefault();
       const f = e.target;
       const r = Store.addItem(f.name.value, f.startMonth.value);
-      if(!r.ok){ UI.toast(r.msg); return; }
-      f.reset();
-      // 追加した品目にそのまま切り替える（続けて規格を登録できるように）
-      State.selectedItem = r.name;
-      UI.ensureScope();
-      UI.renderMain();
-      UI.toast(`品目「${r.name}」を追加しました。続けて規格を登録してください`, {duration:5000});
-    } else if(act==='submit-spec'){
-      e.preventDefault();
-      const f = e.target;
-      const r = Store.addSpec(State.selectedItem, f.grade.value, f.count.value, f.label.value);
-      if(!r.ok){ UI.toast(r.msg); return; }
-      f.reset();
-      UI.renderMain();
-      UI.toast('規格を追加しました');
+      if(!r.ok){ UI.toast(r.msg, {duration:5000}); return; }
+      UI.renderMain();      // 品目セレクタに反映
+      UI.settingsModal();   // 一覧を出し直す（入力欄は空に戻る）
+      UI.toast(`品目「${r.name}」を追加しました。上のセレクタで切り替えられます`, {duration:5000});
     }
   },
 
@@ -3759,18 +3716,35 @@ const App = {
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
       const {records, errors} = Parse.jibunCSV(text);
-      const {added, skipped} = Store.mergeJibun(records, 'csv');
-      State.mineImportSummary = `<div class="summary-box ${errors.length||skipped?'warn':''}">
-          <span>取り込み元: ${Fmt.esc(encoding)}／取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
-        </div>`;
-      UI.renderMain();
-      UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
-      // 取込直後：新植/据置の両方を作っている品種に未割当があれば、その場で割り当てを促す
-      if(added>0 && Compute.unassignedAllocRows().length>0){ UI.allocModal(); }
+      // 産地CSVと同じく、CSVの品目列が選択中と食い違う時は取り込む前に確認する。
+      // 自分CSVは月日だけの出荷日を「選択中の品目の開始月」で解決するので、
+      // 品目を間違えたまま取り込むと日付そのものが1年ずれることがある。
+      const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
+      if(other.length){
+        UI.modal('品目が違うようです',
+          `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
+          + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
+          + `<br>月日だけの出荷日は「${Fmt.esc(State.selectedItem)}」のシーズンで年を補うため、日付がずれることもあります。`
+          + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
+          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishMineImport(records, errors, encoding)});
+        return;
+      }
+      App.finishMineImport(records, errors, encoding);
     }catch(err){
       State.mineImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
     }
+  },
+  // 自分CSV取込の後半（品目の確認をはさむ場合があるので分けてある）
+  finishMineImport(records, errors, encoding){
+    const {added, skipped} = Store.mergeJibun(records, 'csv');
+    State.mineImportSummary = `<div class="summary-box ${errors.length||skipped?'warn':''}">
+        <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+      </div>`;
+    UI.renderMain();
+    UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
+    // 取込直後：新植/据置の両方を作っている品種に未割当があれば、その場で割り当てを促す
+    if(added>0 && Compute.unassignedAllocRows().length>0){ UI.allocModal(); }
   },
   async handleBackupFile(file){
     try{
@@ -3860,21 +3834,23 @@ const App = {
     if(letter==='2L') return '2L' + count;
     return letter + (Number(count)!==50 ? count : '');
   },
+  // 書き出しCSVには必ず品目列を入れる。入れずに書き出すと、別の品目を選んだ状態で
+  // 読み戻したときに食い違い確認が働かず、丸ごと別品目のデータに化ける。
   buildSanchiCSV(){
-    const head = '日付,品種,規格,本数,箱数量,箱単価';
+    const head = '日付,品目,品種,規格,本数,箱数量,箱単価';
     const rows = Array.from(Compute.scopedSanchi().values())
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
-      .map(r=>[r.date, r.variety, r.grade, r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
+      .map(r=>[r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
     return {text:[head, ...rows].join('\r\n'), rows:rows.length};
   },
   buildJibunCSV(){
-    const head = '出荷日,品種名,規格,箱数,別本数';
+    const head = '出荷日,品目,品種名,規格,箱数,別本数';
     const rows = Compute.scopedJibun().slice()
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
       .map(r=>{
         const spec = r.betsuCount>0 ? '別' : App.specToStr(r.grade, r.count);
         const betsu = r.betsuCount>0 ? r.betsuCount : '';
-        return [r.date, r.variety, spec, r.boxQty, betsu].map(App.csvCell).join(',');
+        return [r.date, (r.item||DEFAULT_ITEM), r.variety, spec, r.boxQty, betsu].map(App.csvCell).join(',');
       });
     return {text:[head, ...rows].join('\r\n'), rows:rows.length};
   },
@@ -3932,8 +3908,11 @@ const App = {
 
 App.init();
 
-// 開発用の隠しフック（画面には出ない）。価格計算の回帰チェック用にサンプルを読み込む。
-// 使い方（DevToolsコンソール）: __curcumaDev.loadSample()  → コンソールに [SelfTest] OK が出れば計算は正常。
+// 開発用の隠しフック（画面には出ない）。
+// 使い方（DevToolsコンソール）:
+//   __curcumaDev.selfTest()   → 価格計算の回帰チェック。[SelfTest] OK が出れば正常。
+//   __curcumaDev.diag()       → 件数の一覧。改修の前後でこの数値が動かないことを確認する。
+//   __curcumaDev.loadSample() → サンプル読込（※本番データを全消去するので注意）
 window.__curcumaDev = {
   loadSample(){
     Store.loadSample();
@@ -3945,9 +3924,37 @@ window.__curcumaDev = {
     UI.route('sanchi');
     return 'サンプルを読み込みました（開発用）';
   },
-  selfTest(){ SelfTest.run(); }
+  selfTest(){ return SelfTest.run(); },
+  // 改修の前後で突き合わせる基準値。matched/unmatched は表示中の年度×品目に対する値なので、
+  // 比較するときは scope が同じであることを必ず確認する。
+  diag(){
+    const byItem = {};
+    const bump = (kind, name)=>{
+      const k = name || DEFAULT_ITEM;
+      if(!byItem[k]) byItem[k] = {産地:0, 自分:0, 作付:0};
+      byItem[k][kind]++;
+    };
+    Store.items.forEach(i=>{ if(!byItem[i.name]) byItem[i.name] = {産地:0, 自分:0, 作付:0}; });
+    Store.sanchi.forEach(r=>bump('産地', r.item));
+    Store.jibun.forEach(r=>bump('自分', r.item));
+    Store.sakutsuke.forEach(r=>bump('作付', r.item));
+    const m = Compute.matchJibun();
+    const d = {
+      build: APP_BUILD,
+      schema: SCHEMA_VERSION,
+      scope: `${State.selectedYear} / ${State.selectedItem}`,
+      'sanchi.size': Store.sanchi.size,
+      'jibun.length': Store.jibun.length,
+      'sakutsuke.length': Store.sakutsuke.length,
+      matched: m.filter(r=>r.matched).length,
+      unmatched: m.filter(r=>!r.matched).length,
+      pending: m.filter(r=>r.matched && r.pending).length
+    };
+    console.info('[diag]', d);
+    console.table(byItem);
+    return d;
+  }
 };
 </script>
-
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
 </body></html>
