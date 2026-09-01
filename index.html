@@ -19,8 +19,8 @@
   --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
   --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
-  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1;
-  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2;
+  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
+  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
   --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
   --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
@@ -36,8 +36,8 @@
     --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
     --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
-    --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741;
-    --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8;
+    --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
+    --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
     --shadow:none;
   }
 }
@@ -51,8 +51,8 @@
   --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
   --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
-  --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741;
-  --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8;
+  --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
+  --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
   --shadow:none;
 }
 :root[data-theme="light"]{
@@ -63,8 +63,8 @@
   --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
   --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
-  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1;
-  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2;
+  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
+  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
   --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
 }
 *{box-sizing:border-box;}
@@ -108,11 +108,18 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
   font-size:0.75rem; color:var(--ink-muted); background:var(--surface-2); border:1px solid var(--border);
   border-radius:var(--r-pill); padding:4px 10px; white-space:nowrap;
 }
-/* アプリバーのセレクタ。フォーム用の select より小さく、指では押しやすい高さを確保する */
+/* アプリバーのセレクタ。フォーム用の select より小さく、指では押しやすい高さを確保する。
+   font-size は 16px を下回らせないこと。iOS Safari は 16px 未満の入力欄にフォーカスすると
+   ページ全体をズームするため、0.875rem(=15.75px) だとセレクタを触るたびに本文が動いていた。
+   1rem(18px) にすると全角7文字が幅に収まらなくなるので、ちょうど 16px で止める。
+   scroll-margin も打ち消す：下の input/textarea 用の 116px は「アプリバーの裏に潜らせない」
+   ための余白だが、アプリバー自身（高さ約101px・sticky）の中にいるこのセレクタに適用すると
+   常に「はみ出している」判定になり、フォーカスのたびにページが上へ引き戻される。 */
 .scope-sel{flex:0 0 auto; min-width:0;}
 .scope-sel select{
-  width:auto; min-height:36px; padding:0 28px 0 12px; font-size:0.875rem; font-weight:700;
+  width:auto; min-height:36px; padding:0 28px 0 12px; font-size:16px; font-weight:700;
   color:var(--ink); border-radius:var(--r-pill); text-overflow:ellipsis;
+  scroll-margin-top:0; scroll-margin-bottom:0;
 }
 .scope-sel.select-wrap::after{right:11px; width:6px; height:6px;}
 #year-select{min-width:92px;}
@@ -120,8 +127,11 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
    幅を可変にすると品目名の長さで右端が動き、年度セレクタとの揃いが崩れる。
    156px＝border 2px ＋ 左右padding 40px ＋ 本文114px。
    全角7文字は 0.875rem(=15.75px) で 110.3px なので収まる（8文字は126pxで … に切れる）。
-   矢印は右端から11px・6px幅、テキスト領域は右端から28pxなので、右詰めでも重ならない。 */
-#item-select{width:156px; text-align:right;}
+   矢印は右端から11px・6px幅、テキスト領域は右端から28pxなので、右詰めでも重ならない。
+   閉じた状態の表示は text-align が効かないブラウザがあるので direction:rtl で寄せる。
+   option 側を ltr に戻さないと、開いた一覧の並びまで右基準になって読みにくくなる。 */
+#item-select{width:156px; direction:rtl; text-align:right;}
+#item-select option{direction:ltr; text-align:left;}
 .icon-btn{
   width:36px; height:36px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -204,8 +214,31 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
 .modal-status{font-size:0.8125rem; font-weight:700; min-height:1.2em; text-align:center;}
 .modal-status.ok{color:var(--primary);}
 .modal-status.warn{color:var(--warn-text);}
+/* ---- 設定モーダル（3階層のドリルダウン）---- */
+.set-titlebar{display:flex; align-items:center; gap:var(--sp2); padding-right:44px;}
+.set-back{width:32px; height:32px; flex:0 0 auto; border:none; background:transparent; color:var(--ink-muted);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; margin-left:-6px;}
+.set-back svg{width:22px; height:22px;}
+/* 1階層に1種類の情報だけを並べるリスト。行そのものがボタン */
+.set-list{display:flex; flex-direction:column; border-top:1px solid var(--border);}
+.set-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3); width:100%;
+  min-height:60px; padding:var(--sp3) var(--sp2); border:none; border-bottom:1px solid var(--border);
+  background:transparent; color:var(--ink); font-size:1.0625rem; font-weight:600; text-align:left; cursor:pointer;}
+.set-row:active{background:var(--surface-2);}
+.set-row-label{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+/* 右端の「＞」。これ以上先があることを示す */
+.set-row::after{content:""; flex:0 0 auto; width:8px; height:8px; margin-right:4px;
+  border-right:2px solid var(--ink-muted); border-bottom:2px solid var(--ink-muted); transform:rotate(-45deg);}
+.set-add{margin-top:var(--sp4);}
+.set-add summary{font-size:0.9375rem; font-weight:700; color:var(--primary); cursor:pointer; padding:var(--sp2) 0; list-style:none;}
+.set-add summary::-webkit-details-marker{display:none;}
 /* 設定モーダルの小見出し */
 .set-head{font-size:0.9375rem; font-weight:700; color:var(--ink); margin-bottom:var(--sp2);}
+.set-facts{display:flex; flex-direction:column; border-top:1px solid var(--border);}
+.set-fact{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);
+  padding:var(--sp3) var(--sp2); border-bottom:1px solid var(--border); font-size:0.9375rem;}
+.set-fact span{color:var(--ink-muted);}
+.set-fact b{font-weight:700;}
 .settings-modal .ship-del[disabled]{opacity:.3; cursor:default;}
 /* font-size は 16px 以上を維持（iOSは16px未満の入力にフォーカスすると自動ズームする） */
 .csv-text{width:100%; min-height:110px; max-height:200px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; line-height:1.5; white-space:pre; overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface-2); color:var(--ink); padding:8px;}
@@ -392,6 +425,8 @@ input[type="file"]{display:none;}
 .ship-name.mk3{background:var(--mk3);}
 .ship-name.mk4{background:var(--mk4);}
 .ship-name.mk5{background:var(--mk5);}
+.ship-name.mk6{background:var(--mk6);}
+.ship-name.mk7{background:var(--mk7);}
 .sv-specs{margin-top:4px;}
 .sv-spec{position:relative; padding:8px 44px 8px 0; border-top:1px solid var(--border);}
 .sv-spec:first-child{border-top:0; padding-top:2px;}
@@ -948,7 +983,7 @@ const STORAGE_KEY = 'curcuma.v1';
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-01c';
+const APP_BUILD = '2026-09-02a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year、品目マスタ items）。
 const SCHEMA_VERSION = 2;
 const DEFAULT_ITEM = 'クルクマ';
@@ -1011,6 +1046,15 @@ const Store = {
     Store.jibun.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) jibun++; });
     Store.sakutsuke.forEach(r=>{ if((r.item||DEFAULT_ITEM)===name) sakutsuke++; });
     return {sanchi, jibun, sakutsuke, total: sanchi + jibun + sakutsuke};
+  },
+  setItemStartMonth(name, m){
+    const it = Store.items.find(i=>i.name===name);
+    if(!it) return false;
+    const n = Number(m);
+    it.seasonStartMonth = (n>=1 && n<=12) ? n : 1;
+    Store.dirtyCount += 1;
+    Store.persist(); // 年度の区切りが変わるので、絞り込みキャッシュも無効化する
+    return true;
   },
   removeItem(name){
     if(Store.items.length<=1) return {ok:false, msg:'品目を0件にはできません'};
@@ -1932,7 +1976,7 @@ const Charts = {
     });
     // 選択中プロットの縁取り
     const highlight = `<circle class="pt-highlight" r="10" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
-    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="主要品種の価格推移" data-multiline-chart data-w="${W}">
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="主要5品種の価格推移" data-multiline-chart data-w="${W}">
       ${grid}${sunday}${paths}${markers}${highlight}${xlabels}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
     </svg>`;
     return {svg, isolated, ptMeta, w:W, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
@@ -1985,7 +2029,7 @@ const State = {
   mineCalMonth: null,    // 手入力カレンダーの表示月
   mineMode: 'csv',
   donutHighlight: null,
-  selectedSeries: [],     // 主要品種チャートで選択中の品種。空＝全表示（初期状態）
+  selectedSeries: [],     // 主要5品種チャートで選択中の品種。空＝全表示（初期状態）
   seriesSelectable: [],   // 凡例をタップできる品種（データのあるもの）
   pendingBackup: null,
   pendingRemoved: null,
@@ -1995,7 +2039,9 @@ const State = {
   multiMeta: null,
   lineDetailShow: null,   // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
   chartScrollLeft: null,  // 再描画をまたいで折れ線の横スクロール位置を保つ（nullなら右端＝最新日）
-  shipMonthsOpen: []      // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
+  shipMonthsOpen: [],     // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
+  settingsView: 'root',   // 設定モーダルの階層 'root'（項目一覧）→'items'（品目一覧）→'item'（1品目の詳細）
+  settingsItem: null      // 'item' 階層で見ている品目名
 };
 
 /* ============================== UI ============================== */
@@ -2056,10 +2102,22 @@ const UI = {
   },
   renderAppBar(){
     UI.ensureScope();
-    const ySel = document.getElementById('year-select');
-    ySel.innerHTML = Store.years().map(y=>`<option value="${y}"${y===String(State.selectedYear)?' selected':''}>${y}年</option>`).join('');
-    const iSel = document.getElementById('item-select');
-    iSel.innerHTML = Store.itemNames().map(n=>`<option value="${Fmt.esc(n)}"${n===State.selectedItem?' selected':''}>${Fmt.esc(n)}</option>`).join('');
+    // 選択肢の中身が変わった時だけ作り直す。毎描画で innerHTML を差し替えると、
+    // フォーカスが載ったままの select の子ノードを全消去することになり、
+    // フォーカスとドロップダウンがリセットされて、そのたびに再フォーカス＝
+    // ページのスクロールが起きていた。値だけ変わった時は value の代入で足りる。
+    const syncSelect = (el, values, selected, label)=>{
+      if(!el) return;
+      const sig = values.join('\n');
+      if(el.dataset.sig !== sig){
+        el.innerHTML = values.map(v=>`<option value="${Fmt.esc(v)}">${Fmt.esc(label ? label(v) : v)}</option>`).join('');
+        el.dataset.sig = sig;
+      }
+      const want = String(selected == null ? '' : selected);
+      if(el.value !== want) el.value = want;
+    };
+    syncSelect(document.getElementById('year-select'), Store.years(), State.selectedYear, y=>`${y}年`);
+    syncSelect(document.getElementById('item-select'), Store.itemNames(), State.selectedItem, null);
     const region = document.getElementById('storage-banner-region');
     if(Store.loadError){
       region.innerHTML = `<div class="storage-banner">⚠ 前回の保存データを読み込めませんでした（破損の可能性）。壊れたデータは退避しました。「保存」タブのバックアップから復元してください。</div>`;
@@ -2174,7 +2232,7 @@ const UI = {
     }
     // 日付の既定＝最新日
     if(!State.selectedDate) State.selectedDate = Compute.latestDate();
-    // 品種の既定＝主要品種。単一品種が消えた場合のみリセット
+    // 品種の既定＝主要5品種。単一品種が消えた場合のみリセット
     if(State.selectedVariety !== MAJOR_VARIETY_KEY && !list.find(v=>v.variety===State.selectedVariety)){
       State.selectedVariety = MAJOR_VARIETY_KEY;
     }
@@ -2191,7 +2249,7 @@ const UI = {
       ...restList.filter(v=>isMix(v.variety))
     ];
     const varietyOptions =
-      `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要品種</option>` +
+      `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
       orderedList.map(v=>`<option value="${Fmt.esc(v.variety)}" ${v.variety===State.selectedVariety?'selected':''}>${Fmt.esc(v.variety)}</option>`).join('');
     const selectorCard = `
       <div class="card">
@@ -2217,17 +2275,17 @@ const UI = {
     let donutCard, lineCard;
 
     if(isMajor){
-      // 主要品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
+      // 主要5品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
       donutCard = '';
 
-      // 折れ線＝主要品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
+      // 折れ線＝主要5品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
       const allSeries = UI.majorVarieties(list).map((variety,i)=>({variety, color:SERIES_COLORS[i%SERIES_COLORS.length], points:Compute.lineDataDense(variety)}));
       const anyData = allSeries.some(s=>s.points.some(p=>p.price!=null));
       if(!anyData){
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要品種）</h2></div>
-            <div class="empty-state"><p>主要品種の価格データがまだありません。</p></div>
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            <div class="empty-state"><p>主要5品種の価格データがまだありません。</p></div>
           </div>`;
       } else {
         // 凡例タップ＝絞り込み。選択が空なら全表示（初期状態）
@@ -2259,7 +2317,7 @@ const UI = {
         }
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
             ${chartInner}
             <div class="series-legend">${seriesLegend}</div>
             ${isolatedNote}
@@ -2391,13 +2449,13 @@ const UI = {
     const tsuboByVariety = {};
     Compute.scopedSakutsuke().forEach(r=>{ tsuboByVariety[r.variety]=(tsuboByVariety[r.variety]||0)+(Number(r.tsubo)||0); });
 
-    // 品種→色番号：自分出荷データの出現順に割り当て（最大5色で循環）。マーカーとドーナツで共用。
-    const markOrder = [];
-    matched.forEach(r=>{ if(r.variety && !markOrder.includes(r.variety)) markOrder.push(r.variety); });
-    const markMap = {}; markOrder.forEach((v,i)=>{ markMap[v] = (i%5)+1; });
     // ドーナツ・凡例・品種別内訳の並びは「出荷明細の出現順（日付降順→日内は取込順）」で固定＝金額順で入れ替えない
     const orderSeq = [];
     matched.slice().sort((a,b)=> b.date.localeCompare(a.date)).forEach(r=>{ if(r.variety && !orderSeq.includes(r.variety)) orderSeq.push(r.variety); });
+    // 品種→色番号。7色で循環し、マーカー(--mkN)・ドーナツ(--dnN)・凡例で共用する。
+    // 採番は表示順（orderSeq）から。取込順で採ると画面上の色が 1,2,3… の順に並ばず、
+    // 古いCSVを後から取り込むだけで既存の品種の色が動いてしまう。
+    const markMap = {}; orderSeq.forEach((v,i)=>{ markMap[v] = (i%7)+1; });
     const varietyRows = sum.varietyRows.slice().sort((a,b)=> orderSeq.indexOf(a.variety) - orderSeq.indexOf(b.variety));
     const cats = {};
     varietyRows.forEach((r)=>{ cats[r.variety] = r.amount; });
@@ -2585,8 +2643,10 @@ const UI = {
           const category=r.category;
           const isKon=category==='混植';
           // 区分インジケータ（品種名行の右）：混植=色丸「混」（=見開きトグル）／新植・据置=薄い楕円チップ
+          // 文字色は --ink。--dnN を --mkN に乗せると全色でコントラストが 1.9〜3.1:1 しか出ず読めない。
+          // どの品種かは下地（--mkN）が示すので、文字を黒にしても情報は失われない。
           const indicator = isKon
-            ? `<span class="vm-kon" style="color:var(--dn${mk});background:var(--mk${mk})">混</span>`
+            ? `<span class="vm-kon" style="color:var(--ink);background:var(--mk${mk})">混</span>`
             : category==='新植' ? `<span class="plant-cat plant-cat-shin">新植</span>`
             : category==='据置' ? `<span class="plant-cat plant-cat-sue">据置</span>`
             : '';
@@ -3079,46 +3139,84 @@ const UI = {
       </div>`).join('');
   },
   /* ---------- 設定（アプリバーの歯車から開く） ----------
-     いまは品目設定だけ。行内のボタンは data-action でグローバル委譲し、
-     更新はモーダルを開き直して反映する（allocModal と同じやり方）。 */
+     3階層のドリルダウン。State.settingsView / settingsItem が現在地を持つ。
+       root  … 設定の項目だけを並べる（いまは「品目設定」1つ）
+       items … 品目名だけを縦に並べる
+       item  … その品目の詳細（開始月の設定・件数・削除）
+     一覧は1階層に1種類の情報だけを出す。行のタップは data-action="settings-nav" で
+     グローバル委譲し、更新はモーダルを開き直して反映する（allocModal と同じやり方）。 */
   settingsModal(){
+    const view = State.settingsView || 'root';
     const root = document.getElementById('modal-root');
-    const monthOpts = Array.from({length:12},(_,i)=>i+1)
-      .map(m=>`<option value="${m}"${m===1?' selected':''}>${m}月</option>`).join('');
-    const rows = Store.items.map(it=>{
-      const use = Store.itemUsage(it.name);
+    let title = '設定', back = null, body = '';
+
+    if(view === 'root'){
+      body = `
+        <div class="set-list">
+          <button class="set-row" data-action="settings-nav" data-view="items">
+            <span class="set-row-label">品目設定</span>
+          </button>
+        </div>`;
+
+    } else if(view === 'items'){
+      title = '品目設定'; back = 'root';
+      const rows = Store.items.map(it=>`
+        <button class="set-row" data-action="settings-nav" data-view="item" data-name="${Fmt.esc(it.name)}">
+          <span class="set-row-label">${Fmt.esc(it.name)}</span>
+        </button>`).join('');
+      body = `
+        <div class="set-list">${rows}</div>
+        <details class="set-add">
+          <summary>＋ 品目を追加</summary>
+          <form data-action="submit-item" class="stack" style="margin-top:var(--sp3)">
+            <label class="field">品目名
+              <input type="text" name="name" placeholder="例: スイートピー" autocomplete="off" required>
+            </label>
+            <button type="submit" class="btn btn-secondary">追加する</button>
+          </form>
+          <p class="muted" style="font-size:0.8125rem; margin-top:var(--sp2)">追加したら、その品目を開いて年度の開始月を決めてください。</p>
+        </details>`;
+
+    } else {
+      const name = State.settingsItem;
+      const it = Store.items.find(i=>i.name===name);
+      if(!it){ State.settingsView = 'items'; return UI.settingsModal(); }
+      title = name; back = 'items';
       const start = Number(it.seasonStartMonth) || 1;
-      const counts = use.total ? `産地${use.sanchi}件・自分${use.jibun}件・作付${use.sakutsuke}件` : 'データなし';
+      const use = Store.itemUsage(name);
+      const monthOpts = Array.from({length:12},(_,i)=>i+1)
+        .map(m=>`<option value="${m}"${m===start?' selected':''}>${m}月</option>`).join('');
+      const rng = Compute.seasonRange(String(State.selectedYear || Store.currentYear()), name);
       const locked = use.total>0 || Store.items.length<=1;
-      return `
-      <div class="ship-row">
-        <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(it.name)}${it.name===State.selectedItem?' <span class="tag-betsu">表示中</span>':''}</span>
-          <span class="ship-detail">開始 ${start}月${start===1?'（暦年）':'（年をまたぐ）'}　${counts}</span>
+      body = `
+        <label class="field">年度の開始月
+          <div class="select-wrap"><select data-action="set-item-month" data-name="${Fmt.esc(name)}">${monthOpts}</select></div>
+        </label>
+        <p class="muted" style="font-size:0.8125rem">この品目の1年を何月から数えるかです。年度セレクタの区切りになります。${rng ? `<br>いま選んでいる ${Fmt.esc(String(State.selectedYear))}年度は <b>${Fmt.esc(rng)}</b> です。` : '<br>1月始まりなので、年度＝暦年です。'}</p>
+        <h3 class="set-head" style="margin-top:var(--sp5)">この品目のデータ</h3>
+        <div class="set-facts">
+          <div class="set-fact"><span>産地データ</span><b class="tnum">${Fmt.num(use.sanchi)}件</b></div>
+          <div class="set-fact"><span>自分の出荷</span><b class="tnum">${Fmt.num(use.jibun)}件</b></div>
+          <div class="set-fact"><span>作付設定</span><b class="tnum">${Fmt.num(use.sakutsuke)}件</b></div>
         </div>
-        <button class="ship-del" data-action="delete-item" data-name="${Fmt.esc(it.name)}"
-                aria-label="${Fmt.esc(it.name)}を削除"${locked?' disabled':''}>${Icon.trash}</button>
-      </div>`;
-    }).join('');
+        <div style="margin-top:var(--sp5)">
+          <button class="btn ${locked?'btn-ghost':'btn-danger'}" data-action="delete-item" data-name="${Fmt.esc(name)}"${locked?' disabled':''}>この品目を削除</button>
+          <p class="muted" style="font-size:0.8125rem; margin-top:var(--sp2)">${
+            use.total>0 ? 'データがある品目は削除できません。先に「保存」タブから書き出してください。'
+            : (Store.items.length<=1 ? '品目を0件にはできないので、これ1つだけのときは削除できません。'
+            : 'この品目にはまだデータがありません。')}</p>
+        </div>`;
+    }
+
     root.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-sheet settings-modal">
           <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
-          <h2 class="modal-title">設定</h2>
-          <div class="modal-body">
-            <h3 class="set-head">品目設定</h3>
-            <p class="muted" style="font-size:0.8125rem">ここに登録した品目が、上の品目セレクタに出ます。開始月は「その品目の1年を何月から数えるか」で、年度セレクタの区切りになります（例：11月にすると2026年度＝2026年11月〜2027年10月）。</p>
-            <div class="stack" style="margin-top:var(--sp3)">${rows}</div>
-            <form data-action="submit-item" class="stack" style="margin-top:var(--sp4)">
-              <label class="field">品目名
-                <input type="text" name="name" placeholder="例: スイートピー" autocomplete="off" required>
-              </label>
-              <label class="field">年度の開始月
-                <div class="select-wrap"><select name="startMonth">${monthOpts}</select></div>
-              </label>
-              <button type="submit" class="btn btn-secondary">品目を追加</button>
-            </form>
+          <div class="set-titlebar">
+            ${back ? `<button class="set-back" data-action="settings-nav" data-view="${back}" aria-label="戻る"></button>` : ''}
+            <h2 class="modal-title">${Fmt.esc(title)}</h2>
           </div>
+          <div class="modal-body">${body}</div>
           <div class="btn-row"><button class="btn btn-ghost" id="modal-cancel-btn">閉じる</button></div>
         </div>
       </div>`;
@@ -3126,6 +3224,8 @@ const UI = {
     backdrop.addEventListener('click', e=>{ if(e.target===backdrop) UI.closeModal(); });
     root.querySelector('#modal-x-btn').addEventListener('click', ()=>UI.closeModal());
     root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
+    const b = root.querySelector('.set-back');
+    if(b) b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
   },
   // CSV取込直後などに開く割り当てモーダル（未割当を日付×品種×規格ごとに一覧）
   allocModal(){
@@ -3332,8 +3432,19 @@ const UI = {
       tooltip.classList.remove('hidden');
       evt.stopPropagation();
     });
-    document.addEventListener('click', ()=>{ tooltip.classList.add('hidden'); });
-  }
+    // 画面外タップで閉じる。wireBarTooltip は再描画のたびに呼ばれるので、
+    // ここで毎回 addEventListener すると document にハンドラが溜まり続け、
+    // 切り離された古いノードを掴んだまま全部走る＝操作するほど重くなっていた。
+    // 登録は一度だけにして、その時点の tooltip ではなく現在のものを毎回引き直す。
+    if(!UI._barTooltipBound){
+      UI._barTooltipBound = true;
+      document.addEventListener('click', ()=>{
+        const tip = document.getElementById('bar-tooltip');
+        if(tip) tip.classList.add('hidden');
+      });
+    }
+  },
+  _barTooltipBound: false
 };
 
 /* ============================== App / events ============================== */
@@ -3375,11 +3486,15 @@ const App = {
       // キーボードと言える大きさの時だけ補正（誤検知でタブを飛ばさない）
       tabbar.style.transform = (gap > 120) ? `translateY(${gap}px)` : '';
     };
+    // アプリバーのセレクタは対象外。キーボードは出ないのに、iOSのピッカー開閉中は
+    // visualViewport の resize/scroll が連発するため、gap が 120 の前後を往復して
+    // タブバーがガタついていた。
+    const isTarget = (el)=> el.closest('input, textarea, select') && !el.closest('#appbar');
     document.addEventListener('focusin', (e)=>{
-      if(e.target.closest('input, textarea, select')){ focused = true; sync(); }
+      if(isTarget(e.target)){ focused = true; sync(); }
     });
     document.addEventListener('focusout', (e)=>{
-      if(e.target.closest('input, textarea, select')){
+      if(isTarget(e.target)){
         focused = false;
         tabbar.style.transform = ''; // 位置を必ず戻す
       }
@@ -3399,6 +3514,12 @@ const App = {
         UI.cycleTheme();
         break;
       case 'open-settings':
+        State.settingsView = 'root'; State.settingsItem = null; // 歯車は必ず一番上の階層から
+        UI.settingsModal();
+        break;
+      case 'settings-nav':
+        State.settingsView = t.getAttribute('data-view');
+        if(t.getAttribute('data-name')) State.settingsItem = t.getAttribute('data-name');
         UI.settingsModal();
         break;
       case 'delete-item': {
@@ -3411,8 +3532,12 @@ const App = {
           onConfirm:()=>{
             const r = Store.removeItem(name);
             if(!r.ok){ UI.toast(r.msg); return; }
-            UI.renderMain();      // ensureScope が選択中品目を立て直す
-            UI.settingsModal();   // 一覧を出し直す
+            UI.renderMain();              // ensureScope が選択中品目を立て直す
+            State.settingsView = 'items'; // 消した品目の詳細には戻れないので一覧へ
+            State.settingsItem = null;
+            // UI.modal は onConfirm の直後に必ず closeModal() を呼ぶ。
+            // ここで開き直すと即座に消されるので、閉じ終わってから開く。
+            setTimeout(()=>UI.settingsModal(), 0);
             UI.toast(`「${name}」を削除しました`);
           }
         });
@@ -3616,6 +3741,21 @@ const App = {
       State.shipMonthsOpen = [];
       State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
       UI.renderMain();
+      // 中身が丸ごと入れ替わるので先頭へ。そうしないと、前の画面より短い画面に
+      // なったときにブラウザがスクロール位置を勝手に切り詰め、下から中途半端な
+      // 位置へ飛ばされる（＝「勝手に動く」の一種）。
+      window.scrollTo(0, 0);
+      return;
+    }
+    // 設定 → 品目設定 → 品目 の中で、年度の開始月を変える
+    if(e.target.getAttribute && e.target.getAttribute('data-action')==='set-item-month'){
+      const name = e.target.getAttribute('data-name');
+      Store.setItemStartMonth(name, e.target.value);
+      // 開始月が変わると全レコードの年度所属が変わるので、選択中の年度を立て直す
+      State.selectedYear = null;
+      UI.renderMain();
+      UI.settingsModal();
+      UI.toast(`「${name}」の年度を${e.target.value}月始まりにしました`, {duration:5000});
       return;
     }
     if(e.target.id==='variety-select'){
@@ -3660,11 +3800,14 @@ const App = {
     } else if(act==='submit-item'){
       e.preventDefault();
       const f = e.target;
-      const r = Store.addItem(f.name.value, f.startMonth.value);
+      // 開始月は追加直後にその品目の詳細画面で決める（既定は1月＝暦年）
+      const r = Store.addItem(f.name.value, 1);
       if(!r.ok){ UI.toast(r.msg, {duration:5000}); return; }
-      UI.renderMain();      // 品目セレクタに反映
-      UI.settingsModal();   // 一覧を出し直す（入力欄は空に戻る）
-      UI.toast(`品目「${r.name}」を追加しました。上のセレクタで切り替えられます`, {duration:5000});
+      UI.renderMain();                 // 品目セレクタに反映
+      State.settingsView = 'item';     // そのまま詳細へ入って開始月を決めてもらう
+      State.settingsItem = r.name;
+      UI.settingsModal();
+      UI.toast(`品目「${r.name}」を追加しました。年度の開始月を決めてください`, {duration:5000});
     }
   },
 
