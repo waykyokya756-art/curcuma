@@ -12,6 +12,11 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <title>🌸 出荷分析</title>
 <style>
+/* ---- 配色トークン ----
+   ライトが既定で、ダークは下の2ブロックが上書きする。
+   ⚠ 色を1つ足すときに編集するのは【ライトの :root】と【ダークの2ブロック】。
+   ダークが2箇所あるのは、素のCSSではメディアクエリの内と外で1つのルール本体を
+   共有できないため（プリプロセッサ無しの制約）。ライト側はここ1箇所だけ。 */
 :root{
   --bg:#F6F8F4; --surface:#FFFFFF; --surface-2:#EFF3EC; --ink:#17201B; --ink-muted:#4C574E;
   --border:#E2E8DD; --primary:#2E7D5B; --primary-soft:#DCEDE3; --accent:#C2568A; --accent-soft:#F6E2ED;
@@ -22,27 +27,31 @@
   --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
   --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
+  /* 色以外（余白・角丸・書体）はテーマで変わらないのでここだけ */
   --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
   --font: -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
   --dur:190ms;
+  /* data-theme が付く前の1フレームだけ OS 設定に追従させる */
   color-scheme: light dark;
 }
+/* OSがダーク かつ アプリ内でライトを明示していない時。
+   :not([data-theme="light"]) が無いと、OSダークの端末でライトを選んでも
+   このブロックが勝ち続ける（下の [data-theme] 側と詳細度が同じため）。 */
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#10130F; --surface:#191E18; --surface-2:#212820; --ink:#E8EDE6; --ink-muted:#9AA79C;
     --border:#2C342B; --primary:#5BB98A; --primary-soft:#1E3A2C; --accent:#E58BB6; --accent-soft:#3A2430;
     --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
     --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
     --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
-  --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
+    --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
     --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
     --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
     --shadow:none;
   }
 }
-/* テーマを明示した時は color-scheme も固定する。そうしないと OS がダークの端末で
-   ライトを選んだ際、ネイティブの select のドロップダウンだけ暗いままになる。 */
+/* アプリ内でダークを選んだ時（OSがライトでも効く）。上のメディアブロックと同じ値。 */
 :root[data-theme="dark"]{
   color-scheme: dark;
   --bg:#10130F; --surface:#191E18; --surface-2:#212820; --ink:#E8EDE6; --ink-muted:#9AA79C;
@@ -55,18 +64,10 @@
   --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
   --shadow:none;
 }
-:root[data-theme="light"]{
-  color-scheme: light;
-  --bg:#F6F8F4; --surface:#FFFFFF; --surface-2:#EFF3EC; --ink:#17201B; --ink-muted:#4C574E;
-  --border:#E2E8DD; --primary:#2E7D5B; --primary-soft:#DCEDE3; --accent:#C2568A; --accent-soft:#F6E2ED;
-  --warn:#C77A2A; --warn-soft:#F7E9D4; --danger:#C0453B; --danger-soft:#F8DEDB;
-  --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
-  --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
-  --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
-  --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
-  --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
-  --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
-}
+/* アプリ内でライトを選んだ時。色は :root がそのまま効く（上のメディアブロックを
+   :not([data-theme="light"]) で外してあるため）ので、固定するのは color-scheme だけ。
+   これが無いと OS がダークの端末でネイティブ select のドロップダウンだけ暗いまま残る。 */
+:root[data-theme="light"]{ color-scheme: light; }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 html{font-size:112.5%; -webkit-text-size-adjust:100%; text-size-adjust:100%;} /* 既定16px→18px。文字の自動リサイズで再レイアウトが起きないよう固定 */
@@ -196,7 +197,6 @@ main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-dire
   font-size:0.875rem; display:flex; align-items:center; gap:var(--sp3); box-shadow:var(--shadow);
   max-width:90vw; animation:toast-in var(--dur) ease-out;
 }
-:root[data-theme="dark"] .toast, @media (prefers-color-scheme:dark){ .toast{} }
 .toast button{background:none; border:none; color:var(--accent); font-weight:700; cursor:pointer; font-size:0.875rem;}
 @keyframes toast-in{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
 
@@ -333,10 +333,6 @@ input[type="file"]{display:none;}
 .donut-center-lbl{font-size:0.625rem; fill:var(--ink-muted);}
 .legend-flex{flex:1 1 auto; min-width:0;}
 
-.tooltip{
-  position:absolute; background:var(--ink); color:var(--bg); padding:6px 10px; border-radius:var(--r-sm);
-  font-size:0.75rem; pointer-events:none; white-space:nowrap; transform:translate(-50%,-115%); z-index:5; box-shadow:var(--shadow);
-}
 .chart-caption{font-size:0.75rem; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:6px 10px;}
 /* 折れ線の詳細表示（固定位置。タップしたプロットの内容を表示） */
 .chart-detail{display:flex; align-items:center; gap:10px; min-height:72px; padding:8px 12px; border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border); color:var(--ink);}
@@ -347,8 +343,6 @@ input[type="file"]{display:none;}
 .chart-detail .cd-info{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.875rem; color:var(--ink-muted);}
 .chart-detail .cd-price{font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
 .chart-detail .cd-tag{font-size:0.75rem; color:var(--ink-muted); background:var(--surface); border:1px solid var(--border); border-radius:var(--r-pill); padding:2px 8px;}
-.chart-legend-row{display:flex; gap:var(--sp4); font-size:0.75rem; color:var(--ink-muted); flex-wrap:wrap;}
-.chart-legend-row span{display:inline-flex; align-items:center; gap:4px;}
 .selector-row{display:flex; gap:var(--sp3);}
 .selector-row .field{min-width:0;}
 .selector-row .date-field{flex:5;}
@@ -511,7 +505,6 @@ input[type="file"]{display:none;}
 .alloc-btns{display:flex; gap:6px;}
 .btn-plant{flex:1; min-height:40px; padding:0 8px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font-size:0.875rem; font-weight:700; cursor:pointer; white-space:nowrap;}
 .btn-plant:active{background:var(--border);}
-.btn-plant.is-on{border-color:var(--primary); background:var(--primary-soft); color:var(--primary);}
 
 details.collapse summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:var(--sp2); font-weight:600; font-size:0.875rem;}
 details.collapse summary::-webkit-details-marker{display:none;}
@@ -552,12 +545,12 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
     <div class="appbar-row">
       <div class="wordmark">🌸 出荷分析</div>
       <div class="appbar-right">
-        <div class="select-wrap scope-sel"><select id="year-select" data-action="scope-year" aria-label="年度を選ぶ"></select></div>
+        <div class="select-wrap scope-sel"><select id="year-select" aria-label="年度を選ぶ"></select></div>
         <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
       </div>
     </div>
     <div class="appbar-row appbar-row2">
-      <div class="select-wrap scope-sel"><select id="item-select" data-action="scope-item" aria-label="品目を選ぶ"></select></div>
+      <div class="select-wrap scope-sel"><select id="item-select" aria-label="品目を選ぶ"></select></div>
       <button class="icon-btn" id="settings-btn" data-action="open-settings" aria-label="設定"></button>
     </div>
   </header>
@@ -588,7 +581,6 @@ const Icon = {
 const Fmt = {
   yen(n){ if(n==null||Number.isNaN(n)) return '¥0'; return '¥' + Math.round(n).toLocaleString('ja-JP'); },
   num(n){ if(n==null||Number.isNaN(n)) return '0'; return Math.round(n).toLocaleString('ja-JP'); },
-  pct(n){ if(n==null||Number.isNaN(n)) return '0.0%'; return n.toFixed(1) + '%'; },
   date(iso){
     if(!iso) return '';
     const p = iso.split('-'); if(p.length!==3) return iso;
@@ -983,16 +975,10 @@ const STORAGE_KEY = 'curcuma.v1';
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-02a';
+const APP_BUILD = '2026-09-02b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year、品目マスタ items）。
 const SCHEMA_VERSION = 2;
 const DEFAULT_ITEM = 'クルクマ';
-// クルクマの規格マスタ。移行時にこの内容がそのまま品目マスタへ入る＝従来の Compute.classify と同じ分類になる。
-const CURCUMA_SPECS = [
-  {grade:'秀2L', count:30, label:'2L30'},
-  {grade:'秀2L', count:50, label:'2L50'},
-  {grade:'秀L',  count:50, label:'L50'}
-];
 const Store = {
   available: false,
   dirtyCount: 0,
@@ -1003,14 +989,16 @@ const Store = {
   sanchi: new Map(), // key -> {date,variety,grade,count,boxQty,boxPrice,item}
   jibun: [], // {id,date,variety,grade,count,boxQty,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
-  items: [], // 品目マスタ [{id,name,specs:[{grade,count,label}]}]
+  // 品目マスタ [{id,name,seasonStartMonth}]。規格は持たない（市場CSVが決めるので登録制にしない方針）。
+  // かつて specs を持っていたが読む側が一度も現れず、撤回したv3設計の跡地になっていたので撤去した。
+  items: [],
   meta: {lastBackupAt: null},
 
   currentYear(){ return String(new Date().getFullYear()); },
   // 品目マスタが空ならクルクマを作る（新規インストール・全消去後の保険）
   ensureItems(){
     if(!Array.isArray(Store.items) || Store.items.length===0){
-      Store.items = [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
+      Store.items = [{id:'i-curcuma', name:DEFAULT_ITEM, seasonStartMonth:1}];
     }
   },
   // 旧データ（開始月が無い品目）は暦年扱いに寄せる。
@@ -1033,7 +1021,7 @@ const Store = {
     const m = Number(startMonth);
     Store.items.push({
       id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      name: n, seasonStartMonth: (m>=1 && m<=12) ? m : 1, specs: []
+      name: n, seasonStartMonth: (m>=1 && m<=12) ? m : 1
     });
     Store.dirtyCount += 1;
     Store.persist(); // rev を上げて年度×品目の絞り込みキャッシュを無効化する
@@ -1116,7 +1104,7 @@ const Store = {
     out.jibun     = (data.jibun ||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
     out.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || dataYear)}));
     out.items     = (Array.isArray(data.items) && data.items.length) ? data.items
-                  : [{id:'i-curcuma', name:DEFAULT_ITEM, specs:CURCUMA_SPECS.map(s=>({...s})), seasonStartMonth:1}];
+                  : [{id:'i-curcuma', name:DEFAULT_ITEM, seasonStartMonth:1}];
     Store.migratedFrom = v;
     return out;
   },
@@ -1139,7 +1127,10 @@ const Store = {
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || Store.currentYear())}));
       // 品目名は importBackup と同じ Norm.text を通す。片方だけ正規化すると、
       // localStorage 経由で読んだ場合とバックアップ復元で読んだ場合とで正規形が変わる。
-      Store.items = Array.isArray(data.items) ? data.items.map(i=>({...i, name:Norm.text(i.name), specs:(i.specs||[]).map(s=>({...s}))})).filter(i=>i.name) : [];
+      // 既存の localStorage に残っている旧 specs はここで落とす（次の persist で保存からも消える）
+      Store.items = Array.isArray(data.items)
+        ? data.items.map(i=>({id:i.id, name:Norm.text(i.name), seasonStartMonth:i.seasonStartMonth})).filter(i=>i.name)
+        : [];
       Store.ensureItems();
       Store.normalizeItems();
       Store.meta = data.meta || {lastBackupAt:null};
@@ -1235,18 +1226,8 @@ const Store = {
     Store.jibun.splice(i, 0, rec);
     Store.persist();
   },
-  // 出荷行の作型割り当てをセット（plant='新植'|'据置'|'mix'、mixのみ sueokiStems=据置の本数）
-  setJibunPlant(id, plant, sueokiStems){
-    const rec = Store.jibun.find(r=>r.id===id);
-    if(!rec) return false;
-    rec.plant = plant;
-    rec.sueokiStems = (plant==='mix') ? Math.max(0, Number(sueokiStems)||0) : 0;
-    delete rec.sueokiRatio; // 旧形式（比率）は使わない
-    Store.dirtyCount += 1;
-    Store.persist();
-    return true;
-  },
-  // 日付×品種×規格のグループ単位で割り当て。mixのときは据置本数を各行へ本数按分。
+  // 日付×品種×規格のグループ単位で割り当て（plant='新植'|'据置'|'mix'、mixのみ sueokiStems=据置の本数）。
+  // mixのときは据置本数を各行へ本数按分。
   setJibunPlantGroup(ids, plant, sueokiStems){
     const recs = ids.map(id=>Store.jibun.find(r=>r.id===id)).filter(Boolean);
     if(recs.length===0) return false;
@@ -1357,10 +1338,13 @@ const Store = {
       date: Norm.date(r.date), variety: Norm.text(r.variety), grade: Norm.grade(r.grade), count: Norm.num(r.count),
       boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString(),
       item: Norm.text(r.item) || DEFAULT_ITEM,
-      // 作型の割り当て（未割当は null）。混在は据置の本数を保持（旧形式の比率も読めるよう保持）。
+      // 作型の割り当て（未割当は null）。混在は据置の本数で保持する。
       plant: (r.plant==='新植'||r.plant==='据置'||r.plant==='mix') ? r.plant : null,
       sueokiStems: Norm.num(r.sueokiStems)||0,
-      sueokiRatio: Norm.num(r.sueokiRatio)||0
+      // 旧形式の比率は「値が入っている時だけ」引き継ぐ。0 を書き込むと、
+      // setJibunPlantGroup が delete しているのに復元のたびに生え直して保存され続ける
+      // （読む側の allocFraction は undefined でも Number(undefined)||0 で 0 になるので挙動は同じ）。
+      ...(Norm.num(r.sueokiRatio) ? {sueokiRatio: Norm.num(r.sueokiRatio)} : {})
     }));
     const sakutsuke = (data.sakutsuke||[]).map((r,i)=>({
       id: r.id || ('s'+Date.now().toString(36)+i),
@@ -1373,9 +1357,8 @@ const Store = {
     const items = (Array.isArray(data.items) ? data.items : []).map((it,i)=>({
       id: it.id || ('i'+Date.now().toString(36)+i),
       name: Norm.text(it.name),
-      seasonStartMonth: (Number(it.seasonStartMonth)>=1 && Number(it.seasonStartMonth)<=12) ? Number(it.seasonStartMonth) : 1,
-      specs: (Array.isArray(it.specs)?it.specs:[]).map(sp=>({grade:Norm.grade(sp.grade), count:Norm.num(sp.count), label:Norm.text(sp.label)}))
-                                                  .filter(sp=>sp.grade && sp.label)
+      seasonStartMonth: (Number(it.seasonStartMonth)>=1 && Number(it.seasonStartMonth)<=12) ? Number(it.seasonStartMonth) : 1
+      // 旧バックアップの specs は読み捨てる（読む側がいないフィールドだった）
     })).filter(it=>it.name);
     Store.sanchi = sanchi;
     Store.jibun = jibun;
@@ -1423,9 +1406,8 @@ const Compute = {
     if(start === 1) return null;
     const y = parseInt(year,10);
     if(!Number.isFinite(y)) return null;
-    const endY = start === 1 ? y : y+1;
-    const endM = start === 1 ? 12 : start-1;
-    return `${y}年${start}月〜${endY}年${endM}月`;
+    // ここへ来る時点で start は2〜12。開始月から1年間なので、終わりは必ず翌暦年の (start-1) 月。
+    return `${y}年${start}月〜${y+1}年${start-1}月`;
   },
 
   /* ---- 年度×品目の絞り込み ----
@@ -1472,17 +1454,6 @@ const Compute = {
     });
     return Array.from(agg.entries()).map(([variety,a])=>({variety, boxes:a.boxes, days:a.days.size}))
       .sort((a,b)=>b.boxes-a.boxes);
-  },
-  donutData(variety){
-    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
-    let total = 0;
-    Compute.scopedSanchi().forEach(rec=>{
-      if(rec.variety !== variety) return;
-      const c = Compute.classify(rec.grade, rec.count);
-      cats[c] += rec.boxQty;
-      total += rec.boxQty;
-    });
-    return {cats, total};
   },
   latestDate(){
     let latest = null;
@@ -1581,7 +1552,7 @@ const Compute = {
       const t = (r.type==='据置') ? '据置' : '新植';
       if(!typesByVariety.has(v)) typesByVariety.set(v, {新植:false, 据置:false});
       if(!tsuboByType.has(v)) tsuboByType.set(v, {新植:0, 据置:0});
-      if((Number(r.tsubo)||0) > 0 || true) typesByVariety.get(v)[t] = true; // 登録があれば区分ありとみなす
+      typesByVariety.get(v)[t] = true; // 坪の大小は見ない。行が登録されていれば区分ありとみなす
       tsuboByType.get(v)[t] += (Number(r.tsubo)||0);
     });
     return {typesByVariety, tsuboByType};
@@ -1692,35 +1663,14 @@ const Compute = {
           shinshoku:{...v.split.shinshoku, tsubo:tt.新植, perTsubo:perT(v.split.shinshoku.amount, tt.新植), perStem:perS(v.split.shinshoku.amount, v.split.shinshoku.stems)},
           sueoki:   {...v.split.sueoki,    tsubo:tt.据置, perTsubo:perT(v.split.sueoki.amount, tt.据置),       perStem:perS(v.split.sueoki.amount, v.split.sueoki.stems)},
           unassigned: v.split.unassigned,
-          hasBoth: !!(typesByVariety.get(variety) && typesByVariety.get(variety).新植 && typesByVariety.get(variety).据置)
+          hasBoth: !!(tv && tv.新植 && tv.据置)
         }};
-    }).sort((a,b)=>b.amount-a.amount);
+    });
+    // ここでは並べ替えない。表示順は「出荷明細の出現順」で、それを知っているのは
+    // screenMine 側（orderSeq）だけ。以前は金額降順に並べていたが、呼び出し側が
+    // 必ず並べ直すので毎回捨てられており、並び順の仕様が2箇所に散っていた。
     const allocUnassignedCount = Compute.unassignedAllocGroups().length;
-    const byDate = new Map();
-    ok.forEach(r=>{
-      byDate.set(r.date, (byDate.get(r.date)||0) + r.amount);
-    });
-    const dateRows = Array.from(byDate.entries()).map(([date,amount])=>({date, amount})).sort((a,b)=>a.date.localeCompare(b.date));
-    let recentAmount = 0, recentDate = null;
-    if(dateRows.length){
-      recentDate = dateRows[dateRows.length-1].date;
-      recentAmount = dateRows[dateRows.length-1].amount;
-    }
-    return {total, totalBoxes, totalStems, avgPerStem, matchedCount:ok.length, pendingCount:pendingRows.length, unmatchedCount:bad.length, allocUnassignedCount, varietyRows, dateRows, pendingRows, unmatchedRows:bad, recentAmount, recentDate};
-  },
-  optionsForForm(){
-    const varieties = Compute.varietyList().map(v=>v.variety);
-    const gradesByVariety = new Map();
-    const countsByVariety = new Map();
-    const allGrades = new Set(); const allCounts = new Set();
-    Compute.scopedSanchi().forEach(rec=>{
-      allGrades.add(rec.grade); allCounts.add(rec.count);
-      if(!gradesByVariety.has(rec.variety)) gradesByVariety.set(rec.variety, new Set());
-      gradesByVariety.get(rec.variety).add(rec.grade);
-      if(!countsByVariety.has(rec.variety)) countsByVariety.set(rec.variety, new Set());
-      countsByVariety.get(rec.variety).add(rec.count);
-    });
-    return {varieties, gradesByVariety, countsByVariety, allGrades:Array.from(allGrades), allCounts:Array.from(allCounts).sort((a,b)=>a-b)};
+    return {total, totalBoxes, totalStems, avgPerStem, allocUnassignedCount, varietyRows, pendingRows, unmatchedRows:bad};
   }
 };
 
@@ -1801,11 +1751,10 @@ const Charts = {
     let loY = Math.floor(dMin/1000)*1000;
     let hiY = Math.ceil(dMax/1000)*1000;
     if(hiY<=loY) hiY = loY + 1000;
-    const units = (hiY-loY)/1000;
-    const innerH = units * PX_PER_1000;
+    const innerH = ((hiY-loY)/1000) * PX_PER_1000;
     const H = padT + innerH + padB;
     const yScale = (v)=> padT + innerH - ((v-loY)/(hiY-loY))*innerH;
-    return {loY, hiY, units, innerH, H, yScale};
+    return {loY, hiY, innerH, H, yScale};
   },
   // 横スクロールしても左端に固定するY軸ラベル（別レイヤーSVG）
   yAxisSVG(loY, hiY, yScale, padL, H){
@@ -1870,7 +1819,6 @@ const Charts = {
     const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
     const n = points.length;
     const W = Math.max(320, padL + padR + Math.max(1,n-1)*COLGAP);
-    const innerW = W-padL-padR;
     const withPrice = points.filter(p=>p.price!=null);
     if(withPrice.length===0){
       const H = 160;
@@ -1921,7 +1869,7 @@ const Charts = {
     const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="価格推移" data-line-chart data-padl="${padL}" data-padr="${padR}" data-w="${W}" data-n="${n}" data-x0="${x0}" data-x1="${x1}">
       ${grid}${sunday}${paths}${markers}${highlight}${xlabels}${hitLayer}
     </svg>`;
-    return {svg, isolated, points, xScale, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
+    return {svg, isolated, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
   },
   multiLineSVG(series){
     // series = [{variety, color, points, hidden}], points = Compute.lineData output
@@ -1932,7 +1880,6 @@ const Charts = {
     const dates = Array.from(dateSet).sort();
     const n = dates.length;
     const W = Math.max(320, padL + padR + Math.max(1,n-1)*COLGAP);
-    const innerW = W-padL-padR;
     const dateIndex = new Map(dates.map((d,i)=>[d,i]));
     const allPrices = [];
     series.forEach(s=> s.points.forEach(p=>{ if(p.price!=null) allPrices.push(p.price); }));
@@ -1980,30 +1927,6 @@ const Charts = {
       ${grid}${sunday}${paths}${markers}${highlight}${xlabels}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
     </svg>`;
     return {svg, isolated, ptMeta, w:W, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
-  },
-  barSVG(rows, opts){
-    opts = opts||{};
-    const W = 320, H = 170, padL = 8, padR = 8, padT = 10, padB = 24;
-    const innerW = W-padL-padR, innerH = H-padT-padB;
-    const n = rows.length;
-    if(n===0) return `<svg viewBox="0 0 ${W} ${H}"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="12">データがありません</text></svg>`;
-    const max = Math.max(...rows.map(r=>r.amount), 1);
-    const bw = Math.min(28, innerW/n*0.6);
-    const gap = innerW/n;
-    let bars = '';
-    let xlabels = '';
-    const maxLabels = 6;
-    const step = Math.max(1, Math.ceil(n/maxLabels));
-    rows.forEach((r,i)=>{
-      const h = (r.amount/max) * innerH;
-      const x = padL + gap*i + (gap-bw)/2;
-      const y = padT + innerH - h;
-      const rad = Math.min(6, bw/2, h);
-      const d = `M ${x} ${y+rad} A ${rad} ${rad} 0 0 1 ${x+rad} ${y} L ${x+bw-rad} ${y} A ${rad} ${rad} 0 0 1 ${x+bw} ${y+rad} L ${x+bw} ${y+h} L ${x} ${y+h} Z`;
-      bars += `<path d="${d}" fill="var(--primary)" data-bar="${i}" data-val="${r.amount}"/>`;
-      if(i%step===0) xlabels += `<text x="${x+bw/2}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--ink-muted)">${Fmt.date(r.date)}</text>`;
-    });
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日別売上" data-bar-chart>${bars}${xlabels}</svg>`;
   }
 };
 
@@ -2032,8 +1955,6 @@ const State = {
   selectedSeries: [],     // 主要5品種チャートで選択中の品種。空＝全表示（初期状態）
   seriesSelectable: [],   // 凡例をタップできる品種（データのあるもの）
   pendingBackup: null,
-  pendingRemoved: null,
-  undoTimer: null,
   sanchiImportSummary: '',
   mineImportSummary: '',
   multiMeta: null,
@@ -2184,8 +2105,6 @@ const UI = {
       }
     }
     if(State.tab==='mine'){
-      const barWrap = document.querySelector('[data-bar-wrap]');
-      if(barWrap) UI.wireBarTooltip(barWrap);
       // 出荷明細一覧の月アコーディオン：開閉状態を State に控えて再描画をまたいで保つ
       document.querySelectorAll('#main details.ship-month').forEach(d=>{
         d.addEventListener('toggle', ()=>{
@@ -3413,38 +3332,7 @@ const UI = {
       evt.stopPropagation();
     };
     UI.tapOnly(svg, handle);
-  },
-
-  wireBarTooltip(wrap){
-    const svg = wrap.querySelector('svg[data-bar-chart]');
-    if(!svg) return;
-    const tooltip = wrap.querySelector('#bar-tooltip');
-    svg.addEventListener('click', (evt)=>{
-      const bar = evt.target.closest('[data-bar]');
-      if(!bar) { tooltip.classList.add('hidden'); return; }
-      const rect = svg.getBoundingClientRect();
-      const bbox = bar.getBBox();
-      const vb = svg.viewBox.baseVal;
-      const px = ((bbox.x+bbox.width/2)/vb.width) * rect.width;
-      tooltip.style.left = px + 'px';
-      tooltip.style.top = '0px';
-      tooltip.textContent = Fmt.yen(parseFloat(bar.getAttribute('data-val')));
-      tooltip.classList.remove('hidden');
-      evt.stopPropagation();
-    });
-    // 画面外タップで閉じる。wireBarTooltip は再描画のたびに呼ばれるので、
-    // ここで毎回 addEventListener すると document にハンドラが溜まり続け、
-    // 切り離された古いノードを掴んだまま全部走る＝操作するほど重くなっていた。
-    // 登録は一度だけにして、その時点の tooltip ではなく現在のものを毎回引き直す。
-    if(!UI._barTooltipBound){
-      UI._barTooltipBound = true;
-      document.addEventListener('click', ()=>{
-        const tip = document.getElementById('bar-tooltip');
-        if(tip) tip.classList.add('hidden');
-      });
-    }
-  },
-  _barTooltipBound: false
+  }
 };
 
 /* ============================== App / events ============================== */
@@ -3680,10 +3568,6 @@ const App = {
         UI.mixStemsModal(t.getAttribute('data-key'), fromModal);
         break;
       }
-      case 'open-alloc-modal': {
-        UI.allocModal();
-        break;
-      }
       case 'delete-sakutsuke-row': {
         const id = t.getAttribute('data-id');
         const removed = Store.removeSakutsuke(id);
@@ -3704,9 +3588,6 @@ const App = {
           danger:true, confirmLabel:'完全に消去する',
           onConfirm:()=>{ Store.resetAll(); UI.toast('全データを消去しました'); State.selectedVariety=MAJOR_VARIETY_KEY; State.selectedDate=null; UI.route('import'); }
         });
-        break;
-      case 'close-modal':
-        UI.closeModal();
         break;
       case 'step-boxqty': {
         const input = document.querySelector('input[name="boxQty"]');
