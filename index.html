@@ -504,6 +504,14 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 .summary-box{background:var(--primary-soft); color:var(--primary); border-radius:var(--r-md); padding:var(--sp3); font-size:0.8125rem; display:flex; flex-direction:column; gap:4px;}
 .summary-box.warn{background:var(--warn-soft); color:var(--warn-text);}
 .err-box{background:var(--danger-soft); color:var(--danger-text); border-radius:var(--r-md); padding:var(--sp3); font-size:0.75rem;}
+/* 取込エラーの明細。件数だけでは何を直せばいいか分からないので、項目名と原文を出す */
+.import-errors{margin-top:var(--sp2);}
+.import-errors summary{font-size:0.8125rem;}
+.import-err{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; padding:6px 8px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm);}
+.ie-line{flex:0 0 auto; font-size:0.75rem; font-weight:700; color:var(--ink);}
+.ie-why{flex:1 1 auto; min-width:0; font-size:0.75rem; font-weight:700; color:var(--danger-text);}
+.ie-raw{flex:1 1 100%; min-width:0; font-size:0.6875rem; color:var(--ink-muted); word-break:break-all;}
 
 .hidden{display:none !important;}
 .muted{color:var(--ink-muted);}
@@ -588,14 +596,12 @@ const Fmt = {
 /* ============================== Norm ============================== */
 const Norm = {
   text(s){ return (s==null?'':String(s)).normalize('NFKC').trim(); },
-  grade(s){
-    const t = Norm.text(s);
-    if(t==='') return '';
-    if(t==='別') return '別';
-    const core = t.replace(/^秀/,'').toUpperCase();
-    if(['2L','L','M','S'].includes(core)) return '秀'+core;
-    return t;
-  },
+  // 等級（秀 / 4P / 別 …）。v2 までは「秀」を自動で付けていたが、それは
+  // 等級と階級が1列に連結されていた時代の名残で、スイートピーの階級 '2L' を
+  // '秀2L' に化けさせる地雷だった。いまは正規化するだけで語彙には触らない。
+  grade(s){ return Norm.text(s); },
+  // 階級（2L / L / M / S …）。全角や小文字の揺れだけ吸収する。
+  size(s){ return Norm.text(s).toUpperCase(); },
   date(s){
     let t = Norm.text(s);
     if(t==='') return '';
@@ -608,6 +614,15 @@ const Norm = {
     }
     return t;
   },
+  // YYYY-MM-DD が実在する日付か。桁数だけを見る /^\d{4}-\d{2}-\d{2}$/ では
+  // 2026-13-99 のような存在しない日付が通ってしまい、どのシーズンにも属さない
+  // 見えないレコードとして保存されてしまう。
+  validDate(iso){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.getFullYear()===y && dt.getMonth()===m-1 && dt.getDate()===d;
+  },
   num(s){
     if(typeof s === 'number') return s;
     let t = Norm.text(s).replace(/[,，]/g,'');
@@ -616,14 +631,16 @@ const Norm = {
     return n;
   },
   // 産地レコードの一意キー。先頭に品目を含めるのが必須。
-  // 含めないと、同じ(日付・品種・規格・本数)を持つ別品目の行が Store.sanchi の Map で衝突し、
+  // 含めないと、同じ(日付・品種・等級・階級・本数)を持つ別品目の行が Store.sanchi の Map で衝突し、
   // 後から取り込んだ側が先の品目のレコードを黙って上書きする（上書きされた側は画面から消える）。
-  // このキーは永続化されない派生値で、load / importBackup が起動のたびに計算し直している。
-  key(item, date, variety, grade, count){
-    return JSON.stringify([Norm.text(item) || DEFAULT_ITEM, Norm.date(date), Norm.text(variety), Norm.grade(grade), Norm.num(count)]);
+  // このキーは永続化されない派生値で、load / importBackup が起動のたびに計算し直している
+  // ＝形を変えてもデータ移行は不要。検証は Store.sanchi.size が不変であること。
+  key(item, date, variety, grade, size, count){
+    return JSON.stringify([Norm.text(item) || DEFAULT_ITEM, Norm.date(date), Norm.text(variety),
+                           Norm.grade(grade), Norm.size(size), Norm.num(count)]);
   },
   // レコード1個からキーを作る。引数の並び間違いを防ぐため、可能な限りこちらを使う。
-  keyOf(rec){ return Norm.key(rec.item, rec.date, rec.variety, rec.grade, rec.count); }
+  keyOf(rec){ return Norm.key(rec.item, rec.date, rec.variety, rec.grade, rec.size, rec.count); }
 };
 
 /* ============================== Parse ============================== */
@@ -665,14 +682,21 @@ const Parse = {
     headerRow.forEach((h,i)=>{ idx[Norm.text(h)] = i; });
     return idx;
   },
-  sanchiCSV(text){
+  /* 産地CSV。列は 日付,品目,品種,等級,階級,本数,箱数量,箱単価。
+     等級と階級は別の列で受け取る（市場ごとに規格の体系が違うため、連結された1列だと
+     「等級を問わず2Lだけ見る」といった操作が文字列の切り貼りになる）。
+     戻り値の unknownSpecs＝取り込みには成功したが、その品目の price/donut の
+     規則に載っていない 等級×階級。壊れた入力ではないので行は保存し、警告だけ出す。 */
+  sanchiCSV(text, item){
     const rows = Parse.csv(text);
-    if(rows.length===0) return {records:[], errors:[], dupCount:0};
+    if(rows.length===0) return {records:[], errors:[], dupCount:0, unknownSpecs:[]};
     const idx = Parse.headerIndex(rows[0]);
-    const need = ['日付','品種','規格','本数','箱数量','箱単価'];
+    const need = ['日付','品種','等級','階級','本数','箱数量','箱単価'];
     const missing = need.filter(k=>!(k in idx));
     if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
     const records = []; const errors = []; const seen = new Set(); let dupCount = 0;
+    const known = Parse.knownSpecs(item);
+    const unknown = new Map();
     for(let r=1;r<rows.length;r++){
       const row = rows[r];
       if(row.every(f=>Norm.text(f)==='')) continue;
@@ -680,34 +704,63 @@ const Parse = {
       // （「5/14」など）を原文のまま返すので、ここで弾かないと年度のどこにも属さない
       // 見えないレコードとして保存されてしまう。
       const dateRaw = Norm.date(row[idx['日付']]);
-      const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : '';
+      const date = Norm.validDate(dateRaw) ? dateRaw : '';
       const variety = Norm.text(row[idx['品種']]);
-      const grade = Norm.grade(row[idx['規格']]);
+      const grade = Norm.grade(row[idx['等級']]);
+      const size = Norm.size(row[idx['階級']]);
       const count = Norm.num(row[idx['本数']]);
       const boxQty = Norm.num(row[idx['箱数量']]);
       // 箱単価は「未確定」(文字列)を許容＝pendingとしてnullで保持。空欄・ゴミ数値は従来どおりエラー。
       const priceRaw = Norm.text(row[idx['箱単価']]);
       const boxPrice = (priceRaw === '未確定') ? null : Norm.num(priceRaw);
-      if(!date || !variety || !grade || Number.isNaN(count) || Number.isNaN(boxQty) || (boxPrice!==null && Number.isNaN(boxPrice))){
-        errors.push({line:r+1, raw:row.join(',')});
+      // 「別」は階級を持たず本数0。それ以外は階級が要る。
+      const isBetsu = (grade === '別');
+      // どの項目が原因かを残す。件数だけだと「何を直せばいいか」が分からない。
+      const reasons = [];
+      if(!date) reasons.push('日付');
+      if(!variety) reasons.push('品種');
+      if(!grade) reasons.push('等級');
+      if(!isBetsu && !size) reasons.push('階級');
+      if(Number.isNaN(count)) reasons.push('本数');
+      if(Number.isNaN(boxQty)) reasons.push('箱数量');
+      if(boxPrice !== null && Number.isNaN(boxPrice)) reasons.push('箱単価');
+      if(reasons.length){
+        errors.push({line:r+1, raw:row.join(','), reasons});
         continue;
       }
       // CSV内の重複検出用のキー。1つのCSVは1つの品目に取り込まれるので、ここは品目抜きで足りる。
       // 保存先の Map のキーは mergeSanchi が品目込みで作り直す。
-      const dupKey = JSON.stringify([date, variety, grade, count]);
+      const dupKey = JSON.stringify([date, variety, grade, size, count]);
       if(seen.has(dupKey)) dupCount++;
       seen.add(dupKey);
+      if(!isBetsu && known && !known.has(grade + '|' + size)){
+        const k = grade + ' × ' + size;
+        unknown.set(k, (unknown.get(k) || 0) + 1);
+      }
       // csvItem＝CSVの品目列（あれば）。保存には使わず、選択中の品目との食い違い警告にだけ使う。
-      records.push({date, variety, grade, count, boxQty, boxPrice, csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
+      records.push({date, variety, grade, size, count, boxQty, boxPrice,
+                    csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
-    return {records, errors, dupCount};
+    return {records, errors, dupCount,
+            unknownSpecs: Array.from(unknown, ([spec, n])=>({spec, n}))};
   },
-  // 「2L30」→{秀2L,30}, 「2L50」→{秀2L,50}, 「L」→{秀L,50}, 「M」→{秀M,50}
+  // その品目で「扱いが決まっている」等級×階級の集合。price も donut も無ければ null＝判定しない。
+  knownSpecs(item){
+    const rule = itemRule(item);
+    if(!rule.price && !rule.donut) return null;
+    const s = new Set();
+    (rule.price ? rule.price.basis : []).forEach(([g, sz])=> s.add(g + '|' + sz));
+    (rule.donut ? rule.donut.buckets : []).forEach(b=> s.add(b.grade + '|' + b.size));
+    return s;
+  },
+  /* 自分CSVの「規格」列（階級＋本数の省略記法）を分解する。
+     「2L30」→{2L,30}, 「2L50」→{2L,50}, 「L」→{L,50}, 「M」→{M,50}
+     等級は持たないので、呼び出し側が品目の defaultGrade を補う。 */
   parseSpec(raw){
     const t = Norm.text(raw).toUpperCase().replace(/秀/g,'').replace(/\s/g,'');
     const m = t.match(/^(2L|L|M|S)(\d+)?$/);
     if(!m) return null;
-    return {grade:'秀'+m[1], count: m[2] ? parseInt(m[2],10) : 50};
+    return {size:m[1], count: m[2] ? parseInt(m[2],10) : 50};
   },
   // 出荷日が m/d のみなら産地のシーズン年を補完
   // 出荷日が m/d のみなら、選択中シーズンの暦年を補完する。
@@ -726,14 +779,22 @@ const Parse = {
     }
     return full;
   },
-  jibunCSV(text){
+  /* 自分の出荷CSV。産地と同じ 等級／階級／本数 の分割形式を正とする。
+       出荷日,品目,品種名,等級,階級,本数,箱数,別本数
+     等級の列が無ければ品目の defaultGrade で補う（自分の出荷は必ず「秀」という運用）。
+     移行期の事故を防ぐため、旧「規格」列（2L30 形式）も読めるフォールバックを残す。 */
+  jibunCSV(text, item){
     const rows = Parse.csv(text);
     if(rows.length===0) return {records:[], errors:[]};
     const idx = Parse.headerIndex(rows[0]);
-    const need = ['出荷日','品種名','規格','箱数'];
+    const hasSplit = ('階級' in idx);           // 分割形式か
+    const hasLegacy = ('規格' in idx);          // 旧形式（階級＋本数の省略記法）
+    const need = ['出荷日','品種名','箱数'].concat(hasSplit ? ['階級','本数'] : ['規格']);
     const missing = need.filter(k=>!(k in idx));
     if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
+    if(!hasSplit && !hasLegacy) throw new Error('必須列が見つかりません: 階級（または規格）');
     const hasBetsu = '別本数' in idx;
+    const defGrade = itemRule(item || State.selectedItem || DEFAULT_ITEM).defaultGrade || '秀';
     // 月日だけの日付は「いま選んでいるシーズン」に入れる（データの最終日から推測すると、
     // 空のシーズンへ取り込んだ時に別の年に飛ぶ）。
     const seasonYear = String(State.selectedYear || Store.currentYear());
@@ -742,24 +803,37 @@ const Parse = {
     for(let r=1;r<rows.length;r++){
       const row = rows[r];
       if(row.every(f=>Norm.text(f)==='')) continue;
-      const date = Parse.resolveShipDate(row[idx['出荷日']], seasonYear, startMonth);
+      const dateRaw = Parse.resolveShipDate(row[idx['出荷日']], seasonYear, startMonth);
+      const date = Norm.validDate(dateRaw) ? dateRaw : '';
       const variety = Norm.text(row[idx['品種名']]);
       const boxQty = Norm.num(row[idx['箱数']]);
       const betsuRaw = hasBetsu ? Norm.num(row[idx['別本数']]) : NaN;
-      let grade, count, betsuCount = 0;
+      let grade = '', size = '', count = NaN, betsuCount = 0;
       if(!Number.isNaN(betsuRaw) && betsuRaw>0){
-        // 別扱い：産地の「別（本数0）」の箱単価にマッチさせる。規格ラベルは本数換算に使わない
-        grade = '別'; count = 0; betsuCount = betsuRaw;
+        // 別扱い：産地の「別（階級なし・本数0）」の箱単価にマッチさせる
+        grade = '別'; size = ''; count = 0; betsuCount = betsuRaw;
+      } else if(hasSplit){
+        grade = ('等級' in idx) ? (Norm.grade(row[idx['等級']]) || defGrade) : defGrade;
+        size = Norm.size(row[idx['階級']]);
+        count = Norm.num(row[idx['本数']]);
       } else {
         const spec = Parse.parseSpec(row[idx['規格']]);
-        if(spec){ grade = spec.grade; count = spec.count; }
+        if(spec){ grade = defGrade; size = spec.size; count = spec.count; }
       }
-      if(!date || !variety || !grade || Number.isNaN(boxQty) || boxQty<=0){
-        errors.push({line:r+1, raw:row.join(',')});
+      const reasons = [];
+      if(!date) reasons.push('出荷日');
+      if(!variety) reasons.push('品種名');
+      if(!grade) reasons.push('等級');
+      if(grade !== '別' && !size) reasons.push(hasSplit ? '階級' : '規格');
+      if(Number.isNaN(count)) reasons.push(hasSplit ? '本数' : '規格');
+      if(Number.isNaN(boxQty) || boxQty<=0) reasons.push('箱数');
+      if(reasons.length){
+        errors.push({line:r+1, raw:row.join(','), reasons});
         continue;
       }
       // csvItem＝CSVの品目列（あれば）。産地CSVと同じく、保存には使わず食い違い警告にだけ使う。
-      records.push({date, variety, grade, count, boxQty, betsuCount, csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
+      records.push({date, variety, grade, size, count, boxQty, betsuCount,
+                    csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
     return {records, errors};
   }
@@ -767,183 +841,183 @@ const Parse = {
 
 /* ============================== Sample data ============================== */
 // 産地サンプル = ユーザー提供の実CSVそのまま（◇マーカー日・線の途切れ・極小スライス・長い品種名を含む）
-const SAMPLE_SANCHI_CSV = `日付,品目,品種,規格,本数,箱数量,箱単価
-2026-04-23,クルクマ,パルビフローラ,秀L,50,2,7500
-2026-04-23,クルクマ,パルビフローラ,秀M,50,1,6000
-2026-04-26,クルクマ,パルビフローラ,秀L,50,3,7500
-2026-04-26,クルクマ,パルビフローラ,秀M,50,1,5000
-2026-04-26,クルクマ,パルビフローラ,別,0,1,5100
-2026-04-30,クルクマ,パルビフローラ,秀L,50,6,7500
-2026-04-30,クルクマ,パルビフローラ,別,0,1,5950
-2026-05-03,クルクマ,パルビフローラ,秀2L,30,1,5400
-2026-05-03,クルクマ,パルビフローラ,秀L,50,8,7587
-2026-05-03,クルクマ,パルビフローラ,秀M,50,1,5700
-2026-05-07,クルクマ,エメラルドチョコゼブラ,秀2L,30,5,6746
-2026-05-07,クルクマ,エメラルドチョコゼブラ,別,0,1,5700
-2026-05-07,クルクマ,パルビフローラ,秀2L,50,1,9000
-2026-05-07,クルクマ,パルビフローラ,秀L,50,12,7473
-2026-05-07,クルクマ,パルビフローラ,秀M,50,1,6000
-2026-05-07,クルクマ,パルビフローラ,秀M,100,1,8000
-2026-05-07,クルクマ,パルビフローラ,別,0,1,6800
-2026-05-07,クルクマ,ミックス,別,0,1,5400
-2026-05-10,クルクマ,ホワイトジャスミン,秀2L,30,3,7200
-2026-05-10,クルクマ,ホワイトジャスミン,別,0,1,6000
-2026-05-10,クルクマ,エメラルドチョコゼブラ,秀2L,30,9,6755
-2026-05-10,クルクマ,エメラルドチョコゼブラ,秀L,50,5,9008
-2026-05-10,クルクマ,エメラルドチョコゼブラ,別,0,1,6000
-2026-05-10,クルクマ,チェリープリンセスデーン,秀2L,30,2,4950
-2026-05-10,クルクマ,チェリープリンセスデーン,秀2L,50,2,7500
-2026-05-10,クルクマ,チェリープリンセスデーン,秀L,50,2,7500
-2026-05-10,クルクマ,パルビフローラ,秀2L,30,2,4500
-2026-05-10,クルクマ,パルビフローラ,秀2L,50,8,7275
-2026-05-10,クルクマ,パルビフローラ,秀L,50,5,6600
-2026-05-10,クルクマ,パルビフローラ,別,0,1,3600
-2026-05-10,クルクマ,プーディンレッド,別,0,1,5400
-2026-05-10,クルクマ,リボン,秀2L,30,4,7450
-2026-05-10,クルクマ,ロージーレッド,秀2L,30,1,5400
-2026-05-10,クルクマ,ミックス,秀2L,30,1,6000
-2026-05-10,クルクマ,ミックス,別,0,1,5400
-2026-05-12,クルクマ,ホワイトジャスミン,秀2L,30,5,6900
-2026-05-12,クルクマ,ホワイトジャスミン,別,0,2,7400
-2026-05-12,クルクマ,パルビフローラ,秀L,50,9,7022
-2026-05-12,クルクマ,パルビフローラ,別,0,2,6350
-2026-05-12,クルクマ,プーディンレッド,別,0,1,6000
-2026-05-12,クルクマ,リボン,秀2L,30,8,7037
-2026-05-12,クルクマ,ミックス,別,0,1,5400
-2026-05-14,クルクマ,ホワイトジャスミン,秀2L,30,16,6600
-2026-05-14,クルクマ,ホワイトジャスミン,秀L,50,2,9500
-2026-05-14,クルクマ,ホワイトジャスミン,別,0,1,5400
-2026-05-14,クルクマ,エメラルドチョコゼブラ,秀2L,30,17,6264
-2026-05-14,クルクマ,エメラルドチョコゼブラ,秀L,50,1,8000
-2026-05-14,クルクマ,エメラルドチョコゼブラ,別,0,2,6000
-2026-05-14,クルクマ,チェリープリンセスデーン,秀2L,30,1,3600
-2026-05-14,クルクマ,チェリープリンセスデーン,秀2L,50,13,7307
-2026-05-14,クルクマ,チェリープリンセスデーン,秀L,50,5,6100
-2026-05-14,クルクマ,パルビフローラ,秀2L,30,4,4275
-2026-05-14,クルクマ,パルビフローラ,秀2L,50,6,7833
-2026-05-14,クルクマ,パルビフローラ,秀L,50,4,6375
-2026-05-14,クルクマ,パルビフローラ,別,0,1,4500
-2026-05-14,クルクマ,プーディンレッド,秀2L,30,1,5400
-2026-05-14,クルクマ,プーディンレッド,別,0,1,4800
-2026-05-14,クルクマ,メージョーインプレッシブピンク,秀2L,30,2,7200
-2026-05-14,クルクマ,リボン,秀2L,30,12,6975
-2026-05-14,クルクマ,ロージーレッド,秀2L,30,3,5100
-2026-05-14,クルクマ,ミックス,秀2L,30,1,6600
-2026-05-14,クルクマ,ミックス,秀2L,50,1,7000
-2026-05-14,クルクマ,ミックス,別,0,1,4800
-2026-05-17,クルクマ,ホワイトジャスミン,秀2L,30,28,6128
-2026-05-17,クルクマ,ホワイトジャスミン,秀2L,50,2,9000
-2026-05-17,クルクマ,ホワイトジャスミン,秀L,50,6,7583
-2026-05-17,クルクマ,ホワイトジャスミン,別,0,1,5400
-2026-05-17,クルクマ,エメラルドチョコゼブラ,秀2L,30,25,5688
-2026-05-17,クルクマ,エメラルドチョコゼブラ,秀2L,50,20,8055
-2026-05-17,クルクマ,エメラルドチョコゼブラ,別,0,4,4550
-2026-05-17,クルクマ,プラートーン,秀2L,50,1,8000
-2026-05-17,クルクマ,メージョージャスミン,秀2L,30,1,5400
-2026-05-17,クルクマ,チェリープリンセスデーン,秀2L,50,26,6759
-2026-05-17,クルクマ,チェリープリンセスデーン,秀L,50,11,5272
-2026-05-17,クルクマ,パルビフローラ,秀2L,30,1,5400
-2026-05-17,クルクマ,パルビフローラ,秀2L,50,5,6560
-2026-05-17,クルクマ,パルビフローラ,秀L,50,15,5754
-2026-05-17,クルクマ,パルビフローラ,秀M,100,1,7500
-2026-05-17,クルクマ,パルビフローラ,別,0,2,5450
-2026-05-17,クルクマ,プーディンレッド,秀2L,30,3,6700
-2026-05-17,クルクマ,プーディンレッド,別,0,2,4500
-2026-05-17,クルクマ,メージョーインプレッシブピンク,秀2L,30,2,7500
-2026-05-17,クルクマ,リボン,秀2L,30,29,6468
-2026-05-17,クルクマ,エメラルドパゴタ,秀2L,30,1,4500
-2026-05-17,クルクマ,エメラルドパゴタ,秀2L,50,2,6750
-2026-05-17,クルクマ,クルクマミックス（ミニ）,秀L,50,1,5000
-2026-05-17,クルクマ,グリーンアイス,秀2L,30,1,7500
-2026-05-17,クルクマ,ロージーレッド,秀2L,30,5,4800
-2026-05-17,クルクマ,ミックス,秀2L,30,1,5400
-2026-05-17,クルクマ,ミックス,秀L,50,2,7000
-2026-05-17,クルクマ,ミックス,別,0,1,4500
-2026-05-19,クルクマ,ホワイトジャスミン,秀2L,30,23,6067
-2026-05-19,クルクマ,エメラルドチョコゼブラ,秀2L,30,15,5706
-2026-05-19,クルクマ,エメラルドチョコゼブラ,秀L,50,1,6500
-2026-05-19,クルクマ,エメラルドチョコゼブラ,別,0,2,4800
-2026-05-19,クルクマ,チェリープリンセスデーン,秀2L,50,5,7240
-2026-05-19,クルクマ,チェリープリンセスデーン,秀L,50,1,6000
-2026-05-19,クルクマ,プーディンレッド,秀2L,30,2,6300
-2026-05-19,クルクマ,プーディンレッド,別,0,2,4900
-2026-05-19,クルクマ,リボン,秀2L,30,18,6177
-2026-05-19,クルクマ,エメラルドパゴタ,秀2L,50,2,7000
-2026-05-19,クルクマ,グリーンアイス,秀2L,30,1,7500
-2026-05-19,クルクマ,ロージーレッド,秀2L,30,6,5100
-2026-05-19,クルクマ,ミックス,別,0,2,4650
-2026-05-21,クルクマ,ホワイトジャスミン,秀2L,30,38,5463
-2026-05-21,クルクマ,ホワイトジャスミン,秀L,50,9,5694
-2026-05-21,クルクマ,エメラルドチョコゼブラ,秀2L,30,23,4962
-2026-05-21,クルクマ,エメラルドチョコゼブラ,秀2L,50,2,6700
-2026-05-21,クルクマ,エメラルドチョコゼブラ,秀L,50,1,7500
-2026-05-21,クルクマ,エメラルドチョコゼブラ,別,0,1,4500
-2026-05-21,クルクマ,ピアノホワイト,秀M,50,1,6000
-2026-05-21,クルクマ,ピアノホワイト,秀S,50,1,4500
-2026-05-21,クルクマ,プラートーン,秀2L,50,5,6200
-2026-05-21,クルクマ,バンコクスプリーム,秀L,50,3,9766
-2026-05-21,クルクマ,バンコクスプリーム,秀M,50,1,7000
-2026-05-21,クルクマ,メージョージャスミン,秀2L,30,3,5160
-2026-05-21,クルクマ,チェリープリンセスデーン,秀2L,50,44,5523
-2026-05-21,クルクマ,チェリープリンセスデーン,秀L,50,19,4310
-2026-05-21,クルクマ,チェリープリンセスデーン,秀M,50,1,3750
-2026-05-21,クルクマ,パルビフローラ,秀2L,30,2,4650
-2026-05-21,クルクマ,パルビフローラ,秀2L,50,5,6240
-2026-05-21,クルクマ,パルビフローラ,秀L,50,16,4781
-2026-05-21,クルクマ,パルビフローラ,秀M,100,2,7000
-2026-05-21,クルクマ,パルビフローラ,別,0,1,4800
-2026-05-21,クルクマ,プーディンレッド,秀2L,30,4,4875
-2026-05-21,クルクマ,プーディンレッド,別,0,4,4600
-2026-05-21,クルクマ,メージョーインプレッシブピンク,秀2L,30,7,5814
-2026-05-21,クルクマ,リボン,秀2L,30,31,5445
-2026-05-21,クルクマ,エメラルドパゴタ,秀2L,30,1,5400
-2026-05-21,クルクマ,エメラルドパゴタ,秀2L,50,6,5783
-2026-05-21,クルクマ,グリーンアイス,秀2L,30,5,7200
-2026-05-21,クルクマ,ロージーレッド,秀2L,50,5,7550
-2026-05-21,クルクマ,ミックス,秀M,50,2,5750
-2026-05-21,クルクマ,ミックス,別,0,1,4500
-2026-05-07,クルクマ,バンコクスプリーム,秀2L,30,3,7200
-2026-05-10,クルクマ,バンコクスプリーム,秀2L,30,4,7000
-2026-05-14,クルクマ,バンコクスプリーム,秀2L,50,3,8200
-2026-05-17,クルクマ,バンコクスプリーム,秀2L,50,4,7900
-2026-05-19,クルクマ,バンコクスプリーム,秀2L,30,5,6800
-2026-05-21,クルクマ,バンコクスプリーム,秀2L,50,4,7500
-2026-05-07,クルクマ,ホワイト,秀2L,30,2,7500
-2026-05-10,クルクマ,ホワイト,秀2L,30,5,7100
-2026-05-14,クルクマ,ホワイト,秀2L,30,8,6900
-2026-05-17,クルクマ,ホワイト,秀2L,50,3,8500
-2026-05-19,クルクマ,ホワイト,秀L,50,4,6500
-2026-05-21,クルクマ,ホワイト,秀2L,30,10,6600
-2026-05-21,クルクマ,ホワイト,秀L,50,3,7800
-2026-05-10,クルクマ,シャローム,秀2L,30,3,6800
-2026-05-14,クルクマ,シャローム,秀2L,50,2,8000
-2026-05-17,クルクマ,シャローム,秀2L,30,6,6400
-2026-05-17,クルクマ,シャローム,秀L,50,2,7000
-2026-05-21,クルクマ,シャローム,秀2L,50,5,7300
-2026-05-21,クルクマ,シャローム,別,0,1,5000
+const SAMPLE_SANCHI_CSV = `日付,品目,品種,等級,階級,本数,箱数量,箱単価
+2026-04-23,クルクマ,パルビフローラ,秀,L,50,2,7500
+2026-04-23,クルクマ,パルビフローラ,秀,M,50,1,6000
+2026-04-26,クルクマ,パルビフローラ,秀,L,50,3,7500
+2026-04-26,クルクマ,パルビフローラ,秀,M,50,1,5000
+2026-04-26,クルクマ,パルビフローラ,別,,0,1,5100
+2026-04-30,クルクマ,パルビフローラ,秀,L,50,6,7500
+2026-04-30,クルクマ,パルビフローラ,別,,0,1,5950
+2026-05-03,クルクマ,パルビフローラ,秀,2L,30,1,5400
+2026-05-03,クルクマ,パルビフローラ,秀,L,50,8,7587
+2026-05-03,クルクマ,パルビフローラ,秀,M,50,1,5700
+2026-05-07,クルクマ,エメラルドチョコゼブラ,秀,2L,30,5,6746
+2026-05-07,クルクマ,エメラルドチョコゼブラ,別,,0,1,5700
+2026-05-07,クルクマ,パルビフローラ,秀,2L,50,1,9000
+2026-05-07,クルクマ,パルビフローラ,秀,L,50,12,7473
+2026-05-07,クルクマ,パルビフローラ,秀,M,50,1,6000
+2026-05-07,クルクマ,パルビフローラ,秀,M,100,1,8000
+2026-05-07,クルクマ,パルビフローラ,別,,0,1,6800
+2026-05-07,クルクマ,ミックス,別,,0,1,5400
+2026-05-10,クルクマ,ホワイトジャスミン,秀,2L,30,3,7200
+2026-05-10,クルクマ,ホワイトジャスミン,別,,0,1,6000
+2026-05-10,クルクマ,エメラルドチョコゼブラ,秀,2L,30,9,6755
+2026-05-10,クルクマ,エメラルドチョコゼブラ,秀,L,50,5,9008
+2026-05-10,クルクマ,エメラルドチョコゼブラ,別,,0,1,6000
+2026-05-10,クルクマ,チェリープリンセスデーン,秀,2L,30,2,4950
+2026-05-10,クルクマ,チェリープリンセスデーン,秀,2L,50,2,7500
+2026-05-10,クルクマ,チェリープリンセスデーン,秀,L,50,2,7500
+2026-05-10,クルクマ,パルビフローラ,秀,2L,30,2,4500
+2026-05-10,クルクマ,パルビフローラ,秀,2L,50,8,7275
+2026-05-10,クルクマ,パルビフローラ,秀,L,50,5,6600
+2026-05-10,クルクマ,パルビフローラ,別,,0,1,3600
+2026-05-10,クルクマ,プーディンレッド,別,,0,1,5400
+2026-05-10,クルクマ,リボン,秀,2L,30,4,7450
+2026-05-10,クルクマ,ロージーレッド,秀,2L,30,1,5400
+2026-05-10,クルクマ,ミックス,秀,2L,30,1,6000
+2026-05-10,クルクマ,ミックス,別,,0,1,5400
+2026-05-12,クルクマ,ホワイトジャスミン,秀,2L,30,5,6900
+2026-05-12,クルクマ,ホワイトジャスミン,別,,0,2,7400
+2026-05-12,クルクマ,パルビフローラ,秀,L,50,9,7022
+2026-05-12,クルクマ,パルビフローラ,別,,0,2,6350
+2026-05-12,クルクマ,プーディンレッド,別,,0,1,6000
+2026-05-12,クルクマ,リボン,秀,2L,30,8,7037
+2026-05-12,クルクマ,ミックス,別,,0,1,5400
+2026-05-14,クルクマ,ホワイトジャスミン,秀,2L,30,16,6600
+2026-05-14,クルクマ,ホワイトジャスミン,秀,L,50,2,9500
+2026-05-14,クルクマ,ホワイトジャスミン,別,,0,1,5400
+2026-05-14,クルクマ,エメラルドチョコゼブラ,秀,2L,30,17,6264
+2026-05-14,クルクマ,エメラルドチョコゼブラ,秀,L,50,1,8000
+2026-05-14,クルクマ,エメラルドチョコゼブラ,別,,0,2,6000
+2026-05-14,クルクマ,チェリープリンセスデーン,秀,2L,30,1,3600
+2026-05-14,クルクマ,チェリープリンセスデーン,秀,2L,50,13,7307
+2026-05-14,クルクマ,チェリープリンセスデーン,秀,L,50,5,6100
+2026-05-14,クルクマ,パルビフローラ,秀,2L,30,4,4275
+2026-05-14,クルクマ,パルビフローラ,秀,2L,50,6,7833
+2026-05-14,クルクマ,パルビフローラ,秀,L,50,4,6375
+2026-05-14,クルクマ,パルビフローラ,別,,0,1,4500
+2026-05-14,クルクマ,プーディンレッド,秀,2L,30,1,5400
+2026-05-14,クルクマ,プーディンレッド,別,,0,1,4800
+2026-05-14,クルクマ,メージョーインプレッシブピンク,秀,2L,30,2,7200
+2026-05-14,クルクマ,リボン,秀,2L,30,12,6975
+2026-05-14,クルクマ,ロージーレッド,秀,2L,30,3,5100
+2026-05-14,クルクマ,ミックス,秀,2L,30,1,6600
+2026-05-14,クルクマ,ミックス,秀,2L,50,1,7000
+2026-05-14,クルクマ,ミックス,別,,0,1,4800
+2026-05-17,クルクマ,ホワイトジャスミン,秀,2L,30,28,6128
+2026-05-17,クルクマ,ホワイトジャスミン,秀,2L,50,2,9000
+2026-05-17,クルクマ,ホワイトジャスミン,秀,L,50,6,7583
+2026-05-17,クルクマ,ホワイトジャスミン,別,,0,1,5400
+2026-05-17,クルクマ,エメラルドチョコゼブラ,秀,2L,30,25,5688
+2026-05-17,クルクマ,エメラルドチョコゼブラ,秀,2L,50,20,8055
+2026-05-17,クルクマ,エメラルドチョコゼブラ,別,,0,4,4550
+2026-05-17,クルクマ,プラートーン,秀,2L,50,1,8000
+2026-05-17,クルクマ,メージョージャスミン,秀,2L,30,1,5400
+2026-05-17,クルクマ,チェリープリンセスデーン,秀,2L,50,26,6759
+2026-05-17,クルクマ,チェリープリンセスデーン,秀,L,50,11,5272
+2026-05-17,クルクマ,パルビフローラ,秀,2L,30,1,5400
+2026-05-17,クルクマ,パルビフローラ,秀,2L,50,5,6560
+2026-05-17,クルクマ,パルビフローラ,秀,L,50,15,5754
+2026-05-17,クルクマ,パルビフローラ,秀,M,100,1,7500
+2026-05-17,クルクマ,パルビフローラ,別,,0,2,5450
+2026-05-17,クルクマ,プーディンレッド,秀,2L,30,3,6700
+2026-05-17,クルクマ,プーディンレッド,別,,0,2,4500
+2026-05-17,クルクマ,メージョーインプレッシブピンク,秀,2L,30,2,7500
+2026-05-17,クルクマ,リボン,秀,2L,30,29,6468
+2026-05-17,クルクマ,エメラルドパゴタ,秀,2L,30,1,4500
+2026-05-17,クルクマ,エメラルドパゴタ,秀,2L,50,2,6750
+2026-05-17,クルクマ,クルクマミックス（ミニ）,秀,L,50,1,5000
+2026-05-17,クルクマ,グリーンアイス,秀,2L,30,1,7500
+2026-05-17,クルクマ,ロージーレッド,秀,2L,30,5,4800
+2026-05-17,クルクマ,ミックス,秀,2L,30,1,5400
+2026-05-17,クルクマ,ミックス,秀,L,50,2,7000
+2026-05-17,クルクマ,ミックス,別,,0,1,4500
+2026-05-19,クルクマ,ホワイトジャスミン,秀,2L,30,23,6067
+2026-05-19,クルクマ,エメラルドチョコゼブラ,秀,2L,30,15,5706
+2026-05-19,クルクマ,エメラルドチョコゼブラ,秀,L,50,1,6500
+2026-05-19,クルクマ,エメラルドチョコゼブラ,別,,0,2,4800
+2026-05-19,クルクマ,チェリープリンセスデーン,秀,2L,50,5,7240
+2026-05-19,クルクマ,チェリープリンセスデーン,秀,L,50,1,6000
+2026-05-19,クルクマ,プーディンレッド,秀,2L,30,2,6300
+2026-05-19,クルクマ,プーディンレッド,別,,0,2,4900
+2026-05-19,クルクマ,リボン,秀,2L,30,18,6177
+2026-05-19,クルクマ,エメラルドパゴタ,秀,2L,50,2,7000
+2026-05-19,クルクマ,グリーンアイス,秀,2L,30,1,7500
+2026-05-19,クルクマ,ロージーレッド,秀,2L,30,6,5100
+2026-05-19,クルクマ,ミックス,別,,0,2,4650
+2026-05-21,クルクマ,ホワイトジャスミン,秀,2L,30,38,5463
+2026-05-21,クルクマ,ホワイトジャスミン,秀,L,50,9,5694
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀,2L,30,23,4962
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀,2L,50,2,6700
+2026-05-21,クルクマ,エメラルドチョコゼブラ,秀,L,50,1,7500
+2026-05-21,クルクマ,エメラルドチョコゼブラ,別,,0,1,4500
+2026-05-21,クルクマ,ピアノホワイト,秀,M,50,1,6000
+2026-05-21,クルクマ,ピアノホワイト,秀,S,50,1,4500
+2026-05-21,クルクマ,プラートーン,秀,2L,50,5,6200
+2026-05-21,クルクマ,バンコクスプリーム,秀,L,50,3,9766
+2026-05-21,クルクマ,バンコクスプリーム,秀,M,50,1,7000
+2026-05-21,クルクマ,メージョージャスミン,秀,2L,30,3,5160
+2026-05-21,クルクマ,チェリープリンセスデーン,秀,2L,50,44,5523
+2026-05-21,クルクマ,チェリープリンセスデーン,秀,L,50,19,4310
+2026-05-21,クルクマ,チェリープリンセスデーン,秀,M,50,1,3750
+2026-05-21,クルクマ,パルビフローラ,秀,2L,30,2,4650
+2026-05-21,クルクマ,パルビフローラ,秀,2L,50,5,6240
+2026-05-21,クルクマ,パルビフローラ,秀,L,50,16,4781
+2026-05-21,クルクマ,パルビフローラ,秀,M,100,2,7000
+2026-05-21,クルクマ,パルビフローラ,別,,0,1,4800
+2026-05-21,クルクマ,プーディンレッド,秀,2L,30,4,4875
+2026-05-21,クルクマ,プーディンレッド,別,,0,4,4600
+2026-05-21,クルクマ,メージョーインプレッシブピンク,秀,2L,30,7,5814
+2026-05-21,クルクマ,リボン,秀,2L,30,31,5445
+2026-05-21,クルクマ,エメラルドパゴタ,秀,2L,30,1,5400
+2026-05-21,クルクマ,エメラルドパゴタ,秀,2L,50,6,5783
+2026-05-21,クルクマ,グリーンアイス,秀,2L,30,5,7200
+2026-05-21,クルクマ,ロージーレッド,秀,2L,50,5,7550
+2026-05-21,クルクマ,ミックス,秀,M,50,2,5750
+2026-05-21,クルクマ,ミックス,別,,0,1,4500
+2026-05-07,クルクマ,バンコクスプリーム,秀,2L,30,3,7200
+2026-05-10,クルクマ,バンコクスプリーム,秀,2L,30,4,7000
+2026-05-14,クルクマ,バンコクスプリーム,秀,2L,50,3,8200
+2026-05-17,クルクマ,バンコクスプリーム,秀,2L,50,4,7900
+2026-05-19,クルクマ,バンコクスプリーム,秀,2L,30,5,6800
+2026-05-21,クルクマ,バンコクスプリーム,秀,2L,50,4,7500
+2026-05-07,クルクマ,ホワイト,秀,2L,30,2,7500
+2026-05-10,クルクマ,ホワイト,秀,2L,30,5,7100
+2026-05-14,クルクマ,ホワイト,秀,2L,30,8,6900
+2026-05-17,クルクマ,ホワイト,秀,2L,50,3,8500
+2026-05-19,クルクマ,ホワイト,秀,L,50,4,6500
+2026-05-21,クルクマ,ホワイト,秀,2L,30,10,6600
+2026-05-21,クルクマ,ホワイト,秀,L,50,3,7800
+2026-05-10,クルクマ,シャローム,秀,2L,30,3,6800
+2026-05-14,クルクマ,シャローム,秀,2L,50,2,8000
+2026-05-17,クルクマ,シャローム,秀,2L,30,6,6400
+2026-05-17,クルクマ,シャローム,秀,L,50,2,7000
+2026-05-21,クルクマ,シャローム,秀,2L,50,5,7300
+2026-05-21,クルクマ,シャローム,別,,0,1,5000
 `;
 // 自分の出荷サンプル = 産地に一致する行（累計7桁）＋わざと一致しない行2件（未マッチ別枠の確認用）
 const SAMPLE_JIBUN = [
-  {date:'2026-05-03', variety:'パルビフローラ', grade:'秀L', count:50, boxQty:8},   // 7587×8
-  {date:'2026-05-07', variety:'パルビフローラ', grade:'秀L', count:50, boxQty:12},  // 7473×12
-  {date:'2026-05-10', variety:'パルビフローラ', grade:'秀2L', count:50, boxQty:8},  // 7275×8
-  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀2L', count:50, boxQty:6},  // 7833×6
-  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀2L', count:30, boxQty:4},  // 4275×4
-  {date:'2026-05-17', variety:'パルビフローラ', grade:'別', count:0, boxQty:2, betsuCount:40}, // 別5450÷40=136.3/本
-  {date:'2026-05-21', variety:'シャローム', grade:'別', count:0, boxQty:1, betsuCount:30},     // 別5000÷30=166.7/本
-  {date:'2026-05-14', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:16}, // 6600×16
-  {date:'2026-05-14', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:30, boxQty:17}, // 6264×17
-  {date:'2026-05-17', variety:'チェリープリンセスデーン', grade:'秀2L', count:50, boxQty:26}, // 6759×26
-  {date:'2026-05-17', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:28}, // 6128×28
-  {date:'2026-05-17', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:50, boxQty:20}, // 8055×20
-  {date:'2026-05-17', variety:'リボン', grade:'秀2L', count:30, boxQty:29},          // 6468×29
-  {date:'2026-05-19', variety:'リボン', grade:'秀2L', count:30, boxQty:18},          // 6177×18
-  {date:'2026-05-21', variety:'ホワイトジャスミン', grade:'秀2L', count:30, boxQty:38}, // 5463×38
-  {date:'2026-05-21', variety:'チェリープリンセスデーン', grade:'秀2L', count:50, boxQty:44}, // 5523×44
-  {date:'2026-05-21', variety:'エメラルドチョコゼブラ', grade:'秀2L', count:30, boxQty:23}, // 4962×23
-  {date:'2026-05-21', variety:'リボン', grade:'秀2L', count:30, boxQty:31},          // 5445×31
-  {date:'2026-05-30', variety:'パルビフローラ', grade:'秀2L', count:30, boxQty:5},   // 未マッチ（該当日なし）
-  {date:'2026-06-02', variety:'グリーンアイス', grade:'秀L', count:50, boxQty:3}     // 未マッチ（該当組合せなし）
+  {date:'2026-05-03', variety:'パルビフローラ', grade:'秀', size:'L', count:50, boxQty:8},   // 7587×8
+  {date:'2026-05-07', variety:'パルビフローラ', grade:'秀', size:'L', count:50, boxQty:12},  // 7473×12
+  {date:'2026-05-10', variety:'パルビフローラ', grade:'秀', size:'2L', count:50, boxQty:8},  // 7275×8
+  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀', size:'2L', count:50, boxQty:6},  // 7833×6
+  {date:'2026-05-14', variety:'パルビフローラ', grade:'秀', size:'2L', count:30, boxQty:4},  // 4275×4
+  {date:'2026-05-17', variety:'パルビフローラ', grade:'別', size:'', count:0, boxQty:2, betsuCount:40}, // 別5450÷40=136.3/本
+  {date:'2026-05-21', variety:'シャローム', grade:'別', size:'', count:0, boxQty:1, betsuCount:30},     // 別5000÷30=166.7/本
+  {date:'2026-05-14', variety:'ホワイトジャスミン', grade:'秀', size:'2L', count:30, boxQty:16}, // 6600×16
+  {date:'2026-05-14', variety:'エメラルドチョコゼブラ', grade:'秀', size:'2L', count:30, boxQty:17}, // 6264×17
+  {date:'2026-05-17', variety:'チェリープリンセスデーン', grade:'秀', size:'2L', count:50, boxQty:26}, // 6759×26
+  {date:'2026-05-17', variety:'ホワイトジャスミン', grade:'秀', size:'2L', count:30, boxQty:28}, // 6128×28
+  {date:'2026-05-17', variety:'エメラルドチョコゼブラ', grade:'秀', size:'2L', count:50, boxQty:20}, // 8055×20
+  {date:'2026-05-17', variety:'リボン', grade:'秀', size:'2L', count:30, boxQty:29},          // 6468×29
+  {date:'2026-05-19', variety:'リボン', grade:'秀', size:'2L', count:30, boxQty:18},          // 6177×18
+  {date:'2026-05-21', variety:'ホワイトジャスミン', grade:'秀', size:'2L', count:30, boxQty:38}, // 5463×38
+  {date:'2026-05-21', variety:'チェリープリンセスデーン', grade:'秀', size:'2L', count:50, boxQty:44}, // 5523×44
+  {date:'2026-05-21', variety:'エメラルドチョコゼブラ', grade:'秀', size:'2L', count:30, boxQty:23}, // 4962×23
+  {date:'2026-05-21', variety:'リボン', grade:'秀', size:'2L', count:30, boxQty:31},          // 5445×31
+  {date:'2026-05-30', variety:'パルビフローラ', grade:'秀', size:'2L', count:30, boxQty:5},   // 未マッチ（該当日なし）
+  {date:'2026-06-02', variety:'グリーンアイス', grade:'秀', size:'L', count:50, boxQty:3}     // 未マッチ（該当組合せなし）
 ];
 
 /* ============================== Store ============================== */
@@ -951,9 +1025,11 @@ const STORAGE_KEY = 'curcuma.v1';
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-04a';
+const APP_BUILD = '2026-09-04b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
-const SCHEMA_VERSION = 2;
+// 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
+// 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
+const SCHEMA_VERSION = 3;
 const DEFAULT_ITEM = 'クルクマ';
 /* ---- 品目ごとの決め打ちを集める表 ----
    品目はここで定義する。アプリ側に登録UIは持たない（市場ごとに規格の体系が違うので、
@@ -961,19 +1037,48 @@ const DEFAULT_ITEM = 'クルクマ';
    ここに1行足したうえで、その品目ならではのUIをソースに足す。
    ⚠ キーはレコードの item 文字列と完全一致していること（Norm.text の NFKC 正規化後の形）。
       ズレると全レコードが「表に無い品目」になる（消えはしない＝Store.itemNames の安全網）。
-   ※ いまは年度の開始月だけ。規格の語彙・主要品種・並び順などの決め打ちは
-      まだ各所に散っているが、それを集約するのは別の作業。 */
+
+   price / donut は「まだ決めていない」なら書かない。書かれていない品目では
+   価格推移カード・規格構成ドーナツを丸ごと出さない（間違った図を見せないため）。 */
 const ITEM_RULES = {
-  // 年度＝この月から1年間。クルクマは年を跨いだ出荷が起こらないので暦年（1月始まり）＝
-  // seasonYear() は date.slice(0,4) と完全に同じ結果になる。
-  // 例）スイートピーは10〜11月始まり・2〜3月終了なので、入れる日は seasonStart: 10 か 11 を書く。
-  'クルクマ': { seasonStart: 1 }
+  'クルクマ': {
+    // 年度＝この月から1年間。クルクマは年を跨いだ出荷が起こらないので暦年（1月始まり）＝
+    // seasonYear() は date.slice(0,4) と完全に同じ結果になる。
+    seasonStart: 1,
+    defaultGrade: '秀',           // 自分CSVに等級列が無いときに補う等級
+    sizes: ['2L','L','M','S'],    // 階級の語彙。旧 v2 データの分割にも使う
+    // 価格推移：この順で最初に見つかった 等級×階級 を採用する。
+    // 分母は (本数 × 箱数) ÷ per。※ 入り本数は見ないので30本行と50本行は合算される
+    //（前提メモ A-2「価格の基準は等級×階級であって規格ではない」）
+    price: { basis: [['秀','2L'], ['秀','L']], per: 50, label: '50本換算' },
+    // 規格構成ドーナツのバケツ。現行の見た目を変えないための値。
+    donut: {
+      buckets: [
+        {key:'2L30', label:'2L30', grade:'秀', size:'2L', count:30, colorVar:'var(--chart-2l30)'},
+        {key:'2L50', label:'2L50', grade:'秀', size:'2L', count:50, colorVar:'var(--chart-2l50)'},
+        {key:'L50',  label:'L',    grade:'秀', size:'L',  count:50, colorVar:'var(--chart-l50)'}
+      ],
+      otherLabel: 'その他', otherColorVar: 'var(--chart-other)'
+    }
+  },
+  // スイートピーは 10〜11月始まり・2〜3月終了。10始まりにしておくと、
+  // 10月に出荷があった年もその分が前シーズンへ分断されない。
+  // price / donut は未定＝実データが貯まってから決める（前提メモ A-1・A-3）。
+  'スイートピー': { seasonStart: 10, defaultGrade: '4P', sizes: ['2L','L'] }
 };
+const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
 // 表に無い品目は暦年扱い（既定のクルクマの規則に寄せる）。
 const itemSeasonStart = (name)=>{
-  const r = ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM];
-  const m = Number(r && r.seasonStart);
+  const m = Number(itemRule(name).seasonStart);
   return (m>=1 && m<=12) ? m : 1;
+};
+// 旧 v2 の grade（等級＋階級の連結）を分解する。'秀2L' → {grade:'秀', size:'2L'}
+// 別は階級を持たない。語彙に無い形はそのまま等級として残す（情報を捨てない）。
+const splitLegacyGrade = (g)=>{
+  const t = Norm.text(g);
+  if(t === '別' || t === '') return {grade: t, size: ''};
+  const m = /^(.*?)(2L|L|M|S)$/.exec(t);
+  return m ? {grade: m[1] || '秀', size: m[2]} : {grade: t, size: ''};
 };
 const Store = {
   available: false,
@@ -982,8 +1087,8 @@ const Store = {
   loadError: false, // 起動時の読み込みに失敗したか（保存データ破損等）
   migratedFrom: null, // 起動時にスキーマ移行が走ったら旧版番号が入る（一度だけ通知するため）
   rev: 0,            // データが変わるたびに増える。年度×品目の絞り込みキャッシュの無効化に使う
-  sanchi: new Map(), // key -> {date,variety,grade,count,boxQty,boxPrice,item}
-  jibun: [], // {id,date,variety,grade,count,boxQty,source,addedAt,item}
+  sanchi: new Map(), // key -> {date,variety,grade(等級),size(階級),count(本数),boxQty,boxPrice,item}
+  jibun: [], // {id,date,variety,grade,size,count,boxQty,betsuCount,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
   // ※ 品目マスタ（Store.items）は廃止。品目の定義は ITEM_RULES（ソースの表）が持つので、
   //    保存もしないし、アプリから追加・削除・改名もできない。
@@ -1027,12 +1132,14 @@ const Store = {
     }catch(e){ Store.available = false; }
     return Store.available;
   },
-  // スキーマ移行（version 1 → 2）。全レコードに品目を、作付設定に年度を付け、品目マスタを作る。
-  // 変換前の生データは curcuma.v1.pre-v2 へ退避してから触る（黙って壊さないため。.corrupt と同じ発想）。
+  /* スキーマ移行。
+       v1 → v2: 全レコードに品目を、作付設定に年度を付ける
+       v2 → v3: 規格（等級＋階級の連結）を grade(等級) と size(階級) に分割する
+     変換前の生データは curcuma.v1.pre-vN へ退避してから触る（黙って壊さないため。.corrupt と同じ発想）。 */
   migrateIfNeeded(data, raw){
     const v = Number(data.version) || 1;
     if(v >= SCHEMA_VERSION) return data;
-    try{ if(raw) localStorage.setItem(STORAGE_KEY + '.pre-v2', raw); }catch(_){}
+    try{ if(raw) localStorage.setItem(STORAGE_KEY + '.pre-v' + SCHEMA_VERSION, raw); }catch(_){}
     // 作付設定の年度は「データに入っている最新の出荷年」を採る。
     // 今日の年で埋めると、更新を跨いだ翌年に開いた時に前年の作付が今年に化けるため。
     let dataYear = null;
@@ -1041,9 +1148,15 @@ const Store = {
     (data.jibun||[]).forEach(r=>scanYear(r.date));
     if(!dataYear) (data.sanchi||[]).forEach(r=>scanYear(r.date));
     if(!dataYear) dataYear = Store.currentYear();
+    // v2 以前は grade に等級と階級が連結されていた（'秀2L'）。すでに size があるならそのまま。
+    const toV3 = (r)=>{
+      if(r.size !== undefined) return r;
+      const {grade, size} = splitLegacyGrade(r.grade);
+      return {...r, grade, size};
+    };
     const out = {...data, version: SCHEMA_VERSION};
-    out.sanchi    = (data.sanchi||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
-    out.jibun     = (data.jibun ||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
+    out.sanchi    = (data.sanchi||[]).map(r=>toV3({...r, item: r.item || DEFAULT_ITEM}));
+    out.jibun     = (data.jibun ||[]).map(r=>toV3({...r, item: r.item || DEFAULT_ITEM}));
     out.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || dataYear)}));
     Store.migratedFrom = v;
     return out;
@@ -1060,7 +1173,7 @@ const Store = {
       (data.sanchi||[]).forEach(rec=>{
         // 未確定は null で保持（旧データに文字列「未確定」が混じっていても null に正規化）
         const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : rec.boxPrice;
-        const row = {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice, item: rec.item || DEFAULT_ITEM};
+        const row = {date:rec.date, variety:rec.variety, grade:rec.grade, size:rec.size||'', count:rec.count, boxQty:rec.boxQty, boxPrice, item: rec.item || DEFAULT_ITEM};
         Store.sanchi.set(Norm.keyOf(row), row);
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
@@ -1106,7 +1219,7 @@ const Store = {
     // 品目は「取込時に選択中の品目」を正とする（CSVの品目列は取込前の食い違い警告にのみ使う）
     const item = State.selectedItem || DEFAULT_ITEM;
     records.forEach(rec=>{
-      const row = {date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice, item};
+      const row = {date:rec.date, variety:rec.variety, grade:rec.grade, size:rec.size||'', count:rec.count, boxQty:rec.boxQty, boxPrice:rec.boxPrice, item};
       const key = Norm.keyOf(row);
       if(Store.sanchi.has(key)) updated++; else added++;
       Store.sanchi.set(key, row);
@@ -1127,7 +1240,9 @@ const Store = {
   // 全件「スキップ」になって1件も登録できない。
   jibunExists(rec){
     const item = rec.item || State.selectedItem || DEFAULT_ITEM;
-    return Store.jibun.some(r => (r.item||DEFAULT_ITEM)===item && r.date===rec.date && r.variety===rec.variety && r.grade===rec.grade && r.count===rec.count && r.boxQty===rec.boxQty && (r.betsuCount||0)===(rec.betsuCount||0));
+    return Store.jibun.some(r => (r.item||DEFAULT_ITEM)===item && r.date===rec.date && r.variety===rec.variety
+      && r.grade===rec.grade && (r.size||'')===(rec.size||'') && r.count===rec.count && r.boxQty===rec.boxQty
+      && (r.betsuCount||0)===(rec.betsuCount||0));
   },
   mergeJibun(records, source){
     let added=0, skipped=0;
@@ -1135,7 +1250,7 @@ const Store = {
       if(Store.jibunExists(rec)){ skipped++; return; }
       Store.jibun.push({
         id: 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
-        date:rec.date, variety:rec.variety, grade:rec.grade, count:rec.count, boxQty:rec.boxQty, betsuCount:rec.betsuCount||0,
+        date:rec.date, variety:rec.variety, grade:rec.grade, size:rec.size||'', count:rec.count, boxQty:rec.boxQty, betsuCount:rec.betsuCount||0,
         source, addedAt: new Date().toISOString(),
         item: State.selectedItem || DEFAULT_ITEM, // 産地と同じく取込時の選択品目を付ける
         plant: (rec.plant==='新植'||rec.plant==='据置'||rec.plant==='mix') ? rec.plant : null, sueokiStems: rec.sueokiStems||0
@@ -1258,15 +1373,17 @@ const Store = {
     Store.migratedFrom = flag;
     const sanchi = new Map();
     (data.sanchi||[]).forEach(rec=>{
-      const date = Norm.date(rec.date), variety = Norm.text(rec.variety), grade = Norm.grade(rec.grade), count = Norm.num(rec.count);
+      const date = Norm.date(rec.date), variety = Norm.text(rec.variety);
+      const grade = Norm.grade(rec.grade), size = Norm.size(rec.size), count = Norm.num(rec.count);
       // 箱単価は未確定(null/「未確定」)をnullのまま保持。NaN化させない。
       const boxPrice = (rec.boxPrice==null || rec.boxPrice==='未確定') ? null : Norm.num(rec.boxPrice);
-      const row = {date, variety, grade, count, boxQty:Norm.num(rec.boxQty), boxPrice, item: Norm.text(rec.item) || DEFAULT_ITEM};
+      const row = {date, variety, grade, size, count, boxQty:Norm.num(rec.boxQty), boxPrice, item: Norm.text(rec.item) || DEFAULT_ITEM};
       sanchi.set(Norm.keyOf(row), row);
     });
     const jibun = (data.jibun||[]).map((r,i)=>({
       id: r.id || ('j'+Date.now().toString(36)+i),
-      date: Norm.date(r.date), variety: Norm.text(r.variety), grade: Norm.grade(r.grade), count: Norm.num(r.count),
+      date: Norm.date(r.date), variety: Norm.text(r.variety),
+      grade: Norm.grade(r.grade), size: Norm.size(r.size), count: Norm.num(r.count),
       boxQty: Norm.num(r.boxQty), betsuCount: Norm.num(r.betsuCount)||0, source: r.source||'csv', addedAt: r.addedAt || new Date().toISOString(),
       item: Norm.text(r.item) || DEFAULT_ITEM,
       // 作型の割り当て（未割当は null）。混在は据置の本数で保持する。
@@ -1362,11 +1479,13 @@ const Compute = {
   scopedJibun(){ return Compute._rescope().jibun; },
   scopedSakutsuke(){ return Compute._rescope().sakutsuke; },
 
-  classify(grade, count){
-    if(grade==='秀2L' && count===30) return '2L30';
-    if(grade==='秀2L' && count===50) return '2L50';
-    if(grade==='秀L' && count===50) return 'L50';
-    return 'その他';
+  // 規格構成ドーナツのバケツを引く。品目に donut の定義が無ければ null＝分類しない
+  //（＝ドーナツを描かない。バケツを勝手に決めると意味のない図になるため）。
+  classify(grade, size, count, item){
+    const d = itemRule(item || State.selectedItem || DEFAULT_ITEM).donut;
+    if(!d) return null;
+    const hit = d.buckets.find(b=> b.grade===grade && b.size===size && b.count===count);
+    return hit ? hit.key : 'その他';
   },
   varietyList(){
     const agg = new Map(); // variety -> {boxes, days:Set}
@@ -1420,26 +1539,41 @@ const Compute = {
       return p ? {date:d, price:p.price, marker:p.marker} : {date:d, price:null, marker:null};
     });
   },
+  // バケツは品目の donut 定義から組み立てる。定義が無ければ null を返す＝ドーナツを描かない。
   donutDataForDay(varieties, date){
-    const cats = {'2L30':0,'2L50':0,'L50':0,'その他':0};
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const d = itemRule(item).donut;
+    if(!d) return null;
+    const cats = {};
+    d.buckets.forEach(b=>{ cats[b.key] = 0; });
+    cats['その他'] = 0;
     let total = 0;
     const set = new Set(varieties);
     Compute.scopedSanchi().forEach(rec=>{
       if(rec.date !== date) return;
       if(!set.has(rec.variety)) return;
-      const c = Compute.classify(rec.grade, rec.count);
+      const c = Compute.classify(rec.grade, rec.size, rec.count, item);
       cats[c] += rec.boxQty;
       total += rec.boxQty;
     });
     return {cats, total};
   },
   // 選択中の年度×品目での価格推移。計算そのものは lineDataFrom にある。
-  lineData(variety){ return Compute.lineDataFrom(Compute.scopedSanchi(), variety); },
+  // 品目ごとの差分は「規則」として引数で渡す＝lineDataFrom の中は品目を知らない。
+  lineData(variety){
+    return Compute.lineDataFrom(Compute.scopedSanchi(), variety,
+      itemRule(State.selectedItem || DEFAULT_ITEM).price);
+  },
   // 【保護対象】価格推移の計算本体。Store も State も読まない純粋関数で、rows は Map でも配列でもよい。
   // lineData から切り出してあるのは、SelfTest がサンプルデータを直接流し込んで
   // 全18品種82点を基準値と突き合わせられるようにするため（旧SelfTestは表示中の年度×品目に依存し、
-  // 品目を切り替えていると何も検証せず正常終了していた）。計算式は切り出し前と1文字も変えていない。
-  lineDataFrom(rows, variety){
+  // 品目を切り替えていると何も検証せず正常終了していた）。
+  //
+  // rule = {basis:[[等級,階級],…], per:換算本数}。この順で最初に価格の出た組を採用する。
+  // 既定はクルクマの現行値なので、rule を省くと従来と1円も変わらない
+  // （＝SELFTEST_ANCHOR 7630.71 がこの関数の不変条件であり続ける）。
+  lineDataFrom(rows, variety, rule){
+    const r0 = rule || {basis:[['秀','2L'], ['秀','L']], per:50};
     const byDate = new Map(); // date -> array of records
     rows.forEach(rec=>{
       if(rec.variety !== variety) return;
@@ -1449,19 +1583,21 @@ const Compute = {
     const dates = Array.from(byDate.keys()).sort();
     const points = dates.map(date=>{
       const rows = byDate.get(date);
-      const calc = (grade)=>{
+      const calc = (grade, size)=>{
         // 価格未確定(boxPrice=null)は平均計算から除外。数量集計(donut/varietyList)には別途算入される。
-        const rs = rows.filter(r=>r.grade===grade && r.boxPrice!=null);
+        // ※ 入り本数では絞らない＝同じ等級×階級なら30本行と50本行が合算される（従来どおり）。
+        const rs = rows.filter(r=>r.grade===grade && r.size===size && r.boxPrice!=null);
         if(rs.length===0) return null;
         const numerator = rs.reduce((s,r)=>s + r.boxPrice*r.boxQty, 0);
-        const denomBoxes = rs.reduce((s,r)=>s + r.count*r.boxQty, 0) / 50;
+        const denomBoxes = rs.reduce((s,r)=>s + r.count*r.boxQty, 0) / r0.per;
         if(!(denomBoxes > 0)) return null;
         return numerator / denomBoxes;
       };
-      let price = calc('秀2L'); let marker = '2L';
-      if(price==null){ price = calc('秀L'); marker = 'L'; }
-      if(price==null) return {date, price:null, marker:null};
-      return {date, price, marker};
+      for(const [g, sz] of r0.basis){
+        const price = calc(g, sz);
+        if(price != null) return {date, price, marker: sz}; // マーカーは階級名＝従来と同じ '2L'/'L'
+      }
+      return {date, price:null, marker:null};
     });
     return points;
   },
@@ -1500,9 +1636,9 @@ const Compute = {
     const groups = [];
     const byKey = new Map();
     Compute.unassignedAllocRows().forEach(r=>{
-      const key = [r.date, r.variety, r.grade, r.count, r.betsuCount>0?r.betsuCount:0].join('|');
+      const key = [r.date, r.variety, r.grade, r.size||'', r.count, r.betsuCount>0?r.betsuCount:0].join('|');
       let g = byKey.get(key);
-      if(!g){ g = {key, date:r.date, variety:r.variety, grade:r.grade, count:r.count, betsuCount:r.betsuCount||0, ids:[], boxQty:0, stems:0}; byKey.set(key,g); groups.push(g); }
+      if(!g){ g = {key, date:r.date, variety:r.variety, grade:r.grade, size:r.size||'', count:r.count, betsuCount:r.betsuCount||0, ids:[], boxQty:0, stems:0}; byKey.set(key,g); groups.push(g); }
       g.ids.push(r.id); g.boxQty += (r.boxQty||0); g.stems += Compute.rowStems(r);
     });
     return groups;
@@ -1529,10 +1665,10 @@ const Compute = {
   matchJibun(){
     return Compute.scopedJibun().map(row=>{
       const isBetsu = row.betsuCount>0;
-      // 別行は産地の「別（本数0）」の箱単価にマッチ。標準行は従来どおり規格×本数でマッチ
+      // 別行は産地の「別（階級なし・本数0）」の箱単価にマッチ。標準行は 等級×階級×本数 でマッチ
       const key = isBetsu
-        ? Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, '別', 0)
-        : Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, row.grade, row.count);
+        ? Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, '別', '', 0)
+        : Norm.key(row.item || DEFAULT_ITEM, row.date, row.variety, row.grade, row.size, row.count);
       const stemsPerBox = isBetsu ? row.betsuCount : row.count; // 1箱あたりの本数
       const s = Compute.scopedSanchi().get(key);
       if(s){
@@ -1888,8 +2024,15 @@ const State = {
 };
 
 /* ============================== UI ============================== */
-const CAT_LABELS = {'2L30':'2L30','2L50':'2L50','L50':'L','その他':'その他'};
-const CAT_COLORVAR = {'2L30':'var(--chart-2l30)','2L50':'var(--chart-2l50)','L50':'var(--chart-l50)','その他':'var(--chart-other)'};
+// ドーナツの表示名と色は品目の donut 定義から組み立てる（旧 CAT_LABELS/CAT_COLORVAR の置き換え）。
+const catLabels = (item)=>{
+  const d = itemRule(item).donut; if(!d) return {};
+  const o = {}; d.buckets.forEach(b=>{ o[b.key] = b.label; }); o['その他'] = d.otherLabel; return o;
+};
+const catColorVars = (item)=>{
+  const d = itemRule(item).donut; if(!d) return {};
+  const o = {}; d.buckets.forEach(b=>{ o[b.key] = b.colorVar; }); o['その他'] = d.otherColorVar; return o;
+};
 // 品種を色分けする際の系列色（将来5品種まで対応）
 const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
 
@@ -2055,12 +2198,13 @@ const UI = {
   },
 
   /* ---------- Screen: 産地分析 ---------- */
-  donutLegendHTML(cats, total){
+  donutLegendHTML(cats, total, item){
+    const labels = catLabels(item), colors = catColorVars(item);
     return Object.keys(cats).map(cat=>{
       const val = cats[cat];
       return `<div class="legend-item" data-action="legend-toggle" data-cat="${cat}" data-active="${State.donutHighlight===cat}">
-        <span class="legend-dot" style="background:${CAT_COLORVAR[cat]}"></span>
-        <span class="legend-label">${CAT_LABELS[cat]}</span>
+        <span class="legend-dot" style="background:${colors[cat]}"></span>
+        <span class="legend-label">${Fmt.esc(labels[cat] || cat)}</span>
         <span class="legend-val tnum">${Fmt.num(val)}</span>
       </div>`;
     }).join('');
@@ -2121,8 +2265,17 @@ const UI = {
       </div>`;
 
     let donutCard, lineCard;
+    /* 品目に規則が無いものは、カードごと出さない。
+       ドーナツはバケツが無いと「その他100%」の1色になり、価格推移は基準が無いと全点nullになる。
+       どちらも「間違った図」なので、まだ定義していない品目では描かないほうが正しい。
+       ルール（ITEM_RULES の price / donut）を書いた時点で自動的に出るようになる。 */
+    const rule = itemRule(State.selectedItem || DEFAULT_ITEM);
+    const priceLabel = (rule.price && rule.price.label) ? rule.price.label + ' ' : '';
 
-    if(isMajor){
+    if(!rule.price){
+      // 価格の基準（等級×階級と換算本数）が未定の品目では、価格推移を出さない
+      donutCard = ''; lineCard = '';
+    } else if(isMajor){
       // 主要5品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
       donutCard = '';
 
@@ -2132,7 +2285,7 @@ const UI = {
       if(!anyData){
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価・主要5品種）</h2></div>
             <div class="empty-state"><p>主要5品種の価格データがまだありません。</p></div>
           </div>`;
       } else {
@@ -2165,7 +2318,7 @@ const UI = {
         }
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価・主要5品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価・主要5品種）</h2></div>
             ${chartInner}
             <div class="series-legend">${seriesLegend}</div>
             ${isolatedNote}
@@ -2174,15 +2327,20 @@ const UI = {
     } else {
       // 単一品種：ドーナツは選択日の箱数内訳。折れ線は全期間。
       const variety = State.selectedVariety;
-      const {cats, total} = Compute.donutDataForDay([variety], selDate);
-      const donutBody = total>0
-        ? `<div class="donut-row">${Charts.donutSVG(cats, total, CAT_COLORVAR, 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total)}</div></div>`
-        : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
-      donutCard = `
-        <div class="card">
-          <div class="card-head"><h2 class="card-title">規格構成（${Fmt.esc(Fmt.date(selDate))} <span class="${Fmt.wdClass(selDate)}">${Fmt.esc(Fmt.wd(selDate))}</span>）</h2></div>
-          ${donutBody}
-        </div>`;
+      const donut = Compute.donutDataForDay([variety], selDate); // 規則が無ければ null
+      if(!donut){
+        donutCard = ''; // バケツが未定の品目では規格構成を出さない
+      } else {
+        const {cats, total} = donut;
+        const donutBody = total>0
+          ? `<div class="donut-row">${Charts.donutSVG(cats, total, catColorVars(State.selectedItem), 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total, State.selectedItem)}</div></div>`
+          : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
+        donutCard = `
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">規格構成（${Fmt.esc(Fmt.date(selDate))} <span class="${Fmt.wdClass(selDate)}">${Fmt.esc(Fmt.wd(selDate))}</span>）</h2></div>
+            ${donutBody}
+          </div>`;
+      }
 
       const points = Compute.lineDataDense(variety);
       const withData = points.filter(p=>p.price!=null);
@@ -2199,7 +2357,7 @@ const UI = {
       }
       lineCard = `
         <div class="card">
-          <div class="card-head"><h2 class="card-title">価格推移（50本換算 箱単価）</h2></div>
+          <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価）</h2></div>
           ${lineBlock}
         </div>`;
     }
@@ -2317,10 +2475,10 @@ const UI = {
       </div>`;
     }).join('');
 
-    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.grade, r.count);
+    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.size, r.count);
     // 規格の並び順（2L30→2L50→L→M→別）
     const specOrder = {'2L30':0,'2L50':1,'L':2,'M':3};
-    const specRank = (r)=> r.betsuCount>0 ? 99 : (specOrder[App.specToStr(r.grade,r.count)] ?? 50);
+    const specRank = (r)=> r.betsuCount>0 ? 99 : (specOrder[App.specToStr(r.size, r.count)] ?? 50);
     // 日付降順のまま、日付ごとにグループ化（新しい日付が上）
     // 日付は新しい順。同じ日の中は取込順（配列順）のまま＝品種の出現順を崩さない。
     // ※以前は addedAt の降順で並べていたが、取込中のミリ秒差で日内の順序が入れ替わることがあった。
@@ -2599,7 +2757,7 @@ const UI = {
       ${onboard}
       <div class="card">
         <div class="card-head"><h2 class="card-title">産地データCSV</h2></div>
-        <p class="card-caption">ヘッダ: 日付,品目,品種,規格,本数,箱数量,箱単価</p>
+        <p class="card-caption">ヘッダ: 日付,品目,品種,等級,階級,本数,箱数量,箱単価（別扱いは 等級=別・階級は空欄・本数0）</p>
         <label class="dropzone" for="sanchi-file-input">
           ${Icon.upload}
           <strong>タップしてCSVを選択</strong>
@@ -2618,7 +2776,7 @@ const UI = {
           <button role="tab" aria-selected="${State.mineMode==='manual'}" data-action="toggle-mine-mode" data-mode="manual">手入力で追加</button>
         </div>
         <div id="mine-mode-csv-panel">
-          <p class="card-caption">ヘッダ: 出荷日,品種名,規格,箱数,別本数（規格=2L30/2L50/L/M。別扱いの箱は別本数に本数を入れる）</p>
+          <p class="card-caption">ヘッダ: 出荷日,品目,品種名,等級,階級,本数,箱数,別本数（等級は省略すると「秀」。別扱いの箱は別本数に本数を入れる。旧形式の 規格=2L30 も読めます）</p>
           <label class="dropzone" for="mine-file-input">
             ${Icon.upload}
             <strong>タップしてCSVを選択</strong>
@@ -2921,7 +3079,7 @@ const UI = {
   fillPriceModal(key){
     const rec = Store.sanchi.get(key);
     if(!rec){ UI.toast('対象の市況行が見つかりませんでした（産地データが未取込の可能性）', {duration:5000}); return; }
-    const specLabel = (rec.grade==='別') ? '別' : App.specToStr(rec.grade, rec.count);
+    const specLabel = (rec.grade==='別') ? '別' : App.specToStr(rec.size, rec.count);
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
@@ -2971,7 +3129,7 @@ const UI = {
 
   // 作型割り当ての行マークアップ（日付×品種×規格ごと。規格とその規格の総本数を表示）
   allocRowsHTML(groups){
-    const specText = (g)=> (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.grade, g.count);
+    const specText = (g)=> (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.size, g.count);
     return groups.map(g=>`
       <div class="alloc-row">
         <div class="alloc-main">
@@ -3012,7 +3170,7 @@ const UI = {
   mixStemsModal(groupKey, fromModal){
     const g = Compute.unassignedAllocGroups().find(x=>x.key===groupKey);
     if(!g){ UI.toast('対象の出荷が見つかりませんでした'); return; }
-    const specText = (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.grade, g.count);
+    const specText = (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.size, g.count);
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
@@ -3485,7 +3643,7 @@ const App = {
   importSanchiText(text, encoding){
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
-      const {records, errors, dupCount} = Parse.sanchiCSV(text);
+      const {records, errors, dupCount, unknownSpecs} = Parse.sanchiCSV(text, State.selectedItem);
       // 品目は選択中のものを付ける。CSVに品目列があって食い違う時だけ、取り込む前に確認する。
       const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
       if(other.length){
@@ -3493,25 +3651,44 @@ const App = {
           `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
           + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
           + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
-          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishSanchiImport(records, errors, dupCount, encoding)});
+          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs)});
         return;
       }
-      App.finishSanchiImport(records, errors, dupCount, encoding);
+      App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs);
     }catch(err){
       State.sanchiImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
     }
   },
+  /* 取込エラーの明細。件数だけだと「何を直せばいいか」が分からないので、
+     どの項目が原因かと元の1行を折りたたみで出す。 */
+  errorDetailHTML(errors){
+    if(!errors || !errors.length) return '';
+    return `<details class="collapse import-errors">
+        <summary>エラー行の内訳（${errors.length}件）</summary>
+        <div class="stack" style="margin-top:var(--sp2)">
+          ${errors.slice(0, 50).map(e=>`<div class="import-err">
+            <span class="ie-line tnum">${e.line}行目</span>
+            <span class="ie-why">${Fmt.esc((e.reasons||[]).join('・') || '不正な行')}</span>
+            <code class="ie-raw">${Fmt.esc(e.raw || '')}</code>
+          </div>`).join('')}
+          ${errors.length>50 ? `<p class="muted" style="font-size:0.75rem">※ 先頭50件のみ表示しています</p>` : ''}
+        </div>
+      </details>`;
+  },
   // 産地CSV取込の後半（品目の確認をはさむ場合があるので分けてある）
-  finishSanchiImport(records, errors, dupCount, encoding){
+  finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs){
     const {added, updated} = Store.mergeSanchi(records);
     SelfTest.run();
     // 取り込んだデータが選択中の年度の外にあると、画面に出ずに「消えた」と誤解されるので知らせる
     const years = Array.from(new Set(records.map(r=>Compute.seasonYear(r.date, State.selectedItem)).filter(Boolean)));
     const outside = years.filter(y=> y !== String(State.selectedYear));
-    State.sanchiImportSummary = `<div class="summary-box ${errors.length||outside.length?'warn':''}">
+    const unk = unknownSpecs || [];
+    State.sanchiImportSummary = `<div class="summary-box ${errors.length||outside.length||unk.length?'warn':''}">
         <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
         ${outside.length?`<span>※ ${Fmt.esc(outside.join('・'))}年のデータが含まれています。表示するには年度を切り替えてください。</span>`:''}
+        ${unk.length?`<span>※ 価格の基準に無い等級×階級が含まれています: ${Fmt.esc(unk.map(u=>`${u.spec}（${u.n}件）`).join('、'))}。データは取り込んでいますが、価格推移には反映されません。</span>`:''}
+        ${App.errorDetailHTML(errors)}
       </div>`;
     UI.renderMain();
     UI.toast(`産地CSVを取込みました（新規${added}・更新${updated}）`);
@@ -3524,7 +3701,7 @@ const App = {
   importMineText(text, encoding){
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
-      const {records, errors} = Parse.jibunCSV(text);
+      const {records, errors} = Parse.jibunCSV(text, State.selectedItem);
       // 産地CSVと同じく、CSVの品目列が選択中と食い違う時は取り込む前に確認する。
       // 自分CSVは月日だけの出荷日を「選択中の品目の開始月」で解決するので、
       // 品目を間違えたまま取り込むと日付そのものが1年ずれることがある。
@@ -3549,6 +3726,7 @@ const App = {
     const {added, skipped} = Store.mergeJibun(records, 'csv');
     State.mineImportSummary = `<div class="summary-box ${errors.length||skipped?'warn':''}">
         <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+        ${App.errorDetailHTML(errors)}
       </div>`;
     UI.renderMain();
     UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
@@ -3637,29 +3815,30 @@ const App = {
     const s = (v==null ? '' : String(v));
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
   },
-  // 保存されている grade+本数 を取込CSVの規格表記に戻す（2Lは常に本数付き、他は50以外のみ付与）
-  specToStr(grade, count){
-    const letter = String(grade).replace(/^秀/,'');
+  // 階級＋本数を画面表示用の短い規格表記にする（2Lは常に本数付き、他は50以外のみ付与）。
+  // 等級は表示しない＝クルクマは常に「秀」なので出しても情報が増えないため。
+  // ※ 出荷明細・モーダルの見た目を変えないための関数。内部の分類には使わない。
+  specToStr(size, count){
+    const letter = String(size||'');
     if(letter==='2L') return '2L' + count;
     return letter + (Number(count)!==50 ? count : '');
   },
   // 書き出しCSVには必ず品目列を入れる。入れずに書き出すと、別の品目を選んだ状態で
   // 読み戻したときに食い違い確認が働かず、丸ごと別品目のデータに化ける。
   buildSanchiCSV(){
-    const head = '日付,品目,品種,規格,本数,箱数量,箱単価';
+    const head = '日付,品目,品種,等級,階級,本数,箱数量,箱単価';
     const rows = Array.from(Compute.scopedSanchi().values())
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
-      .map(r=>[r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
+      .map(r=>[r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, (r.size||''), r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
     return {text:[head, ...rows].join('\r\n'), rows:rows.length};
   },
   buildJibunCSV(){
-    const head = '出荷日,品目,品種名,規格,箱数,別本数';
+    const head = '出荷日,品目,品種名,等級,階級,本数,箱数,別本数';
     const rows = Compute.scopedJibun().slice()
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
       .map(r=>{
-        const spec = r.betsuCount>0 ? '別' : App.specToStr(r.grade, r.count);
         const betsu = r.betsuCount>0 ? r.betsuCount : '';
-        return [r.date, (r.item||DEFAULT_ITEM), r.variety, spec, r.boxQty, betsu].map(App.csvCell).join(',');
+        return [r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, (r.size||''), r.count, r.boxQty, betsu].map(App.csvCell).join(',');
       });
     return {text:[head, ...rows].join('\r\n'), rows:rows.length};
   },
@@ -3678,19 +3857,20 @@ const App = {
     const specRaw = Norm.text(fd.get('spec'));
     const date = Norm.date(fd.get('date'));
     const boxQty = Norm.num(fd.get('boxQty'));
-    let grade, count, betsuCount = 0;
+    let grade = '', size = '', count = NaN, betsuCount = 0;
     if(specRaw==='別'){
-      grade = '別'; count = 0; betsuCount = Norm.num(fd.get('betsuCount'));
+      grade = '別'; size = ''; count = 0; betsuCount = Norm.num(fd.get('betsuCount'));
       if(!(betsuCount>0)){ UI.toast('別本数を入力してください'); return; }
     } else {
       const spec = Parse.parseSpec(specRaw);
-      if(spec){ grade = spec.grade; count = spec.count; }
+      // 手入力の規格プルダウンは階級＋本数だけを持つので、等級は品目の既定で補う
+      if(spec){ grade = itemRule(State.selectedItem || DEFAULT_ITEM).defaultGrade || '秀'; size = spec.size; count = spec.count; }
     }
-    if(!date || !variety || !grade || Number.isNaN(boxQty) || boxQty<=0){
+    if(!date || !variety || !grade || Number.isNaN(count) || Number.isNaN(boxQty) || boxQty<=0){
       UI.toast('入力内容を確認してください');
       return;
     }
-    const {added, skipped} = Store.mergeJibun([{date, variety, grade, count, boxQty, betsuCount}], 'manual');
+    const {added, skipped} = Store.mergeJibun([{date, variety, grade, size, count, boxQty, betsuCount}], 'manual');
     // 追加後も日付と品種は保持（同じ日・同じ品種で規格違いを連続入力しやすく）。規格・箱数は再描画で既定に戻る。
     if(added){
       // プルダウンにある品種のみ復元（「その他」自由入力は既定へ戻す）

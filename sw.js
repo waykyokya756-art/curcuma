@@ -1,6 +1,6 @@
 /* クルクマ市場分析 Service Worker
    更新時は CACHE のバージョン(v1→v2...)を上げると、次回オンライン起動で確実に入れ替わる。 */
-const CACHE = 'curcuma-v18';
+const CACHE = 'curcuma-v19';
 const SHELL = [
   './',
   './index.html',
