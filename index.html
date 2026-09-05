@@ -28,7 +28,7 @@
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
   --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
   /* 色以外（余白・角丸・書体）はテーマで変わらないのでここだけ */
-  --sp1:4px; --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px; --sp8:32px;
+  --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px;
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
   --font: -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
   --dur:190ms;
@@ -517,9 +517,7 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 .muted{color:var(--ink-muted);}
 .stack{display:flex; flex-direction:column; gap:var(--sp3);}
 .row-between{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
-</style>
-</head>
-<body>
+</style></head><body>
 
 
 <div id="app">
@@ -599,7 +597,10 @@ const Norm = {
   // 等級（秀 / 4P / 別 …）。v2 までは「秀」を自動で付けていたが、それは
   // 等級と階級が1列に連結されていた時代の名残で、スイートピーの階級 '2L' を
   // '秀2L' に化けさせる地雷だった。いまは正規化するだけで語彙には触らない。
-  grade(s){ return Norm.text(s); },
+  // 大文字化は階級（Norm.size）と揃える。揃えないと市況CSVの '4P' と自分CSVの '4p' が
+  // 別の等級とみなされ、突合に失敗してその行の売上が黙って 0 になる。
+  // クルクマの「秀」は漢字なので影響ゼロ（SelfTest 7630.71 と matched 18 が担保）。
+  grade(s){ return Norm.text(s).toUpperCase(); },
   // 階級（2L / L / M / S …）。全角や小文字の揺れだけ吸収する。
   size(s){ return Norm.text(s).toUpperCase(); },
   date(s){
@@ -1025,7 +1026,7 @@ const STORAGE_KEY = 'curcuma.v1';
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-04b';
+const APP_BUILD = '2026-09-05a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1046,7 +1047,9 @@ const ITEM_RULES = {
     // seasonYear() は date.slice(0,4) と完全に同じ結果になる。
     seasonStart: 1,
     defaultGrade: '秀',           // 自分CSVに等級列が無いときに補う等級
-    sizes: ['2L','L','M','S'],    // 階級の語彙。旧 v2 データの分割にも使う
+    // 作型（新植／据置／混植）を使う品目。書かない品目では作付設定の区分欄も
+    // 未割当カードも区分チップも出ない（＝坪あたり売上だけを使う運用になる）。
+    alloc: true,
     // 価格推移：この順で最初に見つかった 等級×階級 を採用する。
     // 分母は (本数 × 箱数) ÷ per。※ 入り本数は見ないので30本行と50本行は合算される
     //（前提メモ A-2「価格の基準は等級×階級であって規格ではない」）
@@ -1064,7 +1067,7 @@ const ITEM_RULES = {
   // スイートピーは 10〜11月始まり・2〜3月終了。10始まりにしておくと、
   // 10月に出荷があった年もその分が前シーズンへ分断されない。
   // price / donut は未定＝実データが貯まってから決める（前提メモ A-1・A-3）。
-  'スイートピー': { seasonStart: 10, defaultGrade: '4P', sizes: ['2L','L'] }
+  'スイートピー': { seasonStart: 10, defaultGrade: '4P' }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
 // 表に無い品目は暦年扱い（既定のクルクマの規則に寄せる）。
@@ -1279,14 +1282,15 @@ const Store = {
   setJibunPlantGroup(ids, plant, sueokiStems){
     const recs = ids.map(id=>Store.jibun.find(r=>r.id===id)).filter(Boolean);
     if(recs.length===0) return false;
-    const stemsOf = (r)=> ((r.betsuCount>0 ? r.betsuCount : r.count) || 0) * (r.boxQty||0);
-    const total = recs.reduce((s,r)=>s+stemsOf(r), 0);
+    // 本数の計算式は Compute.rowStems が正本。ここで書き直すと、画面に出る本数と
+    // 混在の按分が食い違う（片方だけ直したときに黙ってズレる）。
+    const total = recs.reduce((s,r)=>s+Compute.rowStems(r), 0);
     let left = Math.max(0, Math.min(Number(sueokiStems)||0, total));
     recs.forEach((r,i)=>{
       r.plant = plant;
       if(plant==='mix'){
         // 端数は最終行で吸収し、合計が入力値と一致するようにする
-        const share = (i===recs.length-1) ? left : Math.min(left, Math.round(total>0 ? (Number(sueokiStems)||0)*stemsOf(r)/total : 0));
+        const share = (i===recs.length-1) ? left : Math.min(left, Math.round(total>0 ? (Number(sueokiStems)||0)*Compute.rowStems(r)/total : 0));
         r.sueokiStems = share; left -= share;
       } else {
         r.sueokiStems = 0;
@@ -1345,13 +1349,16 @@ const Store = {
       return infoCache.get(k);
     };
     const jibun = Store.jibun.map(r=>{
-      const {typesByVariety} = infoFor(Compute.seasonYear(r.date, r.item || DEFAULT_ITEM), r.item || DEFAULT_ITEM);
+      const item = r.item || DEFAULT_ITEM;
       const stems = Compute.rowStems(r);
-      const t = typesByVariety.get(r.variety);
-      const varietyCategory = !t ? null : (t.新植 && t.据置 ? '混植' : (t.据置 ? '据置' : '新植'));
+      // 作型を使わない品目には作型の内訳を付けない（全部「新植」と書くと嘘になる）
+      if(!Compute.allocEnabled(item)) return {...r, stems};
+      const {typesByVariety} = infoFor(Compute.seasonYear(r.date, item), item);
       const {f, unassigned} = Compute.allocFraction(r, typesByVariety);
       const sueokiStems = unassigned ? null : Math.round(f*stems);
-      return {...r, stems, varietyCategory,
+      return {...r, stems,
+        // 区分の判定は varietyCategory が正本（画面と食い違わせない）
+        varietyCategory: Compute.varietyCategory(typesByVariety.get(r.variety)),
         // 作型別の本数内訳（未割当は null）。混植品種のみ入力対象、単区分は自動確定。
         sueokiStems, shinshokuStems: unassigned ? null : (stems - sueokiStems),
         plantUnassigned: !!unassigned};
@@ -1601,6 +1608,19 @@ const Compute = {
     });
     return points;
   },
+  /* ---- 作型（新植／据置／混植）----
+     クルクマ固有の要求なので、品目のルールに alloc を書いた品目でだけ有効にする
+     （price / donut と同じ「書かなければ効かない」作法）。無効な品目では
+     作付設定の区分欄・未割当カード・割り当てモーダル・区分チップがすべて出ない。
+     坪あたり売上は区分を見ないので、無効な品目でも今までどおり使える。 */
+  allocEnabled(item){ return !!itemRule(item || State.selectedItem || DEFAULT_ITEM).alloc; },
+  // 作付設定の登録状況から品種の区分を決める。画面（品種別売上内訳の区分チップ）と
+  // JSON書き出しの両方がここを通る。2箇所に同じ判定を書くと、片方だけ直したときに
+  // 「画面では混植なのに書き出したJSONでは新植」という食い違いが起きる。
+  varietyCategory(t){
+    if(!t) return null;
+    return (t.新植 && t.据置) ? '混植' : (t.据置 ? '据置' : '新植');
+  },
   // 作付設定から、品種ごとの区分有無と区分別坪を集計
   // 任意の作付設定リストから集計する（allocInfo の中身を切り出したもの）。
   // JSON書き出しは全年度・全品目が対象なので、年度×品目ごとにこれを呼び分ける必要がある。
@@ -1621,6 +1641,7 @@ const Compute = {
   allocInfo(){ return Compute.allocInfoFrom(Compute.scopedSakutsuke()); },
   // 品種が両区分ありのとき、割り当てが要る（plant=null）行を返す。単区分・未登録品種は対象外＝入力不要。
   unassignedAllocRows(){
+    if(!Compute.allocEnabled()) return [];  // 作型を使わない品目では聞かない
     const {typesByVariety} = Compute.allocInfo();
     return Compute.scopedJibun().filter(r=>{
       const t = typesByVariety.get(r.variety);
@@ -1643,24 +1664,26 @@ const Compute = {
     });
     return groups;
   },
-  // 行の実効「据置比率」f を返す。{f, unassigned, categorized}
+  // 行の実効「据置比率」f を返す。{f, unassigned}
   //  両区分: 新植→0 / 据置→1 / mix→据置本数÷総本数 / null→未割当  単区分: その区分に自動確定  未登録: 未分類
+  //  作型を使わない品目では常に {f:0, unassigned:false}（区分は画面にも書き出しにも出さない）。
   allocFraction(row, typesByVariety){
+    if(!Compute.allocEnabled(row.item)) return {f:0, unassigned:false};
     const t = typesByVariety.get(row.variety);
-    if(!t) return {f:0, unassigned:false, categorized:false};        // 作付設定なし＝分割対象外
+    if(!t) return {f:0, unassigned:false};        // 作付設定なし＝分割対象外
     if(t.新植 && t.据置){
-      if(row.plant==='据置') return {f:1, unassigned:false, categorized:true};
-      if(row.plant==='新植') return {f:0, unassigned:false, categorized:true};
+      if(row.plant==='据置') return {f:1, unassigned:false};
+      if(row.plant==='新植') return {f:0, unassigned:false};
       if(row.plant==='mix'){
         const st = Compute.rowStems(row);
         // 本数で保持（旧データは比率 sueokiRatio をフォールバックで使用）
         const f = (row.sueokiStems!=null && st>0) ? (Number(row.sueokiStems)||0)/st : (Number(row.sueokiRatio)||0);
-        return {f:Math.max(0,Math.min(1,f)), unassigned:false, categorized:true};
+        return {f:Math.max(0,Math.min(1,f)), unassigned:false};
       }
-      return {f:0, unassigned:true, categorized:true};               // 両区分だが未割当
+      return {f:0, unassigned:true};               // 両区分だが未割当
     }
-    if(t.据置) return {f:1, unassigned:false, categorized:true};      // 据置のみ→自動
-    return {f:0, unassigned:false, categorized:true};                // 新植のみ→自動
+    if(t.据置) return {f:1, unassigned:false};      // 据置のみ→自動
+    return {f:0, unassigned:false};                // 新植のみ→自動
   },
   matchJibun(){
     return Compute.scopedJibun().map(row=>{
@@ -1715,9 +1738,9 @@ const Compute = {
       const tt = tsuboByType.get(variety) || {新植:0, 据置:0};
       const perT = (amount, tsubo)=> tsubo>0 ? amount/tsubo : null;
       const perS = (amount, stems)=> stems>0 ? amount/stems : null;
-      // 作付設定に基づく区分：両方=混植／片方=その区分／未登録=null
+      // 作付設定に基づく区分：両方=混植／片方=その区分／未登録=null（判定は varietyCategory が正本）
       const tv = typesByVariety.get(variety);
-      const category = !tv ? null : (tv.新植 && tv.据置 ? '混植' : (tv.据置 ? '据置' : '新植'));
+      const category = Compute.varietyCategory(tv);
       return {variety, amount:v.amount, boxes:v.boxes, stems:v.stems, perStem: v.stems>0 ? v.amount/v.stems : null, category,
         split:{
           shinshoku:{...v.split.shinshoku, tsubo:tt.新植, perTsubo:perT(v.split.shinshoku.amount, tt.新植), perStem:perS(v.split.shinshoku.amount, v.split.shinshoku.stems)},
@@ -1729,8 +1752,25 @@ const Compute = {
     // ここでは並べ替えない。表示順は「出荷明細の出現順」で、それを知っているのは
     // screenMine 側（orderSeq）だけ。以前は金額降順に並べていたが、呼び出し側が
     // 必ず並べ直すので毎回捨てられており、並び順の仕様が2箇所に散っていた。
-    const allocUnassignedCount = Compute.unassignedAllocGroups().length;
-    return {total, totalBoxes, totalStems, avgPerStem, allocUnassignedCount, varietyRows, pendingRows, unmatchedRows:bad};
+    return {total, totalBoxes, totalStems, avgPerStem, varietyRows, pendingRows, unmatchedRows:bad};
+  },
+
+  /* ---- 自分タブの突合＋集計をデータが変わるまで使い回す ----
+     matchJibun と jibunSummary は削除・凡例タップ・月の開閉・タブ切替のたびに走っていた
+     （実測：出荷3,000件で64ms、8,000件で168ms）。依存は scopedJibun / scopedSanchi /
+     scopedSakutsuke の3つで、いずれも scopeKey（年度｜品目｜Store.rev）に含まれるので、
+     絞り込みキャッシュとまったく同じ鍵で覚えておける。
+     Store.persist() が rev++ するため、データが変わった瞬間に確実に無効化される
+     （setSanchiPrice も setJibunPlantGroup も persist を通る）。
+     ※ matchJibun / jibunSummary 自身は純粋関数のまま残す（SelfTest と回帰テストが直接呼ぶため）。 */
+  _mine: {key:null, matched:null, summary:null},
+  mineView(){
+    const key = Compute.scopeKey();
+    if(Compute._mine.key !== key){
+      const matched = Compute.matchJibun();
+      Compute._mine = {key, matched, summary: Compute.jibunSummary(matched)};
+    }
+    return Compute._mine;
   }
 };
 
@@ -2177,13 +2217,28 @@ const UI = {
       }
     }
     if(State.tab==='mine'){
-      // 出荷明細一覧の月アコーディオン：開閉状態を State に控えて再描画をまたいで保つ
+      /* 出荷明細一覧の月アコーディオン。開閉状態は State.shipMonthsOpen に控えて
+         再描画をまたいで保つ。中身は閉じている間は作っていないので、開いた瞬間に
+         その月だけ組み立てて差し込み、閉じたら捨てる（画面に残す部品を最小限に保つ）。 */
       document.querySelectorAll('#main details.ship-month').forEach(d=>{
         d.addEventListener('toggle', ()=>{
           const ym = d.getAttribute('data-ym');
+          const body = d.querySelector('.lazy-body');
           const i = State.shipMonthsOpen.indexOf(ym);
-          if(d.open){ if(i<0) State.shipMonthsOpen.push(ym); }
-          else if(i>=0) State.shipMonthsOpen.splice(i,1);
+          if(d.open){
+            if(i<0) State.shipMonthsOpen.push(ym);
+            if(body && !body.innerHTML.trim()) body.innerHTML = UI.shipMonthHTML(ym);
+          } else {
+            if(i>=0) State.shipMonthsOpen.splice(i,1);
+            if(body) body.innerHTML = '';
+          }
+        });
+      });
+      // 未マッチも同じ仕組み（開閉は保持しない＝再描画で閉じる。従来どおりの挙動）
+      document.querySelectorAll('#main details[data-lazy="unmatched"]').forEach(d=>{
+        d.addEventListener('toggle', ()=>{
+          const body = d.querySelector('.lazy-body');
+          if(body) body.innerHTML = d.open ? UI.unmatchedRowsHTML() : '';
         });
       });
     }
@@ -2442,26 +2497,137 @@ const UI = {
       </div>`;
   },
 
+  /* ---------- 出荷明細一覧の材料 ---------- */
+  // 規格の表示（別なら「別N本」）。出荷明細・割り当て行・各モーダルで共通に使う。
+  specTextOf(r){ return (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.size, r.count); },
+  // 規格の並び順（2L30→2L50→L→M→別）。クルクマの表記に合わせた化粧なので、
+  // 表に無い規格は中間（50）に置く＝並びが揃わないだけで壊れはしない。
+  _specOrder: {'2L30':0, '2L50':1, 'L':2, 'M':3},
+  specRank(r){ return r.betsuCount>0 ? 99 : (UI._specOrder[App.specToStr(r.size, r.count)] ?? 50); },
+
+  /* 出荷明細の材料（色番号・日ごと・月ごとの集計）。突合と集計と同じ鍵で覚えておく。
+     月を開くたび・凡例をタップするたびに並べ直していると、件数に比例した時間が
+     そのまま残ってしまう（実測：8,000件で1操作あたり55ms）。 */
+  _shipModel: {key:null, model:null},
+  shipModel(){
+    const key = Compute.scopeKey();
+    if(UI._shipModel.key !== key) UI._shipModel = {key, model: UI.buildShipModel()};
+    return UI._shipModel.model;
+  },
+  /* 出荷明細の材料を実際に組み立てる。HTMLはここでは作らない
+     ＝閉じている月のぶんを組み立てないための分離。 */
+  buildShipModel(){
+    const {matched} = Compute.mineView();
+    // 日付は新しい順。同じ日の中は取込順（配列順）のまま＝品種の出現順を崩さない。
+    // ※以前は addedAt の降順で並べていたが、取込中のミリ秒差で日内の順序が入れ替わることがあった。
+    const sorted = matched.slice().sort((a,b)=> b.date.localeCompare(a.date));
+    // 品種→色番号。7色で循環し、マーカー(--mkN)・ドーナツ(--dnN)・凡例で共用する。
+    // 採番は表示順から。取込順で採ると画面上の色が 1,2,3… の順に並ばず、
+    // 古いCSVを後から取り込むだけで既存の品種の色が動いてしまう。
+    const orderSeq = [], seenV = new Set();
+    sorted.forEach(r=>{ if(r.variety && !seenV.has(r.variety)){ seenV.add(r.variety); orderSeq.push(r.variety); } });
+    const markMap = {}; orderSeq.forEach((v,i)=>{ markMap[v] = (i%7)+1; });
+    // 日ごと → 月ごと。件数が増えていくので、配列の総なめ（find）ではなく Map で引く。
+    const days = [], byDate = new Map();
+    sorted.forEach(r=>{
+      let g = byDate.get(r.date);
+      if(!g){ g = {date:r.date, rows:[], boxes:0, total:0}; byDate.set(r.date, g); days.push(g); }
+      g.rows.push(r);
+      g.boxes += (r.boxQty||0);
+      if(r.matched && !r.pending) g.total += r.amount; // pendingは金額nullなので売上合計に足さない
+    });
+    const months = [], byYm = new Map();
+    days.forEach(d=>{
+      const ym = d.date.slice(0,7);
+      let m = byYm.get(ym);
+      if(!m){ m = {ym, days:[], boxes:0, total:0}; byYm.set(ym, m); months.push(m); }
+      m.days.push(d); m.boxes += d.boxes; m.total += d.total;
+    });
+    return {orderSeq, markMap, months};
+  },
+  // 1日ぶんのカード（品種ごとの枠＋規格の明細行）
+  shipDayCardHTML(g, markMap){
+    const byVar = [], byName = new Map();
+    g.rows.forEach(r=>{
+      let v = byName.get(r.variety);
+      if(!v){ v = {variety:r.variety, rows:[], amount:0}; byName.set(r.variety, v); byVar.push(v); }
+      v.rows.push(r);
+      if(r.matched && !r.pending) v.amount += r.amount;
+    });
+    const blocks = byVar.map(v=>{
+      v.rows.sort((a,b)=> UI.specRank(a)-UI.specRank(b));
+      const specLines = v.rows.map(r=>`
+          <div class="sv-spec">
+            <div class="sv-spec-main">
+              <span class="sv-grade">${UI.specTextOf(r)}</span>
+              <span class="sv-boxes tnum">${r.boxQty}箱</span>
+            </div>
+            ${r.matched && r.pending
+              ? `<div class="sv-spec-sub"><span class="badge badge-pending">未確定</span><button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button></div>`
+              : r.matched
+                ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
+                : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
+            <button class="sv-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この規格を削除">${Icon.trash}</button>
+          </div>`).join('');
+      return `
+          <div class="ship-variety-block">
+            <div class="sv-head">
+              <span class="ship-name mk mk${markMap[v.variety]||1}">${Fmt.esc(v.variety)}</span>
+              ${v.amount>0 ? `<span class="ship-amount tnum">${Fmt.yen(v.amount)}</span>` : ''}
+            </div>
+            <div class="sv-specs">${specLines}</div>
+          </div>`;
+    }).join('');
+    // 見出しの曜日（土=青／日=赤）＋その日の箱数と売上合計（マッチ分）
+    return `
+        <div class="ship-day-card">
+          <div class="ship-date-head">
+            <span class="ship-date-md">${Fmt.date(g.date)}</span>
+            <span class="ship-date-wd ${Fmt.wdClass(g.date)}">(${Fmt.wd(g.date)})</span>
+            <span class="ship-date-boxes tnum">${Fmt.num(g.boxes)}箱</span>
+            ${g.total>0 ? `<span class="ship-date-total tnum">${Fmt.yen(g.total)}</span>` : ''}
+          </div>
+          ${blocks}
+        </div>`;
+  },
+  // 1ヶ月ぶんの中身。閉じている月では呼ばれず、開いた瞬間に afterRender が差し込む。
+  shipMonthHTML(ym){
+    const {markMap, months} = UI.shipModel();
+    const m = months.find(x=>x.ym===ym);
+    return m ? m.days.map(d=>UI.shipDayCardHTML(d, markMap)).join('') : '';
+  },
+  // 未マッチの中身。これも既定で閉じているので、開いた瞬間にだけ作る。
+  unmatchedRowsHTML(){
+    const rows = Compute.mineView().summary.unmatchedRows;
+    return `<p class="muted" style="font-size:0.8125rem">産地データに一致する行（別行は同日・同品種の「別」）が見つからない行です。表記ゆれや産地データ未取込の可能性があります。</p>
+          ${rows.map(r=>`
+            <div class="ship-row">
+              <div class="ship-main">
+                <span class="ship-date tnum">${Fmt.date(r.date)}</span>
+                <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
+                <span class="ship-detail">${UI.specTextOf(r)}　箱数${r.boxQty}</span>
+              </div>
+              <button class="ship-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この行を削除">${Icon.trash}</button>
+            </div>`).join('')}`;
+  },
+
   /* ---------- Screen: 自分の分析 ---------- */
   screenMine(){
     if(Compute.scopedJibun().length===0){
       return `<h1 class="screen-title">自分の分析</h1>` + UI.emptyState('出荷データがまだありません', '自分の出荷をCSVまたは手入力で追加すると、売上を自動集計します。', '取込へ進む', 'import');
     }
-    const matched = Compute.matchJibun();
-    const sum = Compute.jibunSummary(matched);
+    // 突合と集計はデータが変わるまで使い回す（月の開閉・凡例タップ・削除で再計算しない）
+    const sum = Compute.mineView().summary;
+    const allocOn = Compute.allocEnabled(); // 作型（新植／据置）を使う品目か
 
     // 今季作付設定の坪（総坪＋品種別坪）。未入力なら坪あたり系は「-」表示。
     const totalTsubo = Compute.scopedSakutsuke().reduce((s,r)=>s+(Number(r.tsubo)||0),0);
     const tsuboByVariety = {};
     Compute.scopedSakutsuke().forEach(r=>{ tsuboByVariety[r.variety]=(tsuboByVariety[r.variety]||0)+(Number(r.tsubo)||0); });
 
-    // ドーナツ・凡例・品種別内訳の並びは「出荷明細の出現順（日付降順→日内は取込順）」で固定＝金額順で入れ替えない
-    const orderSeq = [];
-    matched.slice().sort((a,b)=> b.date.localeCompare(a.date)).forEach(r=>{ if(r.variety && !orderSeq.includes(r.variety)) orderSeq.push(r.variety); });
-    // 品種→色番号。7色で循環し、マーカー(--mkN)・ドーナツ(--dnN)・凡例で共用する。
-    // 採番は表示順（orderSeq）から。取込順で採ると画面上の色が 1,2,3… の順に並ばず、
-    // 古いCSVを後から取り込むだけで既存の品種の色が動いてしまう。
-    const markMap = {}; orderSeq.forEach((v,i)=>{ markMap[v] = (i%7)+1; });
+    // ドーナツ・凡例・品種別内訳の並びは「出荷明細の出現順（日付降順→日内は取込順）」で固定＝金額順で入れ替えない。
+    // 並び順と色番号は出荷明細と同じものを使う＝UI.shipModel() が正本（2箇所で採番するとズレる）。
+    const {orderSeq, markMap, months:shipMonths} = UI.shipModel();
     const varietyRows = sum.varietyRows.slice().sort((a,b)=> orderSeq.indexOf(a.variety) - orderSeq.indexOf(b.variety));
     const cats = {};
     varietyRows.forEach((r)=>{ cats[r.variety] = r.amount; });
@@ -2475,117 +2641,34 @@ const UI = {
       </div>`;
     }).join('');
 
-    const specText = (r)=> (r.betsuCount>0) ? `別 ${r.betsuCount}本` : App.specToStr(r.size, r.count);
-    // 規格の並び順（2L30→2L50→L→M→別）
-    const specOrder = {'2L30':0,'2L50':1,'L':2,'M':3};
-    const specRank = (r)=> r.betsuCount>0 ? 99 : (specOrder[App.specToStr(r.size, r.count)] ?? 50);
-    // 日付降順のまま、日付ごとにグループ化（新しい日付が上）
-    // 日付は新しい順。同じ日の中は取込順（配列順）のまま＝品種の出現順を崩さない。
-    // ※以前は addedAt の降順で並べていたが、取込中のミリ秒差で日内の順序が入れ替わることがあった。
-    const sortedShip = matched.slice().sort((a,b)=> b.date.localeCompare(a.date));
-    const shipGroups = [];
-    sortedShip.forEach(r=>{
-      let g = shipGroups.find(x=>x.date===r.date);
-      if(!g){ g={date:r.date, rows:[]}; shipGroups.push(g); }
-      g.rows.push(r);
-    });
-    const shipDayCards = shipGroups.map(g=>{
-      // 日付内で品種ごとに1枠にまとめる（規格は枠内に明細行として並べる）
-      const byVar = [];
-      g.rows.forEach(r=>{
-        let v = byVar.find(x=>x.variety===r.variety);
-        if(!v){ v={variety:r.variety, rows:[], amount:0}; byVar.push(v); }
-        v.rows.push(r);
-        if(r.matched && !r.pending) v.amount += r.amount; // pendingは金額nullなので売上合計に足さない
-      });
-      const blocks = byVar.map(v=>{
-        v.rows.sort((a,b)=> specRank(a)-specRank(b));
-        const specLines = v.rows.map(r=>`
-          <div class="sv-spec">
-            <div class="sv-spec-main">
-              <span class="sv-grade">${specText(r)}</span>
-              <span class="sv-boxes tnum">${r.boxQty}箱</span>
-            </div>
-            ${r.matched && r.pending
-              ? `<div class="sv-spec-sub"><span class="badge badge-pending">未確定</span><button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button></div>`
-              : r.matched
-                ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
-                : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
-            <button class="sv-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この規格を削除">${Icon.trash}</button>
-          </div>`).join('');
-        return `
-          <div class="ship-variety-block">
-            <div class="sv-head">
-              <span class="ship-name mk mk${markMap[v.variety]||1}">${Fmt.esc(v.variety)}</span>
-              ${v.amount>0 ? `<span class="ship-amount tnum">${Fmt.yen(v.amount)}</span>` : ''}
-            </div>
-            <div class="sv-specs">${specLines}</div>
-          </div>`;
-      }).join('');
-      // 見出し用の曜日（土=青/日=赤）＋その日の売上合計（マッチ分）
-      const dt = new Date(g.date + 'T00:00:00');
-      const wd = dt.getDay();
-      const wdName = ['日','月','火','水','木','金','土'][wd];
-      const wdCls = wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
-      const dayTotal = byVar.reduce((s,v)=>s+v.amount, 0);
-      const dayBoxes = g.rows.reduce((s,r)=>s+(r.boxQty||0), 0);
-      const html = `
-        <div class="ship-day-card">
-          <div class="ship-date-head">
-            <span class="ship-date-md">${Fmt.date(g.date)}</span>
-            <span class="ship-date-wd ${wdCls}">(${wdName})</span>
-            <span class="ship-date-boxes tnum">${Fmt.num(dayBoxes)}箱</span>
-            ${dayTotal>0 ? `<span class="ship-date-total tnum">${Fmt.yen(dayTotal)}</span>` : ''}
-          </div>
-          ${blocks}
-        </div>`;
-      return {date:g.date, html, boxes:dayBoxes, total:dayTotal};
-    });
-
-    // 月ごとに格納（アコーディオン）。既定は全て閉じた状態＝一覧が長くならない。
-    // 開閉は State.shipMonthsOpen に控えてあり、削除などの再描画をまたいでも保たれる。
-    const shipMonths = [];
-    shipDayCards.forEach(d=>{
-      const ym = d.date.slice(0,7);
-      let m = shipMonths.find(x=>x.ym===ym);
-      if(!m){ m={ym, days:[], boxes:0, total:0}; shipMonths.push(m); }
-      m.days.push(d);
-      m.boxes += d.boxes;
-      m.total += d.total;
-    });
     // 一覧が単一年に収まっている間は見出しから年を省く（「8月」）。年をまたぐ時だけ「2026年8月」に戻す。
     // ＝スマホ幅で見出しを1行に収めるため。冗長な年を落とすのが一番効く。
-    const shipYears = new Set(shipMonths.map(m=>m.ym.slice(0,4)));
-    const singleYear = shipYears.size <= 1;
+    const singleYear = new Set(shipMonths.map(m=>m.ym.slice(0,4))).size <= 1;
+    /* 月ごとのアコーディオン。既定は全て閉じる（開閉は State.shipMonthsOpen に控えてあり、
+       削除などの再描画をまたいで保たれる）。
+       ⚠ 閉じている月の中身は組み立てない。以前は見えていないHTMLまで毎回作って挿入しており、
+       出荷件数にそのまま比例していた（実測：3,000件で 8.0MB／182ms）。
+       中身は開いた瞬間に UI.afterRender が UI.shipMonthHTML(ym) を呼んで差し込む。
+       見出しの「N日・X箱・¥合計」は今までどおり全件から集計しているので数字は変わらない。 */
     const shipRows = shipMonths.map(m=>{
       const [y, mo] = m.ym.split('-');
-      const open = State.shipMonthsOpen.includes(m.ym) ? ' open' : '';
+      const open = State.shipMonthsOpen.includes(m.ym);
       return `
-        <details class="collapse ship-month" data-ym="${m.ym}"${open}>
+        <details class="collapse ship-month" data-ym="${m.ym}"${open?' open':''}>
           <summary>
             <span class="sm-title">${singleYear ? '' : `${Number(y)}年`}${Number(mo)}月</span>
             <span class="sm-meta tnum">${m.days.length}日・${Fmt.num(m.boxes)}箱</span>
             ${m.total>0 ? `<span class="sm-total tnum">${Fmt.yen(m.total)}</span>` : ''}
           </summary>
-          <div class="stack" style="margin-top:var(--sp3)">${m.days.map(d=>d.html).join('')}</div>
+          <div class="stack lazy-body" style="margin-top:var(--sp3)">${open ? UI.shipMonthHTML(m.ym) : ''}</div>
         </details>`;
     }).join('');
 
+    // 未マッチも既定で閉じているので、中身は開いた瞬間に作る（上と同じ仕組み）
     const unmatchedBlock = sum.unmatchedRows.length ? `
-      <details class="collapse">
+      <details class="collapse" data-lazy="unmatched">
         <summary>未マッチ（${sum.unmatchedRows.length}件）<span class="badge badge-nomatch">合計から除外</span></summary>
-        <div class="stack" style="margin-top:var(--sp3)">
-          <p class="muted" style="font-size:0.8125rem">産地データに一致する行（別行は同日・同品種の「別」）が見つからない行です。表記ゆれや産地データ未取込の可能性があります。</p>
-          ${sum.unmatchedRows.map(r=>`
-            <div class="ship-row">
-              <div class="ship-main">
-                <span class="ship-date tnum">${Fmt.date(r.date)}</span>
-                <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
-                <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
-              </div>
-              <button class="ship-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この行を削除">${Icon.trash}</button>
-            </div>`).join('')}
-        </div>
+        <div class="stack lazy-body" style="margin-top:var(--sp3)"></div>
       </details>
     ` : '';
 
@@ -2600,7 +2683,7 @@ const UI = {
               <div class="ship-main">
                 <span class="ship-date tnum">${Fmt.date(r.date)}</span>
                 <span class="ship-name">${Fmt.esc(r.variety)}${r.betsuCount>0?' <span class="tag-betsu">別</span>':''}</span>
-                <span class="ship-detail">${specText(r)}　箱数${r.boxQty}</span>
+                <span class="ship-detail">${UI.specTextOf(r)}　箱数${r.boxQty}</span>
               </div>
               <button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button>
             </div>`).join('')}
@@ -2646,7 +2729,8 @@ const UI = {
           const vt=tsuboByVariety[r.variety]||0;
           const perT=vt>0?Fmt.yen(r.amount/vt):null;
           const mk=markMap[r.variety]||1;
-          const category=r.category;
+          // 作型を使わない品目では区分そのものを出さない（見開きも無くなる）
+          const category=allocOn ? r.category : null;
           const isKon=category==='混植';
           // 区分インジケータ（品種名行の右）：混植=色丸「混」（=見開きトグル）／新植・据置=薄い楕円チップ
           // 文字色は --ink。--dnN を --mkN に乗せると全色でコントラストが 1.9〜3.1:1 しか出ず読めない。
@@ -2711,6 +2795,7 @@ const UI = {
       + `<option value="__other__">その他（自由入力）</option>`;
 
     // ---- 今季作付設定 ----
+    const allocOn = Compute.allocEnabled(); // 作型（新植／据置）を使う品目か
     const fmtTsubo = (n)=> (Number(n)||0).toLocaleString('ja-JP');
     // 品種名の入力補助（産地・自分の既存品種をユニーク化）
     const varietySuggest = Array.from(new Set([
@@ -2723,7 +2808,7 @@ const UI = {
     const sakuEditRows = Compute.scopedSakutsuke().map(r=>`
       <div class="ship-row">
         <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(r.variety)} <span class="tag-betsu">${Fmt.esc(r.type)}</span></span>
+          <span class="ship-name">${Fmt.esc(r.variety)}${allocOn ? ` <span class="tag-betsu">${Fmt.esc(r.type)}</span>` : ''}</span>
           <span class="ship-detail">${fmtTsubo(r.tsubo)}坪</span>
         </div>
         <button class="ship-del" data-action="delete-sakutsuke-row" data-id="${r.id}" aria-label="削除">${Icon.trash}</button>
@@ -2738,15 +2823,16 @@ const UI = {
     });
     const sakuTotal = sakuByVariety.reduce((s,g)=>s + g.shinshoku + g.sueoki, 0);
     const sakuContentRows = sakuByVariety.map(g=>{
+      // 作型を使わない品目では新植/据置の内訳を出さない（右の「計 N坪」だけで足りる）
       const parts = [];
       if(g.shinshoku>0) parts.push(`新植 ${fmtTsubo(g.shinshoku)}坪`);
       if(g.sueoki>0) parts.push(`据置 ${fmtTsubo(g.sueoki)}坪`);
-      const detail = parts.join(' ・ ') || '—';
+      const detail = allocOn ? (parts.join(' ・ ') || '—') : '';
       return `
       <div class="ship-row">
         <div class="ship-main">
           <span class="ship-name">${Fmt.esc(g.variety)}</span>
-          <span class="ship-detail">${detail}</span>
+          ${detail ? `<span class="ship-detail">${detail}</span>` : ''}
         </div>
         <div class="ship-amount tnum">計 ${fmtTsubo(g.shinshoku + g.sueoki)}坪</div>
       </div>`;
@@ -2762,7 +2848,8 @@ const UI = {
           ${Icon.upload}
           <strong>タップしてCSVを選択</strong>
         </label>
-        <input type="file" id="sanchi-file-input" accept=".csv,text/csv" data-action="import-sanchi-file">
+        <!-- ファイル選択は onChange が id で拾う（data-action の委譲は通らない） -->
+        <input type="file" id="sanchi-file-input" accept=".csv,text/csv">
         <div class="paste-row">
           <textarea class="csv-text csv-paste" id="sanchi-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
           <button type="button" class="btn btn-secondary btn-sm" data-action="import-sanchi-paste">貼り付けた内容を取込</button>
@@ -2781,7 +2868,7 @@ const UI = {
             ${Icon.upload}
             <strong>タップしてCSVを選択</strong>
           </label>
-          <input type="file" id="mine-file-input" accept=".csv,text/csv" data-action="import-mine-file">
+          <input type="file" id="mine-file-input" accept=".csv,text/csv">
           <div class="paste-row">
             <textarea class="csv-text csv-paste" id="mine-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
             <button type="button" class="btn btn-secondary btn-sm" data-action="import-mine-paste">貼り付けた内容を取込</button>
@@ -2840,17 +2927,17 @@ const UI = {
       </div>
       <details class="card collapse">
         <summary style="font-size:1rem"><span>${Fmt.esc(String(State.selectedYear))}年の作付設定（${Fmt.esc(String(State.selectedItem))}）</span></summary>
-        <p class="card-caption" style="margin-top:var(--sp2)">この年度・この品目の品種と作付面積（坪）を登録します。<b>作付は年度ごと</b>なので、年度を切り替えると別の内容になります（新しい年度は空から入力）。同じ品種で新植分・据置分が両方ある場合は、それぞれ1行ずつ登録してください。</p>
+        <p class="card-caption" style="margin-top:var(--sp2)">この年度・この品目の品種と作付面積（坪）を登録します。<b>作付は年度ごと</b>なので、年度を切り替えると別の内容になります（新しい年度は空から入力）。${allocOn ? '同じ品種で新植分・据置分が両方ある場合は、それぞれ1行ずつ登録してください。' : ''}</p>
         <form id="sakutsuke-form" data-action="submit-sakutsuke" class="stack">
           <label class="field">品種
             <input type="text" name="variety" placeholder="例: バンコクスプリーム" autocomplete="off" required>
           </label>
-          <label class="field">区分
+          ${allocOn ? `<label class="field">区分
             <div class="select-wrap"><select name="type" required>
               <option value="新植">新植</option>
               <option value="据置">据置</option>
             </select></div>
-          </label>
+          </label>` : ''}
           <label class="field">面積（坪）
             <input type="number" name="tsubo" inputmode="decimal" min="0" step="0.1" placeholder="例: 30" required>
           </label>
@@ -2885,7 +2972,7 @@ const UI = {
         <button class="btn btn-primary" data-action="export-backup">バックアップ書き出し（JSON・全年度）</button>
         <button class="btn btn-secondary" data-action="export-csv">CSVで書き出し（表示中の年度・品目）</button>
         <label class="btn btn-ghost" for="backup-file-input">読み込み（バックアップJSONから全復元）</label>
-        <input type="file" id="backup-file-input" accept=".json,application/json" data-action="import-backup-file">
+        <input type="file" id="backup-file-input" accept=".json,application/json">
         <p class="card-caption">JSONは<b>全年度・全品目</b>を1ファイルに収める完全バックアップ（復元用）。読み込むと現在のデータは全て置き換わるため、常に全部を書き出します。CSVは<b>表示中の年度・品目だけ</b>を「産地」「自分」の2ファイルで書き出します（表計算での閲覧・再取込用）。</p>
       </div>
       <details class="card collapse">
@@ -3129,7 +3216,7 @@ const UI = {
 
   // 作型割り当ての行マークアップ（日付×品種×規格ごと。規格とその規格の総本数を表示）
   allocRowsHTML(groups){
-    const specText = (g)=> (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.size, g.count);
+    const specText = UI.specTextOf;
     return groups.map(g=>`
       <div class="alloc-row">
         <div class="alloc-main">
@@ -3170,7 +3257,7 @@ const UI = {
   mixStemsModal(groupKey, fromModal){
     const g = Compute.unassignedAllocGroups().find(x=>x.key===groupKey);
     if(!g){ UI.toast('対象の出荷が見つかりませんでした'); return; }
-    const specText = (g.betsuCount>0) ? `別 ${g.betsuCount}本` : App.specToStr(g.size, g.count);
+    const specText = UI.specTextOf(g);
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
