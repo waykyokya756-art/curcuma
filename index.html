@@ -23,6 +23,9 @@
   --warn:#C77A2A; --warn-soft:#F7E9D4; --danger:#C0453B; --danger-soft:#F8DEDB;
   --accent-text:#9E3F70; --warn-text:#9A5B18; --danger-text:#A6392F;
   --chart-2l30:#2E7D5B; --chart-2l50:#7FC4A0; --chart-l50:#E0A458; --chart-other:#B8BDC2;
+  /* 価格推移の背景に敷く階級構成バー。折れ線が --primary（緑）なので緑系は避けている。
+     割り当ては箱数の多い順で、階級名とは結びつけない（語彙は市況CSVが決める）。 */
+  --chart-size1:#2F6DB5; --chart-size2:#E0A458; --chart-size3:#8A72C2;
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
   --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
@@ -45,6 +48,7 @@
     --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
     --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
     --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
+    --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
     --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
     --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
     --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -59,6 +63,7 @@
   --warn:#E0A458; --warn-soft:#3A2E1B; --danger:#E27469; --danger-soft:#3A211E;
   --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
   --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
+  --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
   --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
   --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -69,7 +74,10 @@
    これが無いと OS がダークの端末でネイティブ select のドロップダウンだけ暗いまま残る。 */
 :root[data-theme="light"]{ color-scheme: light; }
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;}
+/* 一番上／一番下で、それ以上引っぱっても余白が伸びない（ゴムのように跳ねない）。
+   引っぱりで再読み込みが走るのも止まる。年度バーを指で払う操作と、ページを
+   上下に引っぱる操作が混ざるようになったので、縦は跳ねずに止めておく。 */
+html,body{margin:0; padding:0; overscroll-behavior-y:none;}
 html{font-size:112.5%; -webkit-text-size-adjust:100%; text-size-adjust:100%;} /* 既定16px→18px。文字の自動リサイズで再レイアウトが起きないよう固定 */
 body{
   background:var(--bg); color:var(--ink); font-family:var(--font);
@@ -99,15 +107,53 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
   background:var(--surface); border-bottom:1px solid var(--border);
 }
 .appbar-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp2);}
-/* 2段目は右詰め。末尾のスペーサーがテーマボタンの幅を埋め、品目の右端が年度の右端と揃う */
-.appbar-row2{justify-content:flex-end;}
-/* 年度・品目セレクタを必ず操作できるようにする。幅が足りない時に削るのは飾りであるアプリ名の側。 */
+/* 品目セレクタを必ず操作できるようにする。幅が足りない時に削るのは飾りであるアプリ名の側。 */
 .wordmark{font-weight:700; font-size:1rem; display:flex; align-items:center; gap:var(--sp2); white-space:nowrap;
   flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;}
 .appbar-right{display:flex; align-items:center; gap:var(--sp2); flex:0 0 auto;}
-/* 2段目の末尾。テーマボタン(.icon-btn)と同じ36pxを占めることで、
-   品目セレクタの右端が1段目の年度セレクタの右端に揃う。 */
-.appbar-spacer{width:36px; height:36px; flex:0 0 auto;}
+
+/* ---- 年度バー（アプリバー2段目） ----
+   真ん中に来ている年度が選択中。指で払っても、ゆっくり動かしても選べる。
+   ⚠ ブラウザ任せの横スクロールは使っていない。使うと勢いを止められず、強く払った時に
+   2つ3つ流れてしまい、あとから引き戻すしかない＝「行って戻る」動きが見えてしまうため。
+   指の動きは JS が受け取り（UI.wireYearBar）、帯を transform でずらす。
+   動きの滑らかさは、下の .is-animating（CSSのtransition）に任せる。
+   位置は「年度は必ず4桁＝幅は全部同じ」を使って計算で出す。 */
+.year-bar{
+  position:relative; overflow:hidden;
+  /* アプリバーの左右パディングを打ち消して全幅で流す */
+  margin:0 calc(var(--sp4) * -1);
+  /* 取込・保存タブでは中身を空にするが、高さはここで確保したまま残す。
+     消して詰めるとタブを行き来するたびにアプリバーの高さが変わり、画面が上下に跳ねる。 */
+  min-height:34px;
+  /* このバーの上の指の動きは、縦も含めて全部こちらで受け取る。
+     ⚠ pan-y（縦だけブラウザに任せる）にしてはいけない。速く払うと指はわずかに縦へも
+     ぶれるので、ブラウザが「縦スクロールだ」と判断して操作を横取りする。すると
+     ①払っている途中で操作が打ち切られ、指を離さず動かしても戻ってこない
+     ②同時に中身が少し縦にスクロールする（2026-09-06 に実際に起きた両方の症状）。 */
+  touch-action:none;
+  -webkit-user-select:none; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.year-track{display:flex; align-items:stretch; will-change:transform;}
+.year-track.is-animating{transition:transform 220ms cubic-bezier(.22,.61,.36,1);}
+.year-item{
+  flex:0 0 96px;
+  position:relative; padding:2px 0 9px; border:0; background:none; cursor:pointer;
+  font-family:inherit; font-size:16px; font-weight:600; line-height:1.4;
+  color:var(--ink-muted); white-space:nowrap; text-align:center;
+  /* 押した瞬間に灰色の四角がかぶって濁るのを消す（スマホの標準の押下表示） */
+  -webkit-tap-highlight-color:transparent;
+  /* 選択中と同じ太さで場所を取っておく。太字に変わった時に列が伸び縮みしない */
+  letter-spacing:0.01em;
+}
+.year-item.is-on{color:var(--primary); font-weight:700;}
+/* 中央に来た年度の下の短い線。「離したらこれになる」の予告として、
+   指で動かしている間も中央に一番近いものへ付け替える。 */
+.year-item.is-on::after{
+  content:''; position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+  width:44px; height:3px; border-radius:2px; background:var(--primary);
+}
 .data-chip{
   font-size:0.75rem; color:var(--ink-muted); background:var(--surface-2); border:1px solid var(--border);
   border-radius:var(--r-pill); padding:4px 10px; white-space:nowrap;
@@ -126,9 +172,8 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
   scroll-margin-top:0; scroll-margin-bottom:0;
 }
 .scope-sel.select-wrap::after{right:11px; width:6px; height:6px;}
-#year-select{min-width:92px;}
 /* 品目は全角7文字が入る幅で固定し、名前を右詰めにする。
-   幅を可変にすると品目名の長さで右端が動き、年度セレクタとの揃いが崩れる。
+   幅を可変にすると品目名の長さで右端が動き、テーマボタンとの間隔が名前ごとに変わる。
    156px＝border 2px ＋ 左右padding 40px ＋ 本文114px。
    全角7文字は 0.875rem(=15.75px) で 110.3px なので収まる（8文字は126pxで … に切れる）。
    矢印は右端から11px・6px幅、テキスト領域は右端から28pxなので、右詰めでも重ならない。
@@ -148,6 +193,10 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
 
 /* ---- Main / layout ---- */
 main{max-width:640px; margin:0 auto; padding:var(--sp4); display:flex; flex-direction:column; gap:var(--sp4);}
+/* 一番上でさらに上へ引いた時に、中身だけが少しだけ伸びる（約3mm＝18px が上限）。
+   ブラウザ標準の大きな伸び（と引っぱって再読み込み）は overscroll-behavior で止めてあり、
+   代わりにこの小さな伸びだけを出す。指を離すと下の transition でなめらかに戻る。 */
+main.is-bouncing{transition:transform 260ms cubic-bezier(.22,.61,.36,1);}
 
 /* ---- Cards ---- */
 .card{
@@ -311,6 +360,9 @@ input[type="file"]{display:none;}
 .legend-flex{flex:1 1 auto; min-width:0;}
 
 .chart-caption{font-size:0.75rem; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:6px 10px;}
+/* グラフの読み方の説明。chart-caption は「データ不足」等の注意書き用（警告色）なので、
+   ただの説明にそれを使うと警告に見える。こちらは色を付けない。 */
+.chart-note{font-size:0.75rem; color:var(--ink-muted); padding:2px 2px; margin:0;}
 /* 折れ線の詳細表示（固定位置。タップしたプロットの内容を表示） */
 .chart-detail{display:flex; align-items:center; gap:10px; min-height:72px; padding:8px 12px; border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border); color:var(--ink);}
 .chart-detail[data-empty="true"]{color:var(--ink-muted); font-size:0.8125rem;}
@@ -521,21 +573,19 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
 
 
 <div id="app">
-  <!-- 2段構成。1段目＝アプリ名／年度＋テーマ、2段目＝品目。
-       2段目の末尾のスペーサーがテーマボタン（.icon-btn 36px）と同じ幅を占めるので、
-       品目セレクタの右端が1段目の年度セレクタの右端と揃う。 -->
+  <!-- 2段構成。1段目＝アプリ名／品目＋テーマ、2段目＝年度バー。
+       品目が親で年度が子。年度の選択肢は品目ごとに別なので（Store.years(item)）、
+       上下の入れ子で親子を表す。年度バーは中身が品目と年度の両方にかかる
+       タブ（産地・自分）でだけ出す＝renderAppBar が出し分ける。 -->
   <header id="appbar">
     <div class="appbar-row">
       <div class="wordmark">🌸 出荷分析</div>
       <div class="appbar-right">
-        <div class="select-wrap scope-sel"><select id="year-select" aria-label="年度を選ぶ"></select></div>
+        <div class="select-wrap scope-sel"><select id="item-select" aria-label="品目を選ぶ"></select></div>
         <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
       </div>
     </div>
-    <div class="appbar-row appbar-row2">
-      <div class="select-wrap scope-sel"><select id="item-select" aria-label="品目を選ぶ"></select></div>
-      <div class="appbar-spacer" aria-hidden="true"></div>
-    </div>
+    <div class="year-bar" id="year-bar" role="tablist" aria-label="年度を選ぶ"></div>
   </header>
   <div id="storage-banner-region"></div>
   <main id="main"></main>
@@ -745,12 +795,18 @@ const Parse = {
     return {records, errors, dupCount,
             unknownSpecs: Array.from(unknown, ([spec, n])=>({spec, n}))};
   },
-  // その品目で「扱いが決まっている」等級×階級の集合。price も donut も無ければ null＝判定しない。
+  /* その品目で「扱いが決まっている」等級×階級の集合。判定できなければ null＝警告を出さない。
+     ⚠ blend:'all'（その日の全部を平均する品目）では、どんな等級×階級も価格に入るので
+        「価格の基準に無い＝価格推移に反映されない」という警告自体が成り立たない。
+        いつもと違う規格が出たことは、背景の棒の一番上に赤で出る（sizeBars の その他）。 */
   knownSpecs(item){
     const rule = itemRule(item);
-    if(!rule.price && !rule.donut) return null;
+    const priceCoversAll = !!(rule.price && rule.price.blend === 'all');
+    if((!rule.price || priceCoversAll) && !rule.donut) return null;
     const s = new Set();
-    (rule.price ? rule.price.basis : []).forEach(([g, sz])=> s.add(g + '|' + sz));
+    if(rule.price && !priceCoversAll){
+      (rule.price.basis || []).forEach(([g, sz])=> s.add(g + '|' + sz));
+    }
     (rule.donut ? rule.donut.buckets : []).forEach(b=> s.add(b.grade + '|' + b.size));
     return s;
   },
@@ -1026,7 +1082,7 @@ const STORAGE_KEY = 'curcuma.v1';
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-05a';
+const APP_BUILD = '2026-09-06b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1066,8 +1122,33 @@ const ITEM_RULES = {
   },
   // スイートピーは 10〜11月始まり・2〜3月終了。10始まりにしておくと、
   // 10月に出荷があった年もその分が前シーズンへ分断されない。
-  // price / donut は未定＝実データが貯まってから決める（前提メモ A-1・A-3）。
-  'スイートピー': { seasonStart: 10, defaultGrade: '4P' }
+  'スイートピー': {
+    seasonStart: 10,
+    defaultGrade: '4P',
+    /* 全規格 100本固定なので、その日その品種の全部を混ぜた加重平均が
+       そのまま「実際にいくらで売れたか（平均箱単価＝平均100本価格）」になる。
+       blend:'all' ＝ 等級・階級で絞らず、その日の全行をまとめて平均する。
+       ⚠ クルクマでは絶対に使わないこと。入り本数が 30/50 と混在するため意味が壊れる
+         （クルクマの basis は「先に見つかったほうを採る優先リスト」のまま）。
+       2026-09-06 に 2L+L だけ → 全規格へ変更。3月に M が14%まで増えるので、
+       2L+L だけの線では手取りの実感とずれるため（ユーザー判断）。 */
+    price: { per: 100, blend: 'all', label: '全規格平均' },
+    /* 折れ線の背景に敷く、その日の規格構成（100%の縦棒）。
+       バケツは「見せ方の決定」なのでここに書いてよい（前提メモ A′）。
+       下から順に積み、どのバケツにも入らない行は【その他】として一番上に赤で乗る
+       ＝赤が見えたら「3P など、いつもと違うものが出た日」とすぐ分かる。 */
+    sizeBars: {
+      buckets: [
+        {key:'2L', label:'2L', grade:'4P', size:'2L', colorVar:'var(--chart-size1)'},
+        {key:'L',  label:'L',  grade:'4P', size:'L',  colorVar:'var(--chart-size2)'},
+        {key:'M',  label:'M',  grade:'4P', size:'M',  colorVar:'var(--chart-size3)'}
+      ],
+      otherLabel: 'その他', otherColorVar: 'var(--danger)'
+    }
+    // donut は書かない。sizeBars が「毎日の構成」を見せる＝選択日1枚のドーナツの上位互換で、
+    // バケツを推測せずに済む（前提メモ A-3「ドーナツにルールは存在しない」）。
+    // ※ donut を書かない品目では、産地タブの日付セレクタも出ない（日付で動くものが無いため）。
+  }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
 // 表に無い品目は暦年扱い（既定のクルクマの規則に寄せる）。
@@ -1600,6 +1681,24 @@ const Compute = {
         if(!(denomBoxes > 0)) return null;
         return numerator / denomBoxes;
       };
+      /* blend＝「先に見つかったほうを採る優先リスト」ではなく
+         【その日の行をまとめて1つに平均する】モード（スイートピー）。
+         入り本数が規格によらず一定の品目でだけ意味を持つ。クルクマのように
+         30入りと50入りが混在する品目でこれをやると平均の意味が壊れるので、
+         書いた品目でだけ有効にする（＝rule に blend が無ければ以下は素通り）。
+         blend:'all' は等級・階級で絞らない＝その日の全部の平均＝実際の手取りそのもの。
+         ⚠ 本数0の行（クルクマの『別』のような形）は必ず外す。分子だけ増えて分母が
+           増えないので、混ぜると平均が跳ね上がる。 */
+      if(r0.blend){
+        const inRange = (r)=> r0.blend==='all' ? true
+          : (r0.basis||[]).some(([g, sz])=> r.grade===g && r.size===sz);
+        const rs = rows.filter(r=> r.boxPrice!=null && (Number(r.count)||0) > 0 && inRange(r));
+        if(rs.length===0) return {date, price:null, marker:null};
+        const numerator = rs.reduce((s,r)=>s + r.boxPrice*r.boxQty, 0);
+        const denomBoxes = rs.reduce((s,r)=>s + r.count*r.boxQty, 0) / r0.per;
+        if(!(denomBoxes > 0)) return {date, price:null, marker:null};
+        return {date, price: numerator/denomBoxes, marker:'blend'};
+      }
       for(const [g, sz] of r0.basis){
         const price = calc(g, sz);
         if(price != null) return {date, price, marker: sz}; // マーカーは階級名＝従来と同じ '2L'/'L'
@@ -1607,6 +1706,50 @@ const Compute = {
       return {date, price:null, marker:null};
     });
     return points;
+  },
+  /* ---- 価格推移の背景に敷く規格構成 ----
+     日付ごとに、バケツ別の箱数と合計を返す。バケツは品目のルール（sizeBars.buckets）が正本で、
+     どれにも当てはまらない行は OTHER にまとめて【棒の一番上】に赤で乗る
+     ＝赤が見えたら「いつもと違う等級（3P など）が出た日」と一目で分かる。
+     価格未確定（boxPrice=null）の行も数える。数量の集計なので donutDataForDay と同じ扱い。
+     varieties は配列＝主要5品種のときは5品種を合計した割合になる。
+     lineDataFrom と同じく Store も State も読まない純粋関数（テストが直接呼ぶ）。 */
+  SIZE_BAR_OTHER: '__other__',
+  sizeMixFrom(rows, varieties, sb){
+    if(!sb || !sb.buckets) return null; // ルールが無い品目では棒を描かない
+    const OTHER = Compute.SIZE_BAR_OTHER;
+    const want = new Set(varieties);
+    const byDate = new Map();       // date -> Map(バケツ -> 箱数)
+    const totals = new Map();       // バケツ -> シーズン合計の箱数
+    rows.forEach(rec=>{
+      if(!want.has(rec.variety)) return;
+      const q = Number(rec.boxQty) || 0;
+      if(!(q > 0)) return;
+      const hit = sb.buckets.find(b=> b.grade===rec.grade && b.size===rec.size);
+      const key = hit ? hit.key : OTHER;
+      if(!byDate.has(rec.date)) byDate.set(rec.date, new Map());
+      const m = byDate.get(rec.date);
+      m.set(key, (m.get(key)||0) + q);
+      totals.set(key, (totals.get(key)||0) + q);
+    });
+    // 積む順はルールの並び（下から）＋ その他は必ず一番上。日ごとに並べ替えないこと
+    //（日によって色の段が入れ替わると比較できなくなる）。
+    const order = sb.buckets.map(b=>b.key).concat([OTHER]);
+    const colors = {}; const labels = {};
+    sb.buckets.forEach(b=>{ colors[b.key] = b.colorVar; labels[b.key] = b.label; });
+    colors[OTHER] = sb.otherColorVar || 'var(--danger)';
+    labels[OTHER] = sb.otherLabel || 'その他';
+    const mix = new Map();
+    byDate.forEach((m, date)=>{
+      let total = 0; m.forEach(v=> total += v);
+      mix.set(date, {sizes:m, total});
+    });
+    return {order, colors, labels, totals, byDate:mix};
+  },
+  // 選択中の年度×品目での規格構成（画面はこちら）。varieties は配列。
+  sizeMix(varieties){
+    return Compute.sizeMixFrom(Compute.scopedSanchi(), varieties,
+      itemRule(State.selectedItem || DEFAULT_ITEM).sizeBars);
   },
   /* ---- 作型（新植／据置／混植）----
      クルクマ固有の要求なので、品目のルールに alloc を書いた品目でだけ有効にする
@@ -1914,6 +2057,28 @@ const Charts = {
       <text x="${cx}" y="${(cy+size*0.11).toFixed(1)}" text-anchor="middle" class="donut-center-lbl" style="font-size:${(size*0.06).toFixed(1)}px">総箱数</text>`}
     </svg>`;
   },
+  /* 価格推移の背面に敷く、規格構成の100%積み上げバー。mix = Compute.sizeMix() の出力。
+     mix が無ければ空文字＝従来のグラフと1バイトも変わらない。
+     dates は日付の配列（単一品種は points の日付、主要5品種は軸の日付）。 */
+  sizeBarsSVG(mix, dates, xScale, padT, innerH){
+    if(!mix || !mix.order || mix.order.length===0) return '';
+    const BW = 20;
+    let s = '';
+    dates.forEach((date,i)=>{
+      const d = mix.byDate.get(date);
+      if(!d || !(d.total > 0)) return;
+      const x = xScale(i) - BW/2;
+      let y = padT + innerH; // 下から積む（order の先頭が一番下、その他が一番上）
+      mix.order.forEach(key=>{
+        const v = d.sizes.get(key) || 0;
+        if(!(v > 0)) return;
+        const h = innerH * (v / d.total);
+        y -= h;
+        s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${h.toFixed(1)}" fill="${mix.colors[key]}" fill-opacity="0.22"/>`;
+      });
+    });
+    return s;
+  },
   lineSVG(points, opts){
     opts = opts||{};
     const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
@@ -1944,6 +2109,10 @@ const Charts = {
       const sun = Charts.isSunday(points[i].date);
       xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(points[i].date)}</text>`;
     }
+    // 背景の階級構成バー（opts.mix を渡した品目だけ）。高さは毎日プロット領域いっぱいに
+    // 揃えるので、読めるのは【比率】だけ＝その日の量の多少は出ない。
+    // 線とマーカーより先に描いて背面に回す。
+    const bars = Charts.sizeBarsSVG(opts.mix, points.map(p=>p.date), xScale, padT, innerH);
     // 価格のある点を全て一本の線でつなぐ（出荷の無い日／2L・L欠測日は跨いで接続）
     const pricedIdx = [];
     points.forEach((p,i)=>{ if(p.price!=null) pricedIdx.push(i); });
@@ -1957,23 +2126,26 @@ const Charts = {
     points.forEach((p,i)=>{
       if(p.price==null) return;
       const x = xScale(i), y = yScale(p.price);
-      if(p.marker==='2L'){
-        markers += `<circle cx="${x}" cy="${y}" r="6" fill="var(--primary)" stroke="var(--surface)" stroke-width="2" data-pt="${i}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"/>`;
-      } else {
+      // ◇は「その日2Lが無いのでLで代替した」印。階級をまとめて平均する品目（blend）には
+      // 代替という概念が無いので丸になる。クルクマは 2L→丸 / L→◇ で従来どおり。
+      if(p.marker==='L'){
         markers += `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.5" transform="rotate(45 ${x} ${y})" data-pt="${i}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"/>`;
+      } else {
+        markers += `<circle cx="${x}" cy="${y}" r="6" fill="var(--primary)" stroke="var(--surface)" stroke-width="2" data-pt="${i}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"/>`;
       }
     });
     // 選択中プロットの縁取り（初期は非表示。タップ時に位置を移動して表示）
     const highlight = `<circle class="pt-highlight" r="10" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
     const hitLayer = `<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" data-hit="line"/>`;
     const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="価格推移" data-line-chart data-padl="${padL}" data-padr="${padR}" data-w="${W}" data-n="${n}" data-x0="${x0}" data-x1="${x1}">
-      ${grid}${sunday}${paths}${markers}${highlight}${xlabels}${hitLayer}
+      ${bars}${grid}${sunday}${paths}${markers}${highlight}${xlabels}${hitLayer}
     </svg>`;
     return {svg, isolated, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
   },
-  multiLineSVG(series){
+  multiLineSVG(series, opts){
     // series = [{variety, color, points, hidden}], points = Compute.lineData output
     // hidden:true の系列は線を描かないが、日付軸・価格軸の計算には含める（絞り込みで軸が動かないように）
+    opts = opts||{};
     const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
     const dateSet = new Set();
     series.forEach(s=> s.points.forEach(p=> dateSet.add(p.date)));
@@ -2004,6 +2176,10 @@ const Charts = {
       const sun = Charts.isSunday(dates[i]);
       xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(dates[i])}</text>`;
     }
+    // 背景の規格構成バー（品目に sizeBars を書いた場合のみ）。
+    // 5品種を合計した割合＝「その日の市場全体がどの規格に寄っていたか」。
+    // 凡例で品種を絞っても棒は動かさない（棒は合計の話で、個々の線の話ではないため）。
+    const bars = Charts.sizeBarsSVG(opts.mix, dates, xScale, padT, innerH);
     let paths = '', markers = '', isolated = false;
     const ptMeta = [];
     series.forEach(s=>{
@@ -2016,15 +2192,16 @@ const Charts = {
       } else if(pts.length===1){ isolated = true; }
       pts.forEach(({i,p})=>{
         const x = xScale(i), y = yScale(p.price);
-        if(p.marker==='2L') markers += `<circle cx="${x}" cy="${y}" r="6" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
-        else markers += `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="var(--surface)" stroke="${s.color}" stroke-width="2.5" transform="rotate(45 ${x} ${y})"/>`;
+        // ◇はL代替の印。blend の品目には代替が無いので丸（lineSVG と同じ規則）。
+        if(p.marker==='L') markers += `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="var(--surface)" stroke="${s.color}" stroke-width="2.5" transform="rotate(45 ${x} ${y})"/>`;
+        else markers += `<circle cx="${x}" cy="${y}" r="6" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
         ptMeta.push({x, y, date:p.date, price:p.price, marker:p.marker, variety:s.variety, color:s.color});
       });
     });
     // 選択中プロットの縁取り
     const highlight = `<circle class="pt-highlight" r="10" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
     const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="主要5品種の価格推移" data-multiline-chart data-w="${W}">
-      ${grid}${sunday}${paths}${markers}${highlight}${xlabels}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+      ${bars}${grid}${sunday}${paths}${markers}${highlight}${xlabels}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
     </svg>`;
     return {svg, isolated, ptMeta, w:W, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H)};
   }
@@ -2141,8 +2318,8 @@ const UI = {
       const want = String(selected == null ? '' : selected);
       if(el.value !== want) el.value = want;
     };
-    syncSelect(document.getElementById('year-select'), Store.years(), State.selectedYear, y=>`${y}年`);
     syncSelect(document.getElementById('item-select'), Store.itemNames(), State.selectedItem, null);
+    UI.renderYearBar();
     const region = document.getElementById('storage-banner-region');
     if(Store.loadError){
       region.innerHTML = `<div class="storage-banner">⚠ 前回の保存データを読み込めませんでした（破損の可能性）。壊れたデータは退避しました。「保存」タブのバックアップから復元してください。</div>`;
@@ -2153,6 +2330,229 @@ const UI = {
     } else {
       region.innerHTML = '';
     }
+  },
+
+  /* ---------- 年度バー（アプリバー2段目） ----------
+     年度は品目にぶら下がっている（選べる年度が品目ごとに違う）ので、品目の下の段に置く。
+     取込・保存タブは特定の年度を指さないので、そこでは出さない。
+     並びは古い年度が左・新しいのが右（時間軸と同じ向き）。Store.years() は新しい順なので反転する。 */
+  renderYearBar(){
+    const bar = document.getElementById('year-bar');
+    if(!bar) return;
+    const show = UI.yearScoped(State.tab);
+    if(!show){
+      // 取込・保存タブ。年度と文字だけを消し、段そのものは残す（高さは CSS の min-height）。
+      // 高さごと消すとタブを行き来するたびに画面が上下に跳ねる。
+      if(bar.dataset.shown !== '0'){ bar.innerHTML = ''; bar.dataset.sig = ''; bar.dataset.shown = '0'; }
+      return;
+    }
+    // 中身が空の間は幅を測っても意味が無いので、戻した1回目は動かさずに置き直す。
+    const wasHidden = bar.dataset.shown !== '1';
+    bar.dataset.shown = '1';
+    const years = Store.years().slice().reverse();
+    const sig = years.join('\n');
+    let rebuilt = false;
+    if(bar.dataset.sig !== sig){
+      bar.innerHTML = `<div class="year-track" id="year-track">`
+        + years.map(y=>`<button type="button" class="year-item" role="tab" aria-selected="false" data-action="pick-year" data-year="${Fmt.esc(y)}">${Fmt.esc(y)}年</button>`).join('')
+        + `</div>`;
+      UI._yearOffset = null;   // 中身が変わったので、位置は測り直す
+      bar.dataset.sig = sig;
+      rebuilt = true;
+    }
+    UI.paintYearMark(String(State.selectedYear));
+    // バー自身のスクロールで選ばれた時は、位置はもうスナップで合っているので触らない。
+    // 触ると自分のスクロールと重なって動きが二重になる。
+    if(UI._yearFromBar){ UI._yearFromBar = false; return; }
+    const instant = rebuilt || wasHidden || bar.dataset.placed !== '1';
+    UI.centerYear(String(State.selectedYear), !instant);
+    bar.dataset.placed = '1';
+  },
+  // 品目と年度の両方にかかる画面か。取込・保存はアプリ全体の道具なので年度を指さない。
+  yearScoped(tab){ return tab === 'sanchi' || tab === 'mine'; },
+  // 下線と色だけを付け替える（画面は描き直さない）。指で動かしている最中も毎回呼ぶ。
+  paintYearMark(y){
+    const bar = document.getElementById('year-bar');
+    if(!bar) return;
+    bar.querySelectorAll('.year-item').forEach(el=>{
+      const on = el.dataset.year === String(y);
+      el.classList.toggle('is-on', on);
+      el.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  },
+  yearItems(bar){ const a = []; (bar||document).querySelectorAll('.year-item').forEach(n=>a.push(n)); return a; },
+  /* 年度バーの寸法。年度は必ず4桁なので幅は全部同じ＝計算で位置を出せる。
+     取れない時（まだ中身が無い等）は count 0 を返す。 */
+  yearMetrics(){
+    const bar = document.getElementById('year-bar');
+    const items = bar ? UI.yearItems(bar) : [];
+    return {bar, items, count: items.length,
+            w: (items[0] && items[0].offsetWidth) || 96,
+            barW: (bar && bar.clientWidth) || 0};
+  },
+  yearIndexOf(y){ return UI.yearItems().findIndex(n=>n.dataset.year === String(y)); },
+  // i番目を中央に置くための、帯のずらし量
+  yearOffsetFor(i){ const m = UI.yearMetrics(); return m.barW/2 - (i*m.w + m.w/2); },
+  // いまのずらし量だと、中央に来ているのは何番目か
+  yearIndexAt(offset){
+    const m = UI.yearMetrics();
+    if(!m.count) return -1;
+    const i = Math.round((m.barW/2 - offset - m.w/2) / m.w);
+    return Math.max(0, Math.min(m.count-1, i));
+  },
+  yearClampOffset(offset){
+    const m = UI.yearMetrics();
+    if(!m.count) return offset;
+    const min = UI.yearOffsetFor(m.count-1), max = UI.yearOffsetFor(0);
+    return Math.max(min, Math.min(max, offset));
+  },
+  // 帯を動かす。animate は CSS の transition に任せる（毎コマ自前で描かない）。
+  setYearOffset(offset, animate){
+    const track = document.getElementById('year-track');
+    if(!track) return;
+    track.classList.toggle('is-animating', !!animate);
+    track.style.transform = `translateX(${Math.round(offset)}px)`;
+    UI._yearOffset = offset;
+  },
+  centerYear(y, animate){
+    const i = UI.yearIndexOf(y);
+    if(i < 0) return;
+    UI.setYearOffset(UI.yearOffsetFor(i), !!animate);
+  },
+  /* 指を離した時にどの年度で止めるか。ここが操作の決まりの本体（ユーザー指定）。
+       ・素早く払った → 強さに関わらず【隣ひとつ】。行き過ぎてから戻る動きは見せない。
+       ・ゆっくり動かした → 指を止めた場所そのまま。何コマでも動ける。
+     純粋な計算なので node のテストから直接呼べる（tests/scope.js が見張る）。
+     velocity は px/ms。指を左へ動かす＝負＝新しい年度側（右）へ進む。 */
+  yearReleaseTarget(startIdx, nearIdx, velocity, count){
+    if(!count) return startIdx;
+    const FLICK = 0.4;
+    const t = Math.abs(velocity) > FLICK ? startIdx + (velocity < 0 ? 1 : -1) : nearIdx;
+    return Math.max(0, Math.min(count-1, t));
+  },
+  /* 指の動きをこちらで受け取る。ブラウザ任せの横スクロールをやめた理由は、
+     勢いを止められないから＝強く払うと2つ3つ流れてしまい、あとから引き戻すしかなく、
+     「行って戻る」動きが見えてしまう。自分で受ければ、払いは最初から隣で止まる。
+     リスナーはバー本体に1回だけ付ける（中身を作り直しても本体は残る）。 */
+  wireYearBar(){
+    const bar = document.getElementById('year-bar');
+    if(!bar || bar.dataset.wired === '1') return;
+    bar.dataset.wired = '1';
+    let dragging = false, moved = false, startX = 0, startOffset = 0, startIdx = 0,
+        lastX = 0, lastT = 0, vel = 0;
+    const now = (e)=> (e && e.timeStamp) || Date.now();
+    const onDown = (e)=>{
+      const m = UI.yearMetrics();
+      if(!m.count) return;
+      dragging = true; moved = false; vel = 0;
+      startX = lastX = e.clientX; lastT = now(e);
+      startOffset = (UI._yearOffset == null) ? UI.yearOffsetFor(Math.max(0, UI.yearIndexOf(State.selectedYear))) : UI._yearOffset;
+      startIdx = UI.yearIndexAt(startOffset);
+      const track = document.getElementById('year-track');
+      if(track) track.classList.remove('is-animating');
+      // 指がバーの外へ出ても操作を続ける（楽天カードの年月バーと同じ感触）
+      try{ bar.setPointerCapture(e.pointerId); }catch(_){}
+    };
+    const onMove = (e)=>{
+      if(!dragging) return;
+      const x = e.clientX, t = now(e);
+      if(Math.abs(x - startX) > 3) moved = true;
+      if(t > lastT){ vel = (x - lastX) / (t - lastT); lastT = t; lastX = x; }
+      const off = UI.yearClampOffset(startOffset + (x - startX));
+      UI.setYearOffset(off, false);
+      // 下線は動かすが、まだ決めない。決まるのは指を離した時だけ。
+      const it = UI.yearItems(bar)[UI.yearIndexAt(off)];
+      if(it) UI.paintYearMark(it.dataset.year);
+    };
+    const onUp = (e)=>{
+      if(!dragging) return;
+      dragging = false;
+      try{ bar.releasePointerCapture(e.pointerId); }catch(_){}
+      // 動かしていなければタップ。年度を決めるのは click 側（pick-year）に任せる。
+      if(!moved){ UI.paintYearMark(String(State.selectedYear)); return; }
+      const m = UI.yearMetrics();
+      const target = UI.yearReleaseTarget(startIdx, UI.yearIndexAt(UI._yearOffset), vel, m.count);
+      UI.setYearOffset(UI.yearOffsetFor(target), true);
+      const y = m.items[target] && m.items[target].dataset.year;
+      if(!y) return;
+      UI.paintYearMark(y);
+      if(y !== String(State.selectedYear)){
+        UI._yearFromBar = true;   // 位置はもう合わせたので、描き直しで動かさない
+        App.applyScopeChange(()=>{ State.selectedYear = y; });
+      }
+    };
+    /* 操作が横から打ち切られた時は「決めずに元へ戻す」。決めてしまうと、指はまだ
+       置いたままなのに勝手に年度が変わったように見える。 */
+    const onCancel = ()=>{
+      if(!dragging) return;
+      dragging = false;
+      UI.centerYear(String(State.selectedYear), true);
+      UI.paintYearMark(String(State.selectedYear));
+    };
+    bar.addEventListener('pointerdown', onDown);
+    bar.addEventListener('pointermove', onMove);
+    bar.addEventListener('pointerup', onUp);
+    bar.addEventListener('pointercancel', onCancel);
+    /* パソコンの横スクロール（トラックパッドの2本指・横ホイール）。
+       指と同じ決まりに揃えて、ひと操作につき隣ひとつだけ動かす。 */
+    let wheelLock = false;
+    bar.addEventListener('wheel', (e)=>{
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0;
+      if(!d) return;
+      e.preventDefault();
+      if(wheelLock) return;
+      wheelLock = true;
+      setTimeout(()=>{ wheelLock = false; }, 280);
+      UI.stepYear(d > 0 ? 1 : -1);
+    }, {passive:false});
+  },
+  /* 一番上でさらに上へ引いた時、中身だけを少し伸ばす（上限 TOP_BOUNCE_MAX ＝約3mm）。
+     ブラウザ標準の大きな伸びは overscroll-behavior で止めてあるので、ここが唯一の伸び。
+     指を離すと CSS の transition でなめらかに戻る。
+     ⚠ アプリバー・タブバー・横スクロールするグラフの上から始まった指の動きは対象外
+     （年度バーの払いを縦の伸びと取り違えないため）。 */
+  setTopBounce(px, animate){
+    const main = document.getElementById('main');
+    if(!main) return;
+    main.classList.toggle('is-bouncing', !!animate);
+    main.style.transform = px ? `translateY(${px}px)` : '';
+  },
+  bindTopBounce(){
+    const MAX = 18, RESIST = 0.4;
+    let startY = null, active = false;
+    const stop = (animate)=>{ if(active){ UI.setTopBounce(0, animate); active = false; } startY = null; };
+    document.addEventListener('touchstart', (e)=>{
+      startY = null; active = false;
+      if(!e.touches || e.touches.length !== 1) return;
+      const t = e.target;
+      if(t && t.closest && t.closest('#appbar, #tabbar, #modal-root, .chart-scroll')) return;
+      if(window.scrollY > 0) return;
+      startY = e.touches[0].clientY;
+    }, {passive:true});
+    document.addEventListener('touchmove', (e)=>{
+      if(startY === null || !e.touches || e.touches.length !== 1) return;
+      if(window.scrollY > 0){ stop(false); return; }
+      const dy = e.touches[0].clientY - startY;
+      if(dy <= 0){ if(active) UI.setTopBounce(0, false); active = false; return; }
+      active = true;
+      // 引くほど重くする。指の動きの一部だけが伸びに変わる。
+      UI.setTopBounce(Math.min(MAX, dy * RESIST), false);
+    }, {passive:true});
+    document.addEventListener('touchend', ()=>stop(true), {passive:true});
+    document.addEventListener('touchcancel', ()=>stop(true), {passive:true});
+  },
+  // 隣の年度へ1つ動かす（横ホイール用）。端では何もしない。
+  stepYear(dir){
+    const m = UI.yearMetrics();
+    if(!m.count) return;
+    const i = Math.max(0, UI.yearIndexOf(State.selectedYear));
+    const t = Math.max(0, Math.min(m.count-1, i + dir));
+    if(t === i) return;
+    UI.setYearOffset(UI.yearOffsetFor(t), true);
+    const y = m.items[t].dataset.year;
+    UI.paintYearMark(y);
+    UI._yearFromBar = true;
+    App.applyScopeChange(()=>{ State.selectedYear = y; });
   },
 
   renderTabs(){
@@ -2186,11 +2586,22 @@ const UI = {
 
   renderMain(){
     const main = document.getElementById('main');
-    UI.renderAppBar();
-    if(Compute.scopedSanchi().size===0 && Compute.scopedJibun().length===0 && State.tab!=='import' && State.tab!=='backup'){
+    // 対象（年度×品目）を先に確定させる。この下の「データが無ければ取込タブへ」の判定が
+    // 絞り込み済みの件数を見るため。
+    UI.ensureScope();
+    /* まだ一件も入っていない時だけ、取込タブから始めてもらう（最初の案内のため）。
+       ⚠ ここを「表示中の年度×品目が空なら」にしてはいけない。年度の一覧には必ず「今年」が
+       入るので、中身の無い年度は普通に存在する。そこへ移った瞬間に取込タブへ飛ばされると、
+       取込タブでは年度バーが出ない＝戻る手段が画面から消えて動けなくなる
+       （2026-09-06 に実際に起きた。産地タブを押しても即座に押し戻された）。
+       中身が無い年度は、空のまま見せて、そのまま隣の年度へ動けるようにする。 */
+    if(Store.sanchi.size===0 && Store.jibun.length===0 && State.tab!=='import' && State.tab!=='backup'){
       State.tab = 'import';
       UI.renderTabs();
     }
+    // アプリバーはタブが決まってから描く。年度バーを出すかどうかがタブで変わるので、
+    // 先に描くと「取込タブなのに年度バーが残っている」状態になる。
+    UI.renderAppBar();
     if(State.tab==='sanchi') main.innerHTML = UI.screenSanchi();
     else if(State.tab==='mine') main.innerHTML = UI.screenMine();
     else if(State.tab==='import') main.innerHTML = UI.screenImport();
@@ -2264,6 +2675,16 @@ const UI = {
       </div>`;
     }).join('');
   },
+  /* 背景の規格バーの読み方（1行）。凡例と箱数は出さない（ユーザー判断 2026-09-06）が、
+     色と規格の対応だけはどこかに要るので、ここで文にして済ませている。
+     棒が無い品目では空文字＝改行も足さない（クルクマのHTMLを1バイトも動かさないため）。 */
+  sizeBarNote(mix){
+    if(!mix || !mix.order || mix.order.length===0) return '';
+    const OTHER = Compute.SIZE_BAR_OTHER;
+    const stack = mix.order.filter(k=>k!==OTHER).map(k=>mix.labels[k]).join('・');
+    return `\n          <p class="chart-note">棒＝その日の規格の割合（下から ${Fmt.esc(stack)}`
+      + `、赤は${Fmt.esc(mix.labels[OTHER])}）</p>`;
+  },
   // 重ねて表示する品種。MAJOR_VARIETIES に載っていて実際にデータがあるものを優先し、
   // 1件も無い品目では箱数の多い順に上位を代用する。list は Compute.varietyList()（箱数降順）。
   majorVarieties(list){
@@ -2298,10 +2719,22 @@ const UI = {
     const varietyOptions =
       `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
       orderedList.map(v=>`<option value="${Fmt.esc(v.variety)}" ${v.variety===State.selectedVariety?'selected':''}>${Fmt.esc(v.variety)}</option>`).join('');
+
+    /* 品目に規則が無いものは、カードごと出さない。
+       ドーナツはバケツが無いと「その他100%」の1色になり、価格推移は基準が無いと全点nullになる。
+       どちらも「間違った図」なので、まだ定義していない品目では描かないほうが正しい。
+       ルール（ITEM_RULES の price / donut）を書いた時点で自動的に出るようになる。 */
+    const rule = itemRule(State.selectedItem || DEFAULT_ITEM);
+    const priceLabel = (rule.price && rule.price.label) ? rule.price.label + ' ' : '';
+    /* 日付セレクタは【選択日で中身が変わるカードがある品目】だけに出す。
+       いまそれはドーナツ（規格構成）だけなので、donut を書いていない品目では
+       日付を動かしても画面が何も変わらない＝ただの飾りになる。
+       出さない品目では品種セレクタが1行を使う。 */
+    const showDate = !!rule.donut;
     const selectorCard = `
       <div class="card">
         <div class="selector-row">
-          <div class="field date-field">日付
+          ${showDate ? `<div class="field date-field">日付
             <div class="date-nav">
               <button type="button" class="date-step" data-action="date-step-prev" aria-label="前の出荷日へ" ${Compute.stepDate(selDate,-1)?'':'disabled'}>‹</button>
               <button type="button" class="date-trigger" id="sanchi-date-trigger" data-action="toggle-calendar">
@@ -2311,7 +2744,7 @@ const UI = {
             </div>
             ${State.calendarOpen ? UI.calendarHTML() : ''}
           </div>
-          <label class="field variety-field">品種
+          <label class="field variety-field">品種` : `<label class="field variety-field">表示`}
             <div class="select-wrap">
               <select id="variety-select">${varietyOptions}</select>
             </div>
@@ -2320,12 +2753,6 @@ const UI = {
       </div>`;
 
     let donutCard, lineCard;
-    /* 品目に規則が無いものは、カードごと出さない。
-       ドーナツはバケツが無いと「その他100%」の1色になり、価格推移は基準が無いと全点nullになる。
-       どちらも「間違った図」なので、まだ定義していない品目では描かないほうが正しい。
-       ルール（ITEM_RULES の price / donut）を書いた時点で自動的に出るようになる。 */
-    const rule = itemRule(State.selectedItem || DEFAULT_ITEM);
-    const priceLabel = (rule.price && rule.price.label) ? rule.price.label + ' ' : '';
 
     if(!rule.price){
       // 価格の基準（等級×階級と換算本数）が未定の品目では、価格推移を出さない
@@ -2360,9 +2787,12 @@ const UI = {
         // 軸は常に5品種ぶんで固定し、非選択の品種は線だけ消す
         const chartSeries = allSeries.map(s=>({...s, hidden: isFiltered && !sel.includes(s.variety)}));
         const anyShown = chartSeries.some(s=> !s.hidden && s.points.some(p=>p.price!=null));
+        /* 背景の規格構成バー＝5品種を合計した割合。凡例で品種を絞っても動かさない
+           （棒は「その日の市場全体がどこに寄っていたか」で、個々の線の話ではないため）。 */
+        const mix = rule.sizeBars ? Compute.sizeMix(allSeries.map(s=>s.variety)) : null;
         let chartInner, isolatedNote='';
         if(anyShown){
-          const {svg, isolated, ptMeta, w, yAxis} = Charts.multiLineSVG(chartSeries);
+          const {svg, isolated, ptMeta, w, yAxis} = Charts.multiLineSVG(chartSeries, {mix});
           State.multiMeta = {ptMeta, w};
           chartInner = `<div class="chart-wrap" data-multiline-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
             <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>`;
@@ -2374,7 +2804,7 @@ const UI = {
         lineCard = `
           <div class="card">
             <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価・主要5品種）</h2></div>
-            ${chartInner}
+            ${chartInner}${UI.sizeBarNote(mix)}
             <div class="series-legend">${seriesLegend}</div>
             ${isolatedNote}
           </div>`;
@@ -2399,14 +2829,17 @@ const UI = {
 
       const points = Compute.lineDataDense(variety);
       const withData = points.filter(p=>p.price!=null);
+      /* 背景の規格構成バーは sizeBars を書いた品目だけ。書いていない品目（クルクマ）では
+         null のまま渡らないので、グラフは従来と1バイトも変わらない。 */
+      const mix = rule.sizeBars ? Compute.sizeMix([variety]) : null;
       let lineBlock;
       if(withData.length===0){
         lineBlock = `<div class="empty-state"><p>この品種の価格データがまだありません。</p></div>`;
       } else {
-        const {svg, isolated, yAxis} = Charts.lineSVG(points);
+        const {svg, isolated, yAxis} = Charts.lineSVG(points, {mix});
         lineBlock = `
           <div class="chart-wrap" data-line-wrap data-variety="${Fmt.esc(variety)}"><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
-          <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>
+          <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>${UI.sizeBarNote(mix)}
           ${isolated ? `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>` : ''}
         `;
       }
@@ -3347,6 +3780,14 @@ const UI = {
     hl.setAttribute('cy', y);
     hl.style.opacity = '1';
   },
+  /* プロット詳細（グラフ下）の右端に出すタグ。
+     クルクマの「2L換算 / L代替」＝どの階級の値段を採ったかの断り書きだけに使う。
+     その日の全部を平均する品目（blend）には代替という概念が無く、規格の割合は
+     背景の棒が見せているので、タグごと出さない（ユーザー判断 2026-09-06）。 */
+  lineDetailTag(marker){
+    if(marker === 'blend' || marker == null) return '';
+    return `<span class="cd-tag">${marker==='2L' ? '2L換算' : 'L代替'}</span>`;
+  },
   wireLineTooltip(wrap){
     const svg = wrap.querySelector('svg[data-line-chart]');
     if(!svg) return;
@@ -3357,7 +3798,7 @@ const UI = {
     const x1 = parseFloat(svg.getAttribute('data-x1'));
     const n = points.length;
     const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
-    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span><span class="cd-tag">${p.marker==='2L'?'2L換算':'L代替'}</span>`;
+    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span>${UI.lineDetailTag(p.marker)}`;
     const showAt = (i)=>{
       const m = svg.querySelector(`[data-pt="${i}"]`);
       if(m) UI.moveHighlight(svg, m.getAttribute('data-x'), m.getAttribute('data-y'));
@@ -3375,8 +3816,10 @@ const UI = {
       if(nearestI<0) return;
       evt.stopPropagation();
       const p = points[nearestI];
-      // タップした点の日付に、日付セレクタ・カレンダー・ドーナツ（規格構成）を連動させる。
-      if(State.selectedDate !== p.date){
+      /* タップした点の日付に、日付セレクタ・カレンダー・ドーナツ（規格構成）を連動させる。
+         日付で動くものが無い品目（donut を書いていない＝日付セレクタも出していない）では
+         全画面を描き直す意味が無いので、詳細だけ差し替える。 */
+      if(itemRule(State.selectedItem || DEFAULT_ITEM).donut && State.selectedDate !== p.date){
         State.selectedDate = p.date;
         State.calendarMonth = p.date.slice(0,7);
         State.lineDetailShow = {variety, date:p.date}; // 再描画後に詳細を復元
@@ -3413,7 +3856,7 @@ const UI = {
       });
       if(!nearest) return;
       UI.moveHighlight(svg, nearest.x, nearest.y);
-      UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span><span class="cd-tag">${nearest.marker==='2L'?'2L換算':'L代替'}</span>`, nearest.color);
+      UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span>${UI.lineDetailTag(nearest.marker)}`, nearest.color);
       evt.stopPropagation();
     };
     UI.tapOnly(svg, handle);
@@ -3438,6 +3881,10 @@ const App = {
     document.addEventListener('click', App.onClick);
     document.addEventListener('change', App.onChange);
     document.addEventListener('submit', App.onSubmit);
+    // 年度バーの指の動き。バー本体は作り直さないので1回付ければ足りる。
+    UI.wireYearBar();
+    // 一番上でさらに上へ引いた時の、小さな伸び
+    UI.bindTopBounce();
     // モバイル: キーボードが出ると固定タブバーが持ち上げられるので、その分だけ下に押し戻す。
     // ＝タブの位置は変わらず、キーボードがタブの上に重なるだけになる。
     App.bindKeyboardShift();
@@ -3480,6 +3927,14 @@ const App = {
       case 'switch-tab':
         UI.route(t.getAttribute('data-tab'));
         break;
+      // 年度バーのタップ。同じ年度でも中央へ寄せ直す（端の年度を押した時に真ん中へ来る）。
+      case 'pick-year': {
+        const y = t.getAttribute('data-year');
+        if(!y) break;
+        if(y === String(State.selectedYear)) UI.centerYear(y, true);
+        else App.applyScopeChange(()=>{ State.selectedYear = y; });
+        break;
+      }
       case 'theme-cycle':
         UI.cycleTheme();
         break;
@@ -3652,32 +4107,36 @@ const App = {
       }
     }
   },
+  /* 年度・品目が変わった時の後始末。表示中の年度・品目に無い品種や日付が選ばれたまま
+     残らないよう、画面の選択状態をたたんでから描き直す。品目セレクタからも年度バーからも
+     必ずここを通す（片方だけ直す事故を防ぐため、切り替えの入口はこの1本に集約してある）。 */
+  applyScopeChange(mutate){
+    mutate();
+    State.selectedVariety = MAJOR_VARIETY_KEY;
+    State.selectedDate = null;
+    State.calendarOpen = false;
+    State.calendarMonth = null;
+    State.donutHighlight = null;
+    State.selectedSeries = [];
+    State.lineDetailShow = null;
+    State.chartScrollLeft = null;
+    State.shipMonthsOpen = [];
+    State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
+    UI.renderMain();
+    // 中身が丸ごと入れ替わるので先頭へ。そうしないと、前の画面より短い画面に
+    // なったときにブラウザがスクロール位置を勝手に切り詰め、下から中途半端な
+    // 位置へ飛ばされる（＝「勝手に動く」の一種）。
+    window.scrollTo(0, 0);
+  },
   onChange(e){
-    // 年度・品目を切り替えたら、その年度に無い品種などが選ばれたままにならないよう表示状態を初期化する
-    if(e.target.id==='year-select' || e.target.id==='item-select'){
-      if(e.target.id==='year-select'){
-        State.selectedYear = e.target.value;
-      } else {
-        State.selectedItem = e.target.value;
+    if(e.target.id==='item-select'){
+      const v = e.target.value;
+      App.applyScopeChange(()=>{
+        State.selectedItem = v;
         // 年度の選択肢は品目ごとに違う。切り替えた品目に無い年度を持ち越すと空の画面が開くので、
         // 年度を一度捨てて UI.ensureScope に「その品目のデータがある最新年度」を選ばせる。
         State.selectedYear = null;
-      }
-      State.selectedVariety = MAJOR_VARIETY_KEY;
-      State.selectedDate = null;
-      State.calendarOpen = false;
-      State.calendarMonth = null;
-      State.donutHighlight = null;
-      State.selectedSeries = [];
-      State.lineDetailShow = null;
-      State.chartScrollLeft = null;
-      State.shipMonthsOpen = [];
-      State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
-      UI.renderMain();
-      // 中身が丸ごと入れ替わるので先頭へ。そうしないと、前の画面より短い画面に
-      // なったときにブラウザがスクロール位置を勝手に切り詰め、下から中途半端な
-      // 位置へ飛ばされる（＝「勝手に動く」の一種）。
-      window.scrollTo(0, 0);
+      });
       return;
     }
     if(e.target.id==='variety-select'){
