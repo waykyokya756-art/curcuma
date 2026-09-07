@@ -26,6 +26,9 @@
   /* 価格推移の背景に敷く階級構成バー。折れ線が --primary（緑）なので緑系は避けている。
      割り当ては箱数の多い順で、階級名とは結びつけない（語彙は市況CSVが決める）。 */
   --chart-size1:#2F6DB5; --chart-size2:#E0A458; --chart-size3:#8A72C2;
+  /* 棒の一番上に乗る【その他】用。ほかの帯は薄く敷くが、これだけは濃いまま出す
+     ＝「いつもと違う規格が出た日」の合図なので目立たないと意味がない。 */
+  --chart-alert:#DE2113;
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
   --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
@@ -49,6 +52,7 @@
     --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
     --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
     --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
+    --chart-alert:#F84B36;
     --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
     --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
     --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -64,6 +68,7 @@
   --accent-text:#E58BB6; --warn-text:#E0A458; --danger-text:#E27469;
   --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
   --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
+  --chart-alert:#F84B36;
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
   --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
   --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -435,7 +440,8 @@ input[type="file"]{display:none;}
 /* ---- Shipment list ---- */
 .ship-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3); padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
 .ship-row + .ship-row{margin-top:var(--sp2);}
-.ship-day-card{padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
+/* 日別カードは月の枠（--surface-2）の中に入るので、地の色を変えて入れ子を見せる */
+.ship-day-card{padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface);}
 .ship-day-card + .ship-day-card{margin-top:var(--sp3);}
 /* 月ごとの格納（既定は閉じる）。開くとその月の日別カードが並ぶ */
 .ship-month{border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp3); background:var(--surface-2);}
@@ -1094,7 +1100,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-07b';
+const APP_BUILD = '2026-09-07c';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1155,7 +1161,9 @@ const ITEM_RULES = {
         {key:'L',  label:'L',  grade:'4P', size:'L',  colorVar:'var(--chart-size2)'},
         {key:'M',  label:'M',  grade:'4P', size:'M',  colorVar:'var(--chart-size3)'}
       ],
-      otherLabel: 'その他', otherColorVar: 'var(--danger)'
+      // その他だけは濃いまま出す（otherOpacity）。ほかの帯は薄く敷いて折れ線を邪魔しないが、
+      // これは「いつもと違う規格が出た日」の合図なので、薄いと見落とす（ユーザー判断 2026-09-07）。
+      otherLabel: 'その他', otherColorVar: 'var(--chart-alert)', otherOpacity: 1
     }
     // donut は書かない。sizeBars が「毎日の構成」を見せる＝選択日1枚のドーナツの上位互換で、
     // バケツを推測せずに済む（前提メモ A-3「ドーナツにルールは存在しない」）。
@@ -1833,6 +1841,7 @@ const Compute = {
      varieties は配列＝主要5品種のときは5品種を合計した割合になる。
      lineDataFrom と同じく Store も State も読まない純粋関数（テストが直接呼ぶ）。 */
   SIZE_BAR_OTHER: '__other__',
+  BAR_FILL: 0.22,   // 背景に敷く帯の既定の薄さ（折れ線を邪魔しない濃さ）
   sizeMixFrom(rows, varieties, sb){
     if(!sb || !sb.buckets) return null; // ルールが無い品目では棒を描かない
     const OTHER = Compute.SIZE_BAR_OTHER;
@@ -1853,16 +1862,21 @@ const Compute = {
     // 積む順はルールの並び（下から）＋ その他は必ず一番上。日ごとに並べ替えないこと
     //（日によって色の段が入れ替わると比較できなくなる）。
     const order = sb.buckets.map(b=>b.key).concat([OTHER]);
-    const colors = {}; const labels = {};
-    sb.buckets.forEach(b=>{ colors[b.key] = b.colorVar; labels[b.key] = b.label; });
+    const colors = {}; const labels = {}; const opacity = {};
+    // 帯の濃さ。書かなければ従来どおり薄敷き（BAR_FILL）。ルールに書いた分だけ濃くなる。
+    sb.buckets.forEach(b=>{
+      colors[b.key] = b.colorVar; labels[b.key] = b.label;
+      opacity[b.key] = (b.opacity == null) ? Compute.BAR_FILL : b.opacity;
+    });
     colors[OTHER] = sb.otherColorVar || 'var(--danger)';
     labels[OTHER] = sb.otherLabel || 'その他';
+    opacity[OTHER] = (sb.otherOpacity == null) ? Compute.BAR_FILL : sb.otherOpacity;
     const mix = new Map();
     byDate.forEach((m, date)=>{
       let total = 0; m.forEach(v=> total += v);
       mix.set(date, {sizes:m, total});
     });
-    return {order, colors, labels, totals, byDate:mix};
+    return {order, colors, labels, opacity, totals, byDate:mix};
   },
   // 選択中の年度×品目での規格構成（画面はこちら）。varieties は配列。
   sizeMix(varieties){
@@ -2192,7 +2206,8 @@ const Charts = {
         if(!(v > 0)) return;
         const h = innerH * (v / d.total);
         y -= h;
-        s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${h.toFixed(1)}" fill="${mix.colors[key]}" fill-opacity="0.22"/>`;
+        const op = (mix.opacity && mix.opacity[key] != null) ? mix.opacity[key] : Compute.BAR_FILL;
+        s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${h.toFixed(1)}" fill="${mix.colors[key]}" fill-opacity="${op}"/>`;
       });
     });
     return s;
@@ -3980,8 +3995,10 @@ const UI = {
      その日の全部を平均する品目（blend）には代替という概念が無く、規格の割合は
      背景の棒が見せているので、タグごと出さない（ユーザー判断 2026-09-06）。 */
   lineDetailTag(marker){
-    if(marker === 'blend' || marker == null) return '';
-    return `<span class="cd-tag">${marker==='2L' ? '2L換算' : 'L代替'}</span>`;
+    // 断り書きが要るのは【基準どおりでない日】だけ＝L で代替した日のみ（ユーザー判断 2026-09-07）。
+    // 基準どおりの 2L の日／blend の品目／値段の無い日は、何も付けない。
+    if(marker !== 'L') return '';
+    return `<span class="cd-tag">L代替</span>`;
   },
   wireLineTooltip(wrap){
     const svg = wrap.querySelector('svg[data-line-chart]');
