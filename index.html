@@ -213,6 +213,9 @@ main.is-bouncing{transition:transform 260ms cubic-bezier(.22,.61,.36,1);}
 .title-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
 .title-row .screen-title{flex:0 0 auto;}
 .title-row .data-chip{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;}
+/* 取り込めなかった行が残っていることの合図。見出しの右端に警告色で出す。 */
+.err-mark{flex:0 0 auto; margin-left:auto; color:var(--warn-text); background:var(--warn-soft);
+  font-size:0.8125rem; font-weight:600; padding:3px 10px; border-radius:999px; white-space:nowrap;}
 
 /* ---- Buttons ---- */
 .btn{
@@ -268,6 +271,18 @@ main.is-bouncing{transition:transform 260ms cubic-bezier(.22,.61,.36,1);}
 .modal-status.warn{color:var(--warn-text);}
 /* font-size は 16px 以上を維持（iOSは16px未満の入力にフォーカスすると自動ズームする） */
 .csv-text{width:100%; min-height:110px; max-height:200px; resize:vertical; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; line-height:1.5; white-space:pre; overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface-2); color:var(--ink); padding:8px;}
+/* ---- 自分で打ち直す欄（貼り付け・取り込めなかった行の直し）は折り返す ----
+   ⚠ 横スクロールする入力欄は iOS でカーソルの当たり判定が壊れる。実機で
+   ①押した場所と違う所にカーソルが入る ②画面外の左下が選ばれて辞書やペーストが出る
+   ③一番長い行の右端（箱単価）にどうしても届かない、の3つが起きた（2026-09-07 報告）。
+   右に余白を足す手も試したが、横スクロールする箱では右の余白がスクロールできる範囲に
+   入らないため、長い行ほど届かなくなって逆効果だった。
+   折り返せば横に流れる場所が無くなり、どの文字も必ず画面の中に来る。 */
+/* 高さは中身に合わせて JS(App.autoGrowCsv) が伸ばす。
+   ⚠ max-height を当ててはいけない＝欄の中でスクロールできるようになった途端、
+     指がページではなく欄の中身を動かしてしまう（キーボード中は特にひどい）。 */
+.csv-edit{white-space:pre-wrap; overflow-wrap:anywhere; overflow:hidden;
+  max-height:none; resize:none;}
 
 /* ---- Forms ---- */
 label.field{display:flex; flex-direction:column; gap:6px; font-size:0.8125rem; color:var(--ink-muted); font-weight:500;}
@@ -307,9 +322,9 @@ input[type="file"]{display:none;}
 .tab span{font-size:0.6875rem; font-weight:500;}
 .tab[aria-selected="true"]{color:var(--primary);}
 .tab[aria-selected="true"] span{font-weight:700;}
-/* 入力中もタブバーの位置は動かさない（キーボードに覆われるだけにする）。
+/* 入力中もタブバー・アプリバーの位置は動かさない（キーボードに覆われるだけにする）。
    持ち上がり分の打ち消しは JS が transform で行う */
-#tabbar{will-change:transform;}
+#tabbar, #appbar{will-change:transform;}
 
 /* ペースト取込欄（コンパクト・常時表示） */
 .paste-row{display:flex; flex-direction:column; gap:var(--sp2); margin-top:var(--sp2);}
@@ -742,6 +757,9 @@ const Parse = {
     const rows = Parse.csv(text);
     if(rows.length===0) return {records:[], errors:[], dupCount:0, unknownSpecs:[]};
     const idx = Parse.headerIndex(rows[0]);
+    // 見出し行は控えておく。取り込めなかった行をあとで直して取り込み直すとき、
+    // 同じ並びで読み直せないと列がずれる（列の順番はファイルごとに違いうる）。
+    const header = rows[0].join(',');
     const need = ['日付','品種','等級','階級','本数','箱数量','箱単価'];
     const missing = need.filter(k=>!(k in idx));
     if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
@@ -792,7 +810,7 @@ const Parse = {
       records.push({date, variety, grade, size, count, boxQty, boxPrice,
                     csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
-    return {records, errors, dupCount,
+    return {records, errors, dupCount, header,
             unknownSpecs: Array.from(unknown, ([spec, n])=>({spec, n}))};
   },
   /* その品目で「扱いが決まっている」等級×階級の集合。判定できなければ null＝警告を出さない。
@@ -819,22 +837,12 @@ const Parse = {
     if(!m) return null;
     return {size:m[1], count: m[2] ? parseInt(m[2],10) : 50};
   },
-  // 出荷日が m/d のみなら産地のシーズン年を補完
-  // 出荷日が m/d のみなら、選択中シーズンの暦年を補完する。
-  // 年をまたぐシーズン（例：11月始まり）では、開始月より前の月＝翌暦年に入る。
-  // 例）シーズン2026・開始月11 → 「11/05」は2026年、「03/20」は2027年。
-  resolveShipDate(raw, seasonYear, startMonth){
-    const t = Norm.text(raw);
-    const full = Norm.date(t);
-    if(/^\d{4}-\d{2}-\d{2}$/.test(full)) return full;
-    const parts = t.split(/[\/\-.年月]/).map(p=>p.replace(/日$/,'').trim()).filter(p=>p!=='');
-    if(parts.length===2){
-      const mm = parseInt(parts[0],10);
-      const start = (startMonth>=1 && startMonth<=12) ? startMonth : 1;
-      const y = (Number.isFinite(mm) && mm < start) ? (Number(seasonYear)+1) : Number(seasonYear);
-      return `${y}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-    }
-    return full;
+  /* 出荷日は年つきの完全な日付だけを受け付ける（産地CSVと同じ扱い）。
+     以前は「5/14」のような月日だけの日付を表示中の年度で補っていたが、取込タブから年度を
+     外したので「何年で補ったのか」が画面のどこにも出なくなる＝黙って1年ずれても気づけない。
+     年が無い行は呼び出し側でエラー行に落とす。 */
+  resolveShipDate(raw){
+    return Norm.date(Norm.text(raw));
   },
   /* 自分の出荷CSV。産地と同じ 等級／階級／本数 の分割形式を正とする。
        出荷日,品目,品種名,等級,階級,本数,箱数,別本数
@@ -842,8 +850,9 @@ const Parse = {
      移行期の事故を防ぐため、旧「規格」列（2L30 形式）も読めるフォールバックを残す。 */
   jibunCSV(text, item){
     const rows = Parse.csv(text);
-    if(rows.length===0) return {records:[], errors:[]};
+    if(rows.length===0) return {records:[], errors:[], header:''};
     const idx = Parse.headerIndex(rows[0]);
+    const header = rows[0].join(',');           // 直して取り込み直すときに同じ並びで読むため
     const hasSplit = ('階級' in idx);           // 分割形式か
     const hasLegacy = ('規格' in idx);          // 旧形式（階級＋本数の省略記法）
     const need = ['出荷日','品種名','箱数'].concat(hasSplit ? ['階級','本数'] : ['規格']);
@@ -852,15 +861,11 @@ const Parse = {
     if(!hasSplit && !hasLegacy) throw new Error('必須列が見つかりません: 階級（または規格）');
     const hasBetsu = '別本数' in idx;
     const defGrade = itemRule(item || State.selectedItem || DEFAULT_ITEM).defaultGrade || '秀';
-    // 月日だけの日付は「いま選んでいるシーズン」に入れる（データの最終日から推測すると、
-    // 空のシーズンへ取り込んだ時に別の年に飛ぶ）。
-    const seasonYear = String(State.selectedYear || Store.currentYear());
-    const startMonth = itemSeasonStart(State.selectedItem || DEFAULT_ITEM);
     const records = []; const errors = [];
     for(let r=1;r<rows.length;r++){
       const row = rows[r];
       if(row.every(f=>Norm.text(f)==='')) continue;
-      const dateRaw = Parse.resolveShipDate(row[idx['出荷日']], seasonYear, startMonth);
+      const dateRaw = Parse.resolveShipDate(row[idx['出荷日']]);
       const date = Norm.validDate(dateRaw) ? dateRaw : '';
       const variety = Norm.text(row[idx['品種名']]);
       const boxQty = Norm.num(row[idx['箱数']]);
@@ -892,7 +897,7 @@ const Parse = {
       records.push({date, variety, grade, size, count, boxQty, betsuCount,
                     csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
     }
-    return {records, errors};
+    return {records, errors, header};
   }
 };
 
@@ -1079,10 +1084,16 @@ const SAMPLE_JIBUN = [
 
 /* ============================== Store ============================== */
 const STORAGE_KEY = 'curcuma.v1';
+// 最後に開いていた品目の覚え書き。データ本体とは別キーにしてある＝品目を切り替えるたびに
+// データの保存処理を走らせないため（保存すると絞り込みキャッシュも作り直しになる）。
+const LAST_ITEM_KEY = STORAGE_KEY + '.lastItem';
+// 取り込めなかった行の控えの上限（枠の数／1枠に残す行数）
+const IMPORT_ERR_KEEP = 20;
+const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-06b';
+const APP_BUILD = '2026-09-07a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1174,11 +1185,27 @@ const Store = {
   sanchi: new Map(), // key -> {date,variety,grade(等級),size(階級),count(本数),boxQty,boxPrice,item}
   jibun: [], // {id,date,variety,grade,size,count,boxQty,betsuCount,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
+  /* 取り込めなかった行の控え。取込1回＝1枠で、新しい順に積む（2026-09-07 新設）。
+     {id, at:ISO文字列, kind:'産地'|'自分', item, header, total:元の件数, rows:[{line,raw,reasons}]}
+     JSONバックアップにも丸ごと入れる（ユーザー指示 2026-09-07）＝機種変更しても
+     「直しかけの行」を持ち越せる。旧バックアップには無いので、無ければ空として読む。 */
+  importErrors: [],
   // ※ 品目マスタ（Store.items）は廃止。品目の定義は ITEM_RULES（ソースの表）が持つので、
   //    保存もしないし、アプリから追加・削除・改名もできない。
   meta: {lastBackupAt: null},
 
   currentYear(){ return String(new Date().getFullYear()); },
+  /* ---- 最後に開いていた品目の覚え書き ----
+     データ本体とは別キーに単独で書く。データ側に入れると品目を切り替えるたびに
+     persist が走り、年度×品目の絞り込みキャッシュまで作り直しになる。 */
+  lastItem(){
+    if(!Store.available) return null;
+    try{ return localStorage.getItem(LAST_ITEM_KEY); }catch(_){ return null; }
+  },
+  rememberItem(name){
+    if(!Store.available || !name) return;
+    try{ localStorage.setItem(LAST_ITEM_KEY, String(name)); }catch(_){}
+  },
   /* ---- 品目セレクタに並べる品目 ----
      ITEM_RULES（ソースの表）が正本。後半は安全網で、表に無い品目のレコードが
      万一あっても画面から消えないようにしている（消えるより出るほうが安全）。
@@ -1262,6 +1289,8 @@ const Store = {
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || Store.currentYear())}));
+      // 取り込めなかった行の控え。無ければ空（＝旧データからの移行は起きない）
+      Store.importErrors = Array.isArray(data.importErrors) ? data.importErrors.slice(0, IMPORT_ERR_KEEP) : [];
       // 旧データの data.items（品目マスタ）は読み捨てる。品目の定義は ITEM_RULES が持つので、
       // 次の persist で保存からも自然に消える。
       Store.meta = data.meta || {lastBackupAt:null};
@@ -1285,6 +1314,8 @@ const Store = {
         sanchi: Array.from(Store.sanchi.values()),
         jibun: Store.jibun,
         sakutsuke: Store.sakutsuke,
+        // 取り込めなかった行の控え。古い保存には無いので、読むときは空として扱う（移行なし）
+        importErrors: Store.importErrors,
         meta: Store.meta,
         dirtyCount: Store.dirtyCount
       };
@@ -1297,6 +1328,41 @@ const Store = {
       // 無反応でデータ喪失に化けないよう、最初の失敗時にはっきり通知する
       if(firstTime){ try{ UI.toast('⚠ 自動保存に失敗しました（端末の空き容量オーバーの可能性）。「保存」タブからバックアップを書き出してください', {duration:7000}); }catch(_){} }
     }
+  },
+  /* ---- 取り込めなかった行の控え ----
+     枠は最新 IMPORT_ERR_KEEP 件まで、1枠に残す行は IMPORT_ERR_ROWS まで。
+     エラーが千行出ても保存が膨らまないようにするための上限。 */
+  addImportErrors(kind, item, errors, header){
+    if(!errors || !errors.length) return;
+    Store.importErrors.unshift({
+      id: String(Date.now()) + '-' + Math.random().toString(36).slice(2,7),
+      at: new Date().toISOString(),
+      kind, item: item || DEFAULT_ITEM,
+      header: header || '',   // 直して取り込み直すときに、元と同じ列の並びで読むため
+      total: errors.length,
+      rows: errors.slice(0, IMPORT_ERR_ROWS)
+    });
+    if(Store.importErrors.length > IMPORT_ERR_KEEP) Store.importErrors.length = IMPORT_ERR_KEEP;
+    Store.persist();
+  },
+  // 取り込み直したあとの枠の中身を差し替える（残ったエラーだけにする。空なら枠ごと消す）
+  updateImportErrors(id, rows){
+    const e = Store.importErrors.find(x=>x.id === id);
+    if(!e) return;
+    if(!rows || !rows.length){ Store.importErrors = Store.importErrors.filter(x=>x.id !== id); }
+    else { e.rows = rows.slice(0, IMPORT_ERR_ROWS); e.total = rows.length; e.at = new Date().toISOString(); }
+    Store.persist();
+  },
+  removeImportErrors(id){
+    const before = Store.importErrors.length;
+    Store.importErrors = Store.importErrors.filter(e=>e.id !== id);
+    if(Store.importErrors.length !== before) Store.persist();
+  },
+  // item を渡すとその品目の分だけ消す（画面に出ているものと消える範囲を一致させる）
+  clearImportErrors(item){
+    const before = Store.importErrors.length;
+    Store.importErrors = item ? Store.importErrors.filter(e=>(e.item||DEFAULT_ITEM) !== item) : [];
+    if(Store.importErrors.length !== before) Store.persist();
   },
   mergeSanchi(records){
     let added=0, updated=0;
@@ -1411,6 +1477,7 @@ const Store = {
     Store.sanchi = new Map();
     Store.jibun = [];
     Store.sakutsuke = [];
+    Store.importErrors = [];
     Store.meta = {lastBackupAt:null};
     Store.dirtyCount = 0;
     Store.persist();
@@ -1449,7 +1516,9 @@ const Store = {
       exportedAt: new Date().toISOString(),
       sanchi: Array.from(Store.sanchi.values()),
       jibun,
-      sakutsuke: Store.sakutsuke
+      sakutsuke: Store.sakutsuke,
+      // 取り込めなかった行の控えも持ち越す（直しかけの行を機種変更でも失わないため）
+      importErrors: Store.importErrors
     };
     return payload;
   },
@@ -1494,6 +1563,8 @@ const Store = {
     Store.sanchi = sanchi;
     Store.jibun = jibun;
     Store.sakutsuke = sakutsuke;
+    // 取り込めなかった行の控え。旧バックアップには無いので、その時は空にする（全置換なので残さない）。
+    Store.importErrors = Array.isArray(data.importErrors) ? data.importErrors.slice(0, IMPORT_ERR_KEEP) : [];
     Store.dirtyCount = 0;
     Store.meta.lastBackupAt = new Date().toISOString();
     Store.persist();
@@ -1566,6 +1637,52 @@ const Compute = {
   scopedSanchi(){ return Compute._rescope().sanchi; },
   scopedJibun(){ return Compute._rescope().jibun; },
   scopedSakutsuke(){ return Compute._rescope().sakutsuke; },
+
+  /* 取込タブは年度を持たない（年度バーを出していない）ので、手入力の品種候補は
+     「その品目で今までに登録した作付設定の品種」＝全年度から拾う。
+     並びは年度の新しい順→その年度内は登録順。 */
+  itemSakutsukeVarieties(item){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const rows = Store.sakutsuke
+      .map((r, i)=>({r, i}))
+      .filter(({r})=> (r.item || DEFAULT_ITEM) === it && r.variety)
+      .sort((a,b)=> String(b.r.year||'').localeCompare(String(a.r.year||'')) || (a.i - b.i));
+    return Array.from(new Set(rows.map(({r})=>r.variety)));
+  },
+  /* CSV書き出し用。保存タブには年度バーが無いので、書き出す範囲は年度を明示して取り出す。
+     year が空文字なら全年度。Store から直に集めるので、表示中の年度には左右されない。 */
+  rowsForExport(item, year){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const y = String(year || '');
+    const hit = (r)=> (r.item || DEFAULT_ITEM) === it &&
+                      (!y || Compute.seasonYear(r.date, it) === y);
+    return {
+      sanchi: Array.from(Store.sanchi.values()).filter(hit),
+      jibun: Store.jibun.filter(hit)
+    };
+  },
+  /* 書き出しの年度セレクタに並べる年度＝実際にデータが入っている年度だけ（降順）。
+     Store.years は「今年」を必ず足すが、書き出しでは空の年を選べても空振りするだけなので足さない。 */
+  yearsWithData(item){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const s = new Set();
+    const add = (r)=>{
+      if((r.item || DEFAULT_ITEM) !== it) return;
+      const y = Compute.seasonYear(r.date, it); if(y) s.add(y);
+    };
+    Store.sanchi.forEach(add);
+    Store.jibun.forEach(add);
+    return Array.from(s).sort().reverse();
+  },
+  /* 品種名の入力補助（手入力フォームの自由入力欄）。こちらも取込タブから使うので年度で絞らない。 */
+  itemDataVarieties(item){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const mine = (r)=> (r.item || DEFAULT_ITEM) === it;
+    return Array.from(new Set([
+      ...Array.from(Store.sanchi.values()).filter(mine).map(r=>r.variety),
+      ...Store.jibun.filter(mine).map(r=>r.variety)
+    ].filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ja'));
+  },
 
   // 規格構成ドーナツのバケツを引く。品目に donut の定義が無ければ null＝分類しない
   //（＝ドーナツを描かない。バケツを勝手に決めると意味のない図になるため）。
@@ -2290,7 +2407,12 @@ const UI = {
   // 年度・品目の初期値を決める（起動時と、選択中の値が消えた時の立て直し）。品目を先に決めてから年度を決める。
   ensureScope(){
     const items = Store.itemNames();
-    if(!State.selectedItem || !items.includes(State.selectedItem)) State.selectedItem = items[0];
+    if(!State.selectedItem || !items.includes(State.selectedItem)){
+      // 起動時は前回最後に開いていた品目に戻す（夏はクルクマ・冬はスイピ、と季節で分かれる使い方のため）。
+      // 覚え書きが無い／その品目がもう無いときだけ先頭に落とす。
+      const last = Store.lastItem();
+      State.selectedItem = (last && items.includes(last)) ? last : items[0];
+    }
     const years = Store.years();
     if(!State.selectedYear || !years.includes(String(State.selectedYear))){
       // 既定は「その品目のデータがある最新年度」。今年を既定にすると、年が明けた直後に
@@ -2610,6 +2732,12 @@ const UI = {
   },
 
   afterRender(){
+    // 打ち込む欄は中身の高さに合わせる（描き直しのたびに測り直す）
+    document.querySelectorAll('#main .csv-edit').forEach(el=>App.autoGrowCsv(el));
+    // 折りたたみの中にある欄は、閉じている間は高さを測れない。開いた時に測り直す。
+    document.querySelectorAll('#main .import-errors').forEach(d=>{
+      d.addEventListener('toggle', ()=>{ if(d.open) d.querySelectorAll('.csv-edit').forEach(el=>App.autoGrowCsv(el)); });
+    });
     if(State.tab==='sanchi'){
       const lineWrap = document.querySelector('[data-line-wrap]');
       if(lineWrap) UI.wireLineTooltip(lineWrap);
@@ -3205,6 +3333,7 @@ const UI = {
         <div class="stack">${shipRows}</div>
         ${unmatchedBlock}
       </div>
+      ${UI.sakutsukeBlocksHTML()}
     `;
   },
 
@@ -3221,58 +3350,18 @@ const UI = {
         </div>
       </div>` : '';
 
-    // 手入力の品種プルダウン＝今季作付設定で登録した品種（＋末尾に「その他（自由入力）」）
-    const mineVarieties = Array.from(new Set(Compute.scopedSakutsuke().map(r=>r.variety).filter(Boolean)));
+    // 手入力の品種プルダウン＝この品目で登録した作付の品種（全年度・＋末尾に「その他（自由入力）」）
+    const mineVarieties = Compute.itemSakutsukeVarieties();
     const selMineV = State.mineVariety; // 直前に選んだ品種を復元（連続入力のため）
     const varietyOpts = mineVarieties.map(v=>`<option value="${Fmt.esc(v)}" ${v===selMineV?'selected':''}>${Fmt.esc(v)}</option>`).join('')
       + `<option value="__other__">その他（自由入力）</option>`;
 
-    // ---- 今季作付設定 ----
-    const allocOn = Compute.allocEnabled(); // 作型（新植／据置）を使う品目か
-    const fmtTsubo = (n)=> (Number(n)||0).toLocaleString('ja-JP');
-    // 品種名の入力補助（産地・自分の既存品種をユニーク化）
-    const varietySuggest = Array.from(new Set([
-      ...Array.from(Compute.scopedSanchi().values()).map(r=>r.variety),
-      ...Compute.scopedJibun().map(r=>r.variety)
-    ].filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ja'));
-    const varietyDatalist = `<datalist id="variety-suggest">${varietySuggest.map(v=>`<option value="${Fmt.esc(v)}"></option>`).join('')}</datalist>`;
-
-    // 編集用の登録済み行（追加順）
-    const sakuEditRows = Compute.scopedSakutsuke().map(r=>`
-      <div class="ship-row">
-        <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(r.variety)}${allocOn ? ` <span class="tag-betsu">${Fmt.esc(r.type)}</span>` : ''}</span>
-          <span class="ship-detail">${fmtTsubo(r.tsubo)}坪</span>
-        </div>
-        <button class="ship-del" data-action="delete-sakutsuke-row" data-id="${r.id}" aria-label="削除">${Icon.trash}</button>
-      </div>`).join('');
-
-    // 内容カード用：品種ごとに新植/据置を集計（表示は品種単位でまとめる）
-    const sakuByVariety = [];
-    Compute.scopedSakutsuke().forEach(r=>{
-      let g = sakuByVariety.find(x=>x.variety===r.variety);
-      if(!g){ g = {variety:r.variety, shinshoku:0, sueoki:0}; sakuByVariety.push(g); }
-      if(r.type==='据置') g.sueoki += (Number(r.tsubo)||0); else g.shinshoku += (Number(r.tsubo)||0);
-    });
-    const sakuTotal = sakuByVariety.reduce((s,g)=>s + g.shinshoku + g.sueoki, 0);
-    const sakuContentRows = sakuByVariety.map(g=>{
-      // 作型を使わない品目では新植/据置の内訳を出さない（右の「計 N坪」だけで足りる）
-      const parts = [];
-      if(g.shinshoku>0) parts.push(`新植 ${fmtTsubo(g.shinshoku)}坪`);
-      if(g.sueoki>0) parts.push(`据置 ${fmtTsubo(g.sueoki)}坪`);
-      const detail = allocOn ? (parts.join(' ・ ') || '—') : '';
-      return `
-      <div class="ship-row">
-        <div class="ship-main">
-          <span class="ship-name">${Fmt.esc(g.variety)}</span>
-          ${detail ? `<span class="ship-detail">${detail}</span>` : ''}
-        </div>
-        <div class="ship-amount tnum">計 ${fmtTsubo(g.shinshoku + g.sueoki)}坪</div>
-      </div>`;
-    }).join('');
+    // 品種名の入力補助。取込タブは年度を持たないので、その品目の全年度から拾う。
+    const varietyDatalist = `<datalist id="variety-suggest">${
+      Compute.itemDataVarieties().map(v=>`<option value="${Fmt.esc(v)}"></option>`).join('')}</datalist>`;
 
     return `
-      <h1 class="screen-title">データ取込</h1>
+      <div class="title-row"><h1 class="screen-title">データ取込</h1>${UI.importErrorMark()}</div>
       ${onboard}
       <div class="card">
         <div class="card-head"><h2 class="card-title">産地データCSV</h2></div>
@@ -3284,7 +3373,7 @@ const UI = {
         <!-- ファイル選択は onChange が id で拾う（data-action の委譲は通らない） -->
         <input type="file" id="sanchi-file-input" accept=".csv,text/csv">
         <div class="paste-row">
-          <textarea class="csv-text csv-paste" id="sanchi-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
+          <textarea class="csv-text csv-edit csv-paste" id="sanchi-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
           <button type="button" class="btn btn-secondary btn-sm" data-action="import-sanchi-paste">貼り付けた内容を取込</button>
         </div>
         <div id="sanchi-import-summary">${State.sanchiImportSummary || ''}</div>
@@ -3303,7 +3392,7 @@ const UI = {
           </label>
           <input type="file" id="mine-file-input" accept=".csv,text/csv">
           <div class="paste-row">
-            <textarea class="csv-text csv-paste" id="mine-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
+            <textarea class="csv-text csv-edit csv-paste" id="mine-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
             <button type="button" class="btn btn-secondary btn-sm" data-action="import-mine-paste">貼り付けた内容を取込</button>
           </div>
           <div id="mine-import-summary">${State.mineImportSummary || ''}</div>
@@ -3345,6 +3434,95 @@ const UI = {
           <button type="submit" class="btn btn-primary">追加する</button>
         </form>
       </div>
+      ${UI.importErrorsHTML()}
+    `;
+  },
+
+  /* 取り込めなかった行の置き場（2026-09-07 新設）。取込1回＝1枠で新しい順。
+     上で選んでいる品目の分だけ出す（ユーザー判断＝季節ごとに片方しか使わないため）。 */
+  importErrorsHTML(){
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const list = Store.importErrors.filter(e=>(e.item||DEFAULT_ITEM) === item);
+    if(!list.length) return '';
+    // 同じ日に2回以上あるときだけ、見出しに時刻も添える（いつのぶんか見分けるため）
+    const dayCount = {};
+    list.forEach(e=>{ const d = String(e.at||'').slice(0,10); dayCount[d] = (dayCount[d]||0) + 1; });
+    const rows = list.map(e=>{
+      const d = new Date(e.at);
+      const day = String(e.at||'').slice(0,10);
+      const time = (dayCount[day] > 1 && !isNaN(d)) ? ' ' + d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}) : '';
+      const kept = e.rows ? e.rows.length : 0;
+      const cut = e.total > kept ? `（うち${kept}行を保存）` : '';
+      // 何がダメだったかは残す（行番号はユーザー指示で外した＝そのまま直せる形にするため）
+      const why = Array.from(new Set((e.rows||[]).flatMap(r=>r.reasons||[])));
+      const text = (e.rows||[]).map(r=>r.raw||'').join('\n');
+      return `<details class="collapse import-errors">
+          <summary><span>${Fmt.esc(day)}${time}　${Fmt.esc(e.kind)}・${e.total}行${cut}</span></summary>
+          <p class="card-caption" style="margin-top:var(--sp2)">読めなかった項目: <b>${Fmt.esc(why.join('・') || '不明')}</b>${e.header ? `<br><code>${Fmt.esc(e.header)}</code>` : ''}</p>
+          <textarea class="csv-text csv-edit" id="err-text-${Fmt.esc(e.id)}" spellcheck="false">${Fmt.esc(text)}</textarea>
+          <div class="btn-row" style="margin-top:var(--sp2)">
+            <button class="btn btn-sm btn-primary" data-action="reimport-import-error" data-id="${Fmt.esc(e.id)}">取込</button>
+            <button class="btn btn-sm btn-ghost" data-action="clear-import-error" data-id="${Fmt.esc(e.id)}">この枠を消す</button>
+          </div>
+        </details>`;
+    }).join('');
+    return `
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">取り込めなかった行<span class="card-sub">${Fmt.esc(item)}</span></h2></div>
+        <p class="card-caption">取込1回ぶんが1枠です。<b>枠の中の文字はそのまま直せます。</b>直したら「取込」を押してください。取り込めた行は消え、まだ読めない行だけ残ります。最新${IMPORT_ERR_KEEP}回分まで残ります。</p>
+        <div class="stack" style="margin-top:var(--sp2)">${rows}</div>
+        <button class="btn btn-sm btn-secondary" data-action="clear-import-errors-all" style="margin-top:var(--sp3)">全部消す</button>
+      </div>`;
+  },
+  // 取込タブの見出しに出す警告マーク（控えが残っている品目のときだけ）
+  importErrorMark(){
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const n = Store.importErrors.filter(e=>(e.item||DEFAULT_ITEM) === item)
+                                .reduce((s,e)=>s + (e.total||0), 0);
+    return n ? `<span class="err-mark" title="取り込めなかった行が残っています">● ${n}行</span>` : '';
+  },
+
+  /* 作付の2ブロック（内容カード＋設定フォーム）。年度×品目に紐づくので、
+     年度バーのある自分タブの末尾に出す（2026-09-07 に取込タブから移設）。 */
+  sakutsukeBlocksHTML(){
+    const allocOn = Compute.allocEnabled(); // 作型（新植／据置）を使う品目か
+    const fmtTsubo = (n)=> (Number(n)||0).toLocaleString('ja-JP');
+
+    // 編集用の登録済み行（追加順）
+    const sakuEditRows = Compute.scopedSakutsuke().map(r=>`
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(r.variety)}${allocOn ? ` <span class="tag-betsu">${Fmt.esc(r.type)}</span>` : ''}</span>
+          <span class="ship-detail">${fmtTsubo(r.tsubo)}坪</span>
+        </div>
+        <button class="ship-del" data-action="delete-sakutsuke-row" data-id="${r.id}" aria-label="削除">${Icon.trash}</button>
+      </div>`).join('');
+
+    // 内容カード用：品種ごとに新植/据置を集計（表示は品種単位でまとめる）
+    const sakuByVariety = [];
+    Compute.scopedSakutsuke().forEach(r=>{
+      let g = sakuByVariety.find(x=>x.variety===r.variety);
+      if(!g){ g = {variety:r.variety, shinshoku:0, sueoki:0}; sakuByVariety.push(g); }
+      if(r.type==='据置') g.sueoki += (Number(r.tsubo)||0); else g.shinshoku += (Number(r.tsubo)||0);
+    });
+    const sakuTotal = sakuByVariety.reduce((s,g)=>s + g.shinshoku + g.sueoki, 0);
+    const sakuContentRows = sakuByVariety.map(g=>{
+      // 作型を使わない品目では新植/据置の内訳を出さない（右の「計 N坪」だけで足りる）
+      const parts = [];
+      if(g.shinshoku>0) parts.push(`新植 ${fmtTsubo(g.shinshoku)}坪`);
+      if(g.sueoki>0) parts.push(`据置 ${fmtTsubo(g.sueoki)}坪`);
+      const detail = allocOn ? (parts.join(' ・ ') || '—') : '';
+      return `
+      <div class="ship-row">
+        <div class="ship-main">
+          <span class="ship-name">${Fmt.esc(g.variety)}</span>
+          ${detail ? `<span class="ship-detail">${detail}</span>` : ''}
+        </div>
+        <div class="ship-amount tnum">計 ${fmtTsubo(g.shinshoku + g.sueoki)}坪</div>
+      </div>`;
+    }).join('');
+
+    return `
       <div class="card">
         <div class="card-head"><h2 class="card-title">${Fmt.esc(String(State.selectedYear))}年の作付内容<span class="card-sub">${Fmt.esc(String(State.selectedItem))}</span></h2></div>
         ${(()=>{ const rng = Compute.seasonRange(State.selectedYear, State.selectedItem);
@@ -3377,8 +3555,7 @@ const UI = {
           <button type="submit" class="btn btn-primary">作付を追加</button>
         </form>
         ${Compute.scopedSakutsuke().length ? `<div class="stack" style="margin-top:var(--sp3)">${sakuEditRows}</div>` : ''}
-      </details>
-    `;
+      </details>`;
   },
 
   /* ---------- Screen: 保存 ---------- */
@@ -3398,15 +3575,18 @@ const UI = {
         <div style="margin-top:var(--sp2)">
           ${Store.dirtyCount>0 ? `<span class="badge badge-unmatched">未バックアップの変更 ${Store.dirtyCount}件</span>` : `<span class="badge badge-matched">バックアップ済み</span>`}
         </div>
-        <p class="card-caption" style="margin-top:var(--sp2)">見出し横の件数は全年度・全品目の合計です（表示中: ${Fmt.esc(String(State.selectedYear))}年 ${Fmt.esc(String(State.selectedItem))} は 産地${Compute.scopedSanchi().size}件・自分${Compute.scopedJibun().length}件）。</p>
+        ${(()=>{ // 保存タブは年度を指さないので、品目ごとの内訳だけを出す（年度別は書き出しの画面で選ぶ）
+          const item = State.selectedItem || DEFAULT_ITEM;
+          const {sanchi, jibun} = Compute.rowsForExport(item, '');
+          return `<p class="card-caption" style="margin-top:var(--sp2)">見出し横の件数は全年度・全品目の合計です（${Fmt.esc(item)}の全年度は 産地${sanchi.length}件・自分${jibun.length}件）。</p>`; })()}
       </div>
       <div class="card stack">
         <h2 class="card-title">書き出し / 読み込み</h2>
         <button class="btn btn-primary" data-action="export-backup">バックアップ書き出し（JSON・全年度）</button>
-        <button class="btn btn-secondary" data-action="export-csv">CSVで書き出し（表示中の年度・品目）</button>
+        <button class="btn btn-secondary" data-action="export-csv">CSVで書き出し</button>
         <label class="btn btn-ghost" for="backup-file-input">読み込み（バックアップJSONから全復元）</label>
         <input type="file" id="backup-file-input" accept=".json,application/json">
-        <p class="card-caption">JSONは<b>全年度・全品目</b>を1ファイルに収める完全バックアップ（復元用）。読み込むと現在のデータは全て置き換わるため、常に全部を書き出します。CSVは<b>表示中の年度・品目だけ</b>を「産地」「自分」の2ファイルで書き出します（表計算での閲覧・再取込用）。</p>
+        <p class="card-caption">JSONは<b>全年度・全品目</b>を1ファイルに収める完全バックアップ（復元用）。読み込むと現在のデータは全て置き換わるため、常に全部を書き出します。CSVは<b>上で選んでいる品目</b>を「産地」「自分」の2ファイルで書き出します（表計算での閲覧・再取込用）。<b>年度は書き出しの画面で選びます</b>（全年度まとめても選べます）。</p>
       </div>
       <details class="card collapse">
         <summary style="font-size:1rem;color:var(--danger-text)"><span>危険ゾーン</span></summary>
@@ -3481,14 +3661,24 @@ const UI = {
   closeModal(){
     document.getElementById('modal-root').innerHTML = '';
   },
-  csvExportModal(sections){
+  /* CSV書き出しモーダル。保存タブには年度バーが無いので、書き出す年度はここで選ぶ（2026-09-07）。
+     年度を変えたら中身を組み立て直す＝モーダルを開き直す（作りは他のモーダルと同じ）。 */
+  csvExportModal(item, year){
+    const sections = App.csvSectionsFor(item, year);
+    const years = Compute.yearsWithData(item);
+    const yearOpts = [{v:'', label:'全年度まとめて'}].concat(years.map(y=>({v:y, label:`${y}年度`})))
+      .map(o=>`<option value="${Fmt.esc(o.v)}" ${o.v===String(year||'')?'selected':''}>${Fmt.esc(o.label)}</option>`).join('');
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-sheet">
           <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
           <h2 class="modal-title">CSVで書き出し</h2>
+          <label class="field">書き出す範囲（品目: ${Fmt.esc(item)}）
+            <div class="select-wrap"><select id="csv-year-select">${yearOpts}</select></div>
+          </label>
           <div class="modal-body"><b>ダウンロード</b>を押すと保存の確認が出ます。使えない環境では、テキストを<b>コピー</b>して表計算ソフトに貼り付けてください。</div>
+          ${sections.length ? '' : '<div class="modal-body">この年度には書き出すデータがありません。</div>'}
           ${sections.map((s,i)=>`
             <div class="stack" style="gap:var(--sp2)">
               <div class="row-between">
@@ -3510,6 +3700,10 @@ const UI = {
     root.querySelector('#modal-cancel-btn').addEventListener('click', ()=>UI.closeModal());
     const status = root.querySelector('#csv-status');
     const setStatus = (msg, cls)=>{ status.textContent = msg; status.className = 'modal-status ' + (cls||'ok'); };
+    // 年度を変えたら開き直す（中身・ファイル名・行数がまとめて入れ替わる）
+    root.querySelector('#csv-year-select').addEventListener('change', (e)=>{
+      UI.csvExportModal(item, e.target.value);
+    });
     sections.forEach((s,i)=>{
       root.querySelector(`[data-csv-dl="${i}"]`).addEventListener('click', async (e)=>{
         const btn = e.currentTarget;
@@ -3881,6 +4075,10 @@ const App = {
     document.addEventListener('click', App.onClick);
     document.addEventListener('change', App.onChange);
     document.addEventListener('submit', App.onSubmit);
+    // 打ち込むたびに欄の高さを中身へ合わせる（欄の中でスクロールさせないため）
+    document.addEventListener('input', (e)=>{
+      if(e.target.classList && e.target.classList.contains('csv-edit')) App.autoGrowCsv(e.target);
+    });
     // 年度バーの指の動き。バー本体は作り直さないので1回付ければ足りる。
     UI.wireYearBar();
     // 一番上でさらに上へ引いた時の、小さな伸び
@@ -3891,17 +4089,51 @@ const App = {
   },
   // キーボード表示でタブバーが競り上がるのを打ち消す。
   // 入力にフォーカスがある時だけ、可視領域が縮んだ分（=キーボード高）を transform で戻す。
+  /* 打ち込む欄は中身の高さぴったりに伸ばす。上限は付けない。
+     ⚠ 上限を付けてはいけない（2026-09-07 に実機で2回失敗した）。
+        欄の中でスクロールできる状態にすると、指を置いた場所が欄だとページが動かず
+        「スクロールがごっちゃになる」。さらに上限を画面の高さから決めていたため、
+        キーボードが出て画面が縮むと上限も縮み、まさにキーボード中に必ず起きていた。
+        中身ぴったりなら欄の中に動かせる余地が無く、指は常にページを動かす＝
+        画面の中でスクロールするものが1つだけになる。 */
+  autoGrowCsv(el){
+    if(!el) return;
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  },
   bindKeyboardShift(){
     const vv = window.visualViewport;
     const tabbar = document.getElementById('tabbar');
     if(!vv || !tabbar) return; // 非対応環境は従来どおり
     let focused = false;
+    let shift = 0; // アプリバーにいま当てている押し下げ量（px）
     const sync = ()=>{
-      if(!focused){ tabbar.style.transform = ''; return; }
+      const appbar = document.getElementById('appbar');
+      if(!focused){
+        tabbar.style.transform = '';
+        shift = 0;
+        if(appbar) appbar.style.transform = '';
+        return;
+      }
       // 競り上がり量 = レイアウト高 −(可視高 + 可視領域の上オフセット)
       const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop);
       // キーボードと言える大きさの時だけ補正（誤検知でタブを飛ばさない）
-      tabbar.style.transform = (gap > 120) ? `translateY(${gap}px)` : '';
+      const on = gap > 120;
+      tabbar.style.transform = on ? `translateY(${gap}px)` : '';
+      /* アプリバーは sticky なので「レイアウト上の一番上」に貼り付く。キーボードが出ると
+         見えている範囲だけがずれるため、貼り付き先が画面の外（上）へ出て品目セレクタごと隠れる。
+         ⚠ 「vv.offsetTop ぶん下げる」だけでは効かなかった（実機報告 2026-09-07）。
+            iOSがどの仕組みでずらすかは場合によって違うので、当て推量をやめて
+            アプリバーが実際にいまどこに居るかを測り、見えている範囲の上端へ戻す。
+            当てている量を shift に持っておき、測った差分を足し込む＝1回で収束する。 */
+      if(appbar){
+        if(!on){ shift = 0; appbar.style.transform = ''; }
+        else{
+          const top = appbar.getBoundingClientRect().top; // いま当てている transform 込みの位置
+          shift = Math.max(0, Math.round(shift + (vv.offsetTop - top)));
+          appbar.style.transform = shift ? `translateY(${shift}px)` : '';
+        }
+      }
     };
     // アプリバーのセレクタは対象外。キーボードは出ないのに、iOSのピッカー開閉中は
     // visualViewport の resize/scroll が連発するため、gap が 120 の前後を往復して
@@ -4056,6 +4288,31 @@ const App = {
         }
         break;
       }
+      case 'reimport-import-error': {
+        const id = t.getAttribute('data-id');
+        const ta = document.getElementById('err-text-' + id);
+        const body = ta ? ta.value : '';
+        if(!Norm.text(body)){ UI.toast('中身が空です'); break; }
+        const n = body.split(/\r?\n/).filter(l=>Norm.text(l)).length;
+        UI.modal('この内容で取り込みますか？',
+          `${n}行を読み込みます。読めた行はここから消え、まだ読めない行だけ残ります。`,
+          {confirmLabel:'取り込む', onConfirm:()=>App.reimportErrorBlock(id, body)});
+        break;
+      }
+      case 'clear-import-error': {
+        Store.removeImportErrors(t.getAttribute('data-id'));
+        UI.renderMain();
+        UI.toast('消しました');
+        break;
+      }
+      case 'clear-import-errors-all': {
+        // 画面に出ている分＝いま選んでいる品目の分だけを消す（見えていないものは消さない）
+        const item = State.selectedItem || DEFAULT_ITEM;
+        UI.modal('取り込めなかった行を全部消す',
+          `「${Fmt.esc(item)}」の控えをすべて消します。取り込めなかった行の記録が無くなるだけで、取り込み済みのデータには影響しません。`,
+          {confirmLabel:'消す', onConfirm:()=>{ Store.clearImportErrors(item); UI.renderMain(); UI.toast('消しました'); }});
+        break;
+      }
       case 'fill-price': {
         // 未確定だった市況行の箱単価を後から入力するモーダルを開く
         UI.fillPriceModal(t.getAttribute('data-key'));
@@ -4112,6 +4369,9 @@ const App = {
      必ずここを通す（片方だけ直す事故を防ぐため、切り替えの入口はこの1本に集約してある）。 */
   applyScopeChange(mutate){
     mutate();
+    // 次に開いたときも同じ品目から始められるように控えておく（年度は覚えない＝
+    // 新しいシーズンのデータが入ったら、その最新年度が開いてほしいため）
+    Store.rememberItem(State.selectedItem);
     State.selectedVariety = MAJOR_VARIETY_KEY;
     State.selectedDate = null;
     State.calendarOpen = false;
@@ -4189,7 +4449,7 @@ const App = {
   importSanchiText(text, encoding){
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
-      const {records, errors, dupCount, unknownSpecs} = Parse.sanchiCSV(text, State.selectedItem);
+      const {records, errors, dupCount, unknownSpecs, header} = Parse.sanchiCSV(text, State.selectedItem);
       // 品目は選択中のものを付ける。CSVに品目列があって食い違う時だけ、取り込む前に確認する。
       const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
       if(other.length){
@@ -4197,10 +4457,10 @@ const App = {
           `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
           + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
           + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
-          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs)});
+          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header)});
         return;
       }
-      App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs);
+      App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header);
     }catch(err){
       State.sanchiImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
@@ -4212,27 +4472,33 @@ const App = {
     if(!errors || !errors.length) return '';
     return `<details class="collapse import-errors">
         <summary>エラー行の内訳（${errors.length}件）</summary>
-        <div class="stack" style="margin-top:var(--sp2)">
+        ${App.errorRowsHTML(errors)}
+      </details>`;
+  },
+  /* エラー行そのものの並び（行番号・理由・原文）。取込直後の要約と、
+     取込タブの「取り込めなかった行」の控えの両方から使う。 */
+  errorRowsHTML(errors, total){
+    const n = total || errors.length;
+    return `<div class="stack" style="margin-top:var(--sp2)">
           ${errors.slice(0, 50).map(e=>`<div class="import-err">
             <span class="ie-line tnum">${e.line}行目</span>
             <span class="ie-why">${Fmt.esc((e.reasons||[]).join('・') || '不正な行')}</span>
             <code class="ie-raw">${Fmt.esc(e.raw || '')}</code>
           </div>`).join('')}
-          ${errors.length>50 ? `<p class="muted" style="font-size:0.75rem">※ 先頭50件のみ表示しています</p>` : ''}
-        </div>
-      </details>`;
+          ${n>50 ? `<p class="muted" style="font-size:0.75rem">※ 先頭50件のみ表示しています（全${n}件）</p>` : ''}
+        </div>`;
   },
   // 産地CSV取込の後半（品目の確認をはさむ場合があるので分けてある）
-  finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs){
+  finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header){
     const {added, updated} = Store.mergeSanchi(records);
+    Store.addImportErrors('産地', State.selectedItem, errors, header); // リロードしても残る控えへ積む
     SelfTest.run();
-    // 取り込んだデータが選択中の年度の外にあると、画面に出ずに「消えた」と誤解されるので知らせる
-    const years = Array.from(new Set(records.map(r=>Compute.seasonYear(r.date, State.selectedItem)).filter(Boolean)));
-    const outside = years.filter(y=> y !== String(State.selectedYear));
+    // 取込タブは特定の年度を指さない（年度バーを出していない）ので、
+    // 「表示中の年度の外にあります」の案内は役目を終えている。
+    // 取り込み元と品目は画面を見れば分かるので要約には出さない（ユーザー指示 2026-09-07）。
     const unk = unknownSpecs || [];
-    State.sanchiImportSummary = `<div class="summary-box ${errors.length||outside.length||unk.length?'warn':''}">
-        <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
-        ${outside.length?`<span>※ ${Fmt.esc(outside.join('・'))}年のデータが含まれています。表示するには年度を切り替えてください。</span>`:''}
+    State.sanchiImportSummary = `<div class="summary-box ${errors.length||unk.length?'warn':''}">
+        <span>取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
         ${unk.length?`<span>※ 価格の基準に無い等級×階級が含まれています: ${Fmt.esc(unk.map(u=>`${u.spec}（${u.n}件）`).join('、'))}。データは取り込んでいますが、価格推移には反映されません。</span>`:''}
         ${App.errorDetailHTML(errors)}
       </div>`;
@@ -4247,37 +4513,62 @@ const App = {
   importMineText(text, encoding){
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
-      const {records, errors} = Parse.jibunCSV(text, State.selectedItem);
+      const {records, errors, header} = Parse.jibunCSV(text, State.selectedItem);
       // 産地CSVと同じく、CSVの品目列が選択中と食い違う時は取り込む前に確認する。
-      // 自分CSVは月日だけの出荷日を「選択中の品目の開始月」で解決するので、
-      // 品目を間違えたまま取り込むと日付そのものが1年ずれることがある。
       const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
       if(other.length){
         UI.modal('品目が違うようです',
           `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
           + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
-          + `<br>月日だけの出荷日は「${Fmt.esc(State.selectedItem)}」のシーズンで年を補うため、日付がずれることもあります。`
           + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
-          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishMineImport(records, errors, encoding)});
+          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishMineImport(records, errors, encoding, header)});
         return;
       }
-      App.finishMineImport(records, errors, encoding);
+      App.finishMineImport(records, errors, encoding, header);
     }catch(err){
       State.mineImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
     }
   },
   // 自分CSV取込の後半（品目の確認をはさむ場合があるので分けてある）
-  finishMineImport(records, errors, encoding){
+  finishMineImport(records, errors, encoding, header){
     const {added, skipped} = Store.mergeJibun(records, 'csv');
+    Store.addImportErrors('自分', State.selectedItem, errors, header); // リロードしても残る控えへ積む
+    // 取り込み元と品目は画面を見れば分かるので要約には出さない（ユーザー指示 2026-09-07）。
     State.mineImportSummary = `<div class="summary-box ${errors.length||skipped?'warn':''}">
-        <span>取り込み元: ${Fmt.esc(encoding)}／品目: ${Fmt.esc(State.selectedItem)}／取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+        <span>取込行数: ${records.length}／追加: ${added}${skipped?`／重複スキップ: ${skipped}件`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
         ${App.errorDetailHTML(errors)}
       </div>`;
     UI.renderMain();
     UI.toast(`自分の出荷CSVを取込みました（追加${added}）`);
     // 取込直後：新植/据置の両方を作っている品種に未割当があれば、その場で割り当てを促す
     if(added>0 && Compute.unassignedAllocRows().length>0){ UI.allocModal(); }
+  },
+  /* 取り込めなかった行を、その場で直して取り込み直す（2026-09-07）。
+     元の見出し行をくっつけて、同じ並びで読む。読めた行は消え、まだ読めない行だけ枠に残す。 */
+  reimportErrorBlock(id, body){
+    const e = Store.importErrors.find(x=>x.id === id);
+    if(!e) return;
+    const text = (e.header ? e.header + '\n' : '') + body;
+    let res;
+    try{
+      res = (e.kind === '産地') ? Parse.sanchiCSV(text, e.item) : Parse.jibunCSV(text, e.item);
+    }catch(err){
+      UI.toast('取り込めませんでした: ' + err.message, {duration:6000});
+      return;
+    }
+    if(e.kind === '産地') Store.mergeSanchi(res.records);
+    else Store.mergeJibun(res.records, 'csv');
+    const took = res.records.length;
+    // 残ったエラー行だけを枠に戻す（行番号は見出し行のぶんだけずれるので付け直さない）
+    Store.updateImportErrors(id, res.errors);
+    if(e.kind === '産地') SelfTest.run();
+    UI.renderMain();
+    if(res.errors.length){
+      UI.toast(`${took}行を取り込みました。${res.errors.length}行はまだ読めないので残しています`, {duration:6000});
+    } else {
+      UI.toast(`${took}行を取り込みました`);
+    }
   },
   async handleBackupFile(file){
     try{
@@ -4371,30 +4662,42 @@ const App = {
   },
   // 書き出しCSVには必ず品目列を入れる。入れずに書き出すと、別の品目を選んだ状態で
   // 読み戻したときに食い違い確認が働かず、丸ごと別品目のデータに化ける。
-  buildSanchiCSV(){
+  buildSanchiCSV(rows){
     const head = '日付,品目,品種,等級,階級,本数,箱数量,箱単価';
-    const rows = Array.from(Compute.scopedSanchi().values())
+    const out = rows.slice()
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
       .map(r=>[r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, (r.size||''), r.count, r.boxQty, (r.boxPrice==null ? '未確定' : r.boxPrice)].map(App.csvCell).join(','));
-    return {text:[head, ...rows].join('\r\n'), rows:rows.length};
+    return {text:[head, ...out].join('\r\n'), rows:out.length};
   },
-  buildJibunCSV(){
+  buildJibunCSV(rows){
     const head = '出荷日,品目,品種名,等級,階級,本数,箱数,別本数';
-    const rows = Compute.scopedJibun().slice()
+    const out = rows.slice()
       .sort((a,b)=> a.date.localeCompare(b.date) || a.variety.localeCompare(b.variety))
       .map(r=>{
         const betsu = r.betsuCount>0 ? r.betsuCount : '';
         return [r.date, (r.item||DEFAULT_ITEM), r.variety, r.grade, (r.size||''), r.count, r.boxQty, betsu].map(App.csvCell).join(',');
       });
-    return {text:[head, ...rows].join('\r\n'), rows:rows.length};
+    return {text:[head, ...out].join('\r\n'), rows:out.length};
+  },
+  /* 書き出す2ファイルを組み立てる。year が空文字なら全年度。
+     保存タブには年度バーが無いので、年度はモーダルの中で選ぶ（2026-09-07）。 */
+  csvSectionsFor(item, year){
+    const {sanchi, jibun} = Compute.rowsForExport(item, year);
+    const ts = new Date().toISOString().slice(0,10);
+    // ファイル名に品目と年度を入れる。入れないと年度を続けて書き出したとき同じ名前になる。
+    const tag = `${item}-${year ? year+'年度' : '全年度'}`;
+    const sections = [];
+    if(sanchi.length){ const s = App.buildSanchiCSV(sanchi); sections.push({name:'産地データ', filename:`curcuma-産地-${tag}-${ts}.csv`, text:s.text, rows:s.rows}); }
+    if(jibun.length){ const j = App.buildJibunCSV(jibun); sections.push({name:'自分の出荷', filename:`curcuma-自分-${tag}-${ts}.csv`, text:j.text, rows:j.rows}); }
+    return sections;
   },
   exportCSV(){
-    if(Compute.scopedSanchi().size===0 && Compute.scopedJibun().length===0){ UI.toast('この年度・品目には書き出すデータがありません'); return; }
-    const ts = new Date().toISOString().slice(0,10);
-    const sections = [];
-    if(Compute.scopedSanchi().size>0){ const s = App.buildSanchiCSV(); sections.push({name:'産地データ', filename:`curcuma-産地-${ts}.csv`, text:s.text, rows:s.rows}); }
-    if(Compute.scopedJibun().length>0){ const j = App.buildJibunCSV(); sections.push({name:'自分の出荷', filename:`curcuma-自分-${ts}.csv`, text:j.text, rows:j.rows}); }
-    UI.csvExportModal(sections);
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const years = Compute.yearsWithData(item);
+    if(!years.length){ UI.toast(`「${item}」には書き出すデータがありません`); return; }
+    // 既定＝表示中の年度。その年度にデータが無ければ一番新しい年度から始める。
+    const year = years.includes(String(State.selectedYear)) ? String(State.selectedYear) : years[0];
+    UI.csvExportModal(item, year);
   },
   submitManual(form){
     const fd = new FormData(form);
@@ -4420,7 +4723,7 @@ const App = {
     // 追加後も日付と品種は保持（同じ日・同じ品種で規格違いを連続入力しやすく）。規格・箱数は再描画で既定に戻る。
     if(added){
       // プルダウンにある品種のみ復元（「その他」自由入力は既定へ戻す）
-      const registered = new Set(Compute.scopedSakutsuke().map(r=>r.variety).filter(Boolean));
+      const registered = new Set(Compute.itemSakutsukeVarieties());
       State.mineVariety = registered.has(variety) ? variety : null;
     }
     UI.renderMain();
