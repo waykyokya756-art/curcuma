@@ -322,9 +322,10 @@ input[type="file"]{display:none;}
 .tab span{font-size:0.6875rem; font-weight:500;}
 .tab[aria-selected="true"]{color:var(--primary);}
 .tab[aria-selected="true"] span{font-weight:700;}
-/* 入力中もタブバー・アプリバーの位置は動かさない（キーボードに覆われるだけにする）。
-   持ち上がり分の打ち消しは JS が transform で行う */
-#tabbar, #appbar{will-change:transform;}
+/* 入力中もタブバーの位置は動かさない（キーボードに覆われるだけにする）。
+   持ち上がり分の打ち消しは JS が transform で行う。
+   ⚠ #appbar をここに足さないこと＝アプリバーは動かさない（App.bindKeyboardShift のコメント参照） */
+#tabbar{will-change:transform;}
 
 /* ペースト取込欄（コンパクト・常時表示） */
 .paste-row{display:flex; flex-direction:column; gap:var(--sp2); margin-top:var(--sp2);}
@@ -1093,7 +1094,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-07a';
+const APP_BUILD = '2026-09-07b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -4087,8 +4088,6 @@ const App = {
     // ＝タブの位置は変わらず、キーボードがタブの上に重なるだけになる。
     App.bindKeyboardShift();
   },
-  // キーボード表示でタブバーが競り上がるのを打ち消す。
-  // 入力にフォーカスがある時だけ、可視領域が縮んだ分（=キーボード高）を transform で戻す。
   /* 打ち込む欄は中身の高さぴったりに伸ばす。上限は付けない。
      ⚠ 上限を付けてはいけない（2026-09-07 に実機で2回失敗した）。
         欄の中でスクロールできる状態にすると、指を置いた場所が欄だとページが動かず
@@ -4101,39 +4100,26 @@ const App = {
     el.style.height = 'auto';
     el.style.height = (el.scrollHeight + 2) + 'px';
   },
+  /* ⚠⚠ アプリバーには絶対に手を出さないこと（2026-09-07・実機で2回失敗して本番を壊した）。
+     「キーボード中もアプリバーを画面上部に残す」を、①vv.offsetTop ぶん下げる ②実際の位置を
+     測って押し戻す、の2通りで試して両方だめだった。②に至ってはアプリバーが画面の真ん中に
+     浮くという、元より悪い壊れ方をした。
+     理由＝iOSはページをずらすのではなく画面そのものを持ち上げることがあり、その分は
+     アプリ側からは観測できない。見えない量は計算で埋められない。
+     小細工では無理で、直すなら「本体はスクロールさせず中身だけを動かす」形に画面の組み方を
+     変えるしかない。ユーザー判断＝**入力中にアプリバーを見る場面は無いので追いかけない**。
+     ここで動かすのはタブバーだけにしておくこと。 */
   bindKeyboardShift(){
     const vv = window.visualViewport;
     const tabbar = document.getElementById('tabbar');
     if(!vv || !tabbar) return; // 非対応環境は従来どおり
     let focused = false;
-    let shift = 0; // アプリバーにいま当てている押し下げ量（px）
     const sync = ()=>{
-      const appbar = document.getElementById('appbar');
-      if(!focused){
-        tabbar.style.transform = '';
-        shift = 0;
-        if(appbar) appbar.style.transform = '';
-        return;
-      }
+      if(!focused){ tabbar.style.transform = ''; return; }
       // 競り上がり量 = レイアウト高 −(可視高 + 可視領域の上オフセット)
       const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop);
       // キーボードと言える大きさの時だけ補正（誤検知でタブを飛ばさない）
-      const on = gap > 120;
-      tabbar.style.transform = on ? `translateY(${gap}px)` : '';
-      /* アプリバーは sticky なので「レイアウト上の一番上」に貼り付く。キーボードが出ると
-         見えている範囲だけがずれるため、貼り付き先が画面の外（上）へ出て品目セレクタごと隠れる。
-         ⚠ 「vv.offsetTop ぶん下げる」だけでは効かなかった（実機報告 2026-09-07）。
-            iOSがどの仕組みでずらすかは場合によって違うので、当て推量をやめて
-            アプリバーが実際にいまどこに居るかを測り、見えている範囲の上端へ戻す。
-            当てている量を shift に持っておき、測った差分を足し込む＝1回で収束する。 */
-      if(appbar){
-        if(!on){ shift = 0; appbar.style.transform = ''; }
-        else{
-          const top = appbar.getBoundingClientRect().top; // いま当てている transform 込みの位置
-          shift = Math.max(0, Math.round(shift + (vv.offsetTop - top)));
-          appbar.style.transform = shift ? `translateY(${shift}px)` : '';
-        }
-      }
+      tabbar.style.transform = (gap > 120) ? `translateY(${gap}px)` : '';
     };
     // アプリバーのセレクタは対象外。キーボードは出ないのに、iOSのピッカー開閉中は
     // visualViewport の resize/scroll が連発するため、gap が 120 の前後を往復して
