@@ -29,6 +29,9 @@
   /* 棒の一番上に乗る【その他】用。ほかの帯は薄く敷くが、これだけは濃いまま出す
      ＝「いつもと違う規格が出た日」の合図なので目立たないと意味がない。 */
   --chart-alert:#DE2113;
+  /* 年ごとの折れ線（箱単価 5カ年比較）。yr1＝選択中の年度で、yr5 に向かって古くなるほど薄い。
+     色相は緑で揃える＝「同じものを年違いで並べている」ことを色で言うため（品種色とは別系統）。 */
+  --yr1:#1B5E3F; --yr2:#2E7D5B; --yr3:#5FB08A; --yr4:#93CDB2; --yr5:#C3E4D4;
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
   --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
@@ -53,6 +56,7 @@
     --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
     --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
     --chart-alert:#F84B36;
+    --yr1:#7FE3AF; --yr2:#5BB98A; --yr3:#43906B; --yr4:#356E53; --yr5:#2B5340;
     --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
     --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
     --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -69,6 +73,7 @@
   --chart-2l30:#4FA97C; --chart-2l50:#8FD4B4; --chart-l50:#E0A458; --chart-other:#8A9088;
   --chart-size1:#6FA8E0; --chart-size2:#E0A458; --chart-size3:#B79BE8;
   --chart-alert:#F84B36;
+  --yr1:#7FE3AF; --yr2:#5BB98A; --yr3:#43906B; --yr4:#356E53; --yr5:#2B5340;
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
   --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
   --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
@@ -177,15 +182,26 @@ input, textarea, select{scroll-margin-top:116px; scroll-margin-bottom:96px;}
   scroll-margin-top:0; scroll-margin-bottom:0;
 }
 .scope-sel.select-wrap::after{right:11px; width:6px; height:6px;}
-/* 品目は全角7文字が入る幅で固定し、名前を右詰めにする。
+/* 品目は全角7文字が入る幅で固定し、名前を中央に置く（2026-09-08b にユーザー指定で右詰めから変更）。
    幅を可変にすると品目名の長さで右端が動き、テーマボタンとの間隔が名前ごとに変わる。
-   156px＝border 2px ＋ 左右padding 40px ＋ 本文114px。
-   全角7文字は 0.875rem(=15.75px) で 110.3px なので収まる（8文字は126pxで … に切れる）。
-   矢印は右端から11px・6px幅、テキスト領域は右端から28pxなので、右詰めでも重ならない。
-   閉じた状態の表示は text-align が効かないブラウザがあるので direction:rtl で寄せる。
-   option 側を ltr に戻さないと、開いた一覧の並びまで右基準になって読みにくくなる。 */
-#item-select{width:156px; direction:rtl; text-align:right;}
-#item-select option{direction:ltr; text-align:left;}
+
+   ⚠⚠ 閉じている <select> の中の文字は text-align では動かせない（iOS Safari で効かない）。
+      実際 2026-09-08b に text-align:center を当てて「中央寄せになっていない」と指摘された。
+      以前この欄が direction:rtl で右寄せしてあったのも同じ理由（コメントに残っていた）。
+      そこで【見た目はこちらで描き、<select> は透明にして操作だけ受け持つ】形にした。
+      これならどのブラウザでも必ず中央に来る。
+   ⚠ <select> の font-size は 16px のまま残すこと。透明でも、16px未満の入力欄に
+      フォーカスすると iOS はページ全体をズームする（この欄で一度踏んだ罠）。
+   ⚠ 見えているのはラベルなので、品目を切り替えたら UI.renderAppBar 側で書き換える。 */
+.scope-sel{position:relative; width:156px; height:36px;
+  border-radius:var(--r-pill); background:var(--surface-2); border:1px solid var(--border);}
+#item-select{position:absolute; inset:0; width:100%; height:100%; min-height:0; opacity:0;}
+.scope-sel-label{
+  position:absolute; left:22px; right:22px; top:0; bottom:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:700; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none;
+}
 .icon-btn{
   width:36px; height:36px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2);
   display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -212,6 +228,22 @@ main.is-bouncing{transition:transform 260ms cubic-bezier(.22,.61,.36,1);}
 .card-title{font-size:1rem; font-weight:600;}
 /* 見出しに添える補足（表示中の品目名など） */
 .card-sub{margin-left:8px; font-size:0.8125rem; font-weight:600; color:var(--ink-muted);}
+/* 棒をタップした時の読み出し。見出しの右の空きに置くだけの小さなもので、
+   大きな詳細カードの代わり（ユーザー指定 2026-09-08b）。タップするまでは空。
+   ⚠ 縮ませない（flex:0 0 auto）。縮ませると 320px 幅の端末で「5/12　28箱」が
+     途中で切れて数字が読めなくなる（実測）。狭い時に折り返すのは見出しの側でよい。
+   ⚠ 枠と地の色は .chart-detail（グラフ下の大きい詳細）と同じものを使う。
+     白いままだと「そこに詳細が出ている」と気づけない（ユーザー指摘）。
+     :empty で、タップ前は枠ごと消しておく＝空の箱が浮かない。 */
+.tap-readout{margin-left:auto; flex:0 0 auto; white-space:nowrap;
+  font-size:0.8125rem; font-weight:700; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-pill);
+  padding:3px 8px;
+  /* ⚠ 幅は固定。日付や桁数で伸び縮みすると、タップするたび見出しの右が動いて落ち着かない
+     （ユーザー指摘 2026-09-08b）。いちばん長い「12/18(火)　9,999箱」を実測して 134.3px。
+     ＋左右padding16＋border2＝152.3 なので 154px 取り、中身は中央に置く。 */
+  width:154px; text-align:center;}
+.tap-readout:empty{display:none;}
 .card-caption{font-size:0.75rem; color:var(--ink-muted);}
 .screen-title{font-size:1.25rem; font-weight:700;}
 /* 見出しの右にチップを添える行（保存タブの件数など） */
@@ -374,11 +406,9 @@ input[type="file"]{display:none;}
 /* 横スクロールしても左端に固定するY軸ラベル */
 .chart-yaxis{position:absolute; left:0; top:0; z-index:2; pointer-events:none; background:var(--surface); border-right:1px solid var(--border);}
 .chart-yaxis svg{display:block;}
-.donut-row{display:flex; align-items:center; gap:var(--sp4); flex-wrap:nowrap;}
 .donut-svg{width:150px; height:150px; flex-shrink:0; max-width:100%;}
 .donut-center-num{font-size:1.25rem; font-weight:700; fill:var(--ink);}
 .donut-center-lbl{font-size:0.625rem; fill:var(--ink-muted);}
-.legend-flex{flex:1 1 auto; min-width:0;}
 
 .chart-caption{font-size:0.75rem; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:6px 10px;}
 /* グラフの読み方の説明。chart-caption は「データ不足」等の注意書き用（警告色）なので、
@@ -392,18 +422,13 @@ input[type="file"]{display:none;}
 .chart-detail .cd-name{font-weight:700; font-size:0.9375rem;}
 .chart-detail .cd-info{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.875rem; color:var(--ink-muted);}
 .chart-detail .cd-price{font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums;}
+/* その日の箱数。値段より控えめに（主役は値段で、箱数は「どれだけの量の話か」の補足） */
+.chart-detail .cd-boxes{color:var(--ink-muted);}
 .chart-detail .cd-tag{font-size:0.75rem; color:var(--ink-muted); background:var(--surface); border:1px solid var(--border); border-radius:var(--r-pill); padding:2px 8px;}
 .selector-row{display:flex; gap:var(--sp3);}
 .selector-row .field{min-width:0;}
-.selector-row .date-field{flex:5;}
-/* 「品種」ラベルの見た目を「日付」に合わせる（この行だけ） */
-.selector-row .variety-field{flex:5; font-size:0.9375rem; color:var(--ink); font-weight:400; gap:0;}
+.selector-row .variety-field{flex:1; font-size:0.9375rem; color:var(--ink); font-weight:400; gap:0;}
 .date-field{position:relative;}
-.date-nav{display:flex; align-items:stretch; gap:4px;}
-.date-nav .date-trigger{flex:1; min-width:0; padding:0 6px; justify-content:center; gap:2px;}
-.date-step{width:32px; min-height:48px; flex-shrink:0; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2); color:var(--ink); font-size:1rem; font-weight:700; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
-.date-step:disabled{opacity:.35; cursor:default;}
-.date-step:active:not(:disabled){background:var(--primary-soft);}
 .date-trigger{
   width:100%; min-height:48px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--surface-2);
   color:var(--ink); padding:0 var(--sp3); font-size:0.9375rem; cursor:pointer; text-align:left;
@@ -450,15 +475,23 @@ input[type="file"]{display:none;}
    年月と金額は最後まで削らない（flex:0 0 auto で固定、meta のみ 0 1 auto で縮む）。 */
 .ship-month > summary{font-size:1rem; min-height:44px; gap:6px; flex-wrap:nowrap;}
 .ship-month > summary > span{white-space:nowrap; overflow:hidden;}
-.ship-month .sm-title{font-size:1rem; font-weight:700; color:var(--ink); flex:0 0 auto;}
+/* 月の見出しは一覧の中で一番の目印なので、はっきり大きくする（ユーザー指摘 2026-09-08b）。
+   ここだけ本文（0.9375rem）の1.25倍にして、右の集計（0.8125rem）との差をはっきりさせる。 */
+.ship-month .sm-title{font-size:1.1875rem; font-weight:800; color:var(--ink); flex:0 0 auto; letter-spacing:0.01em;}
 .ship-month .sm-meta{margin-left:auto; font-size:0.8125rem; font-weight:600; color:var(--ink-muted); flex:0 1 auto; min-width:0; text-overflow:ellipsis;}
 .ship-month .sm-total{font-size:0.9375rem; font-weight:700; color:var(--ink); flex:0 0 auto;}
 /* 開閉マーカーは指で狙える大きさに（既定の小さい ▸ を上書き） */
 .ship-month > summary::before{font-size:1.125rem; line-height:1; color:var(--ink-muted); flex:0 0 auto;}
-.ship-date-head{display:flex; align-items:baseline; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
+/* 箱数の下に総本数を出すので、行の揃えは baseline ではなく下端に合わせる
+   （baseline のままだと2段になった箱数だけが上にずれる）。 */
+.ship-date-head{display:flex; align-items:flex-end; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
 .ship-date-md{font-size:1.3125rem; font-weight:800; color:var(--ink);}
 .ship-date-wd{font-size:0.9375rem; font-weight:700; color:var(--ink-muted);}
-.ship-date-boxes{margin-left:auto; font-size:0.9375rem; font-weight:600; color:var(--ink-muted);}
+/* 箱数は2段（上＝箱数／下＝その日の総本数）。下段は狭いので一段小さくする（ユーザー指定 2026-09-08b）。
+   右揃えにしておくと、桁が増えても金額との間隔が動かない。 */
+.ship-date-boxes{margin-left:auto; font-size:0.9375rem; font-weight:600; color:var(--ink-muted);
+  display:flex; flex-direction:column; align-items:flex-end; line-height:1.25;}
+.ship-date-boxes small{font-size:0.75rem; font-weight:600; color:var(--ink-muted);}
 .ship-date-total{margin-left:var(--sp3); font-size:1.125rem; font-weight:700; color:var(--ink);}
 .ship-variety-block + .ship-variety-block{margin-top:6px; padding-top:6px; border-top:1px solid var(--border);}
 .sv-head{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3);}
@@ -603,7 +636,7 @@ details.collapse[open] summary::before{transform:rotate(90deg);}
     <div class="appbar-row">
       <div class="wordmark">🌸 出荷分析</div>
       <div class="appbar-right">
-        <div class="select-wrap scope-sel"><select id="item-select" aria-label="品目を選ぶ"></select></div>
+        <div class="select-wrap scope-sel"><select id="item-select" aria-label="品目を選ぶ"></select><span class="scope-sel-label" id="item-select-label" aria-hidden="true"></span></div>
         <button class="icon-btn" id="theme-btn" data-action="theme-cycle" aria-label="テーマ切替"></button>
       </div>
     </div>
@@ -713,7 +746,10 @@ const Norm = {
                            Norm.grade(grade), Norm.size(size), Norm.num(count)]);
   },
   // レコード1個からキーを作る。引数の並び間違いを防ぐため、可能な限りこちらを使う。
-  keyOf(rec){ return Norm.key(rec.item, rec.date, rec.variety, rec.grade, rec.size, rec.count); }
+  keyOf(rec){ return Norm.key(rec.item, rec.date, rec.variety, rec.grade, rec.size, rec.count); },
+  /* 品目全体データのキー。その日・その品目で1行しかない資料なので 品目＋日付 で足りる。
+     同じ日を取り込み直したら後勝ちで上書き（資料が訂正されることがあるため）。 */
+  zentaiKey(rec){ return JSON.stringify([Norm.text(rec.item) || DEFAULT_ITEM, Norm.date(rec.date)]); }
 };
 
 /* ============================== Parse ============================== */
@@ -758,7 +794,7 @@ const Parse = {
   /* 産地CSV。列は 日付,品目,品種,等級,階級,本数,箱数量,箱単価。
      等級と階級は別の列で受け取る（市場ごとに規格の体系が違うため、連結された1列だと
      「等級を問わず2Lだけ見る」といった操作が文字列の切り貼りになる）。
-     戻り値の unknownSpecs＝取り込みには成功したが、その品目の price/donut の
+     戻り値の unknownSpecs＝取り込みには成功したが、その品目の price/sizeBars の
      規則に載っていない 等級×階級。壊れた入力ではないので行は保存し、警告だけ出す。 */
   sanchiCSV(text, item){
     const rows = Parse.csv(text);
@@ -823,17 +859,64 @@ const Parse = {
   /* その品目で「扱いが決まっている」等級×階級の集合。判定できなければ null＝警告を出さない。
      ⚠ blend:'all'（その日の全部を平均する品目）では、どんな等級×階級も価格に入るので
         「価格の基準に無い＝価格推移に反映されない」という警告自体が成り立たない。
-        いつもと違う規格が出たことは、背景の棒の一番上に赤で出る（sizeBars の その他）。 */
+        いつもと違う規格が出たことは、背景の棒の一番上に赤で出る（sizeBars の その他）。
+     ※ 2026-09-08b：規格構成ドーナツを撤去したので、語彙の出どころを donut から sizeBars に
+        付け替えた。クルクマの集合は 秀|2L・秀|L で以前と変わらない（バケツは同じものを移しただけ）。 */
   knownSpecs(item){
     const rule = itemRule(item);
-    const priceCoversAll = !!(rule.price && rule.price.blend === 'all');
-    if((!rule.price || priceCoversAll) && !rule.donut) return null;
+    if(rule.price && rule.price.blend === 'all') return null;
+    if(!rule.price && !rule.sizeBars) return null;
     const s = new Set();
-    if(rule.price && !priceCoversAll){
-      (rule.price.basis || []).forEach(([g, sz])=> s.add(g + '|' + sz));
-    }
-    (rule.donut ? rule.donut.buckets : []).forEach(b=> s.add(b.grade + '|' + b.size));
+    (rule.price ? (rule.price.basis || []) : []).forEach(([g, sz])=> s.add(g + '|' + sz));
+    ((rule.sizeBars && rule.sizeBars.buckets) || []).forEach(b=> s.add(b.grade + '|' + b.size));
     return s;
+  },
+  /* 品目全体データのCSV。列は 日付,品目,箱数,売立金額,箱平均価格。
+     出どころはJAの「花き共選共販市況」で、その日・その品目の産地全体が1行になっている
+     ＝品種も規格も無い（前提メモ A-13）。産地CSV（品種×等級×階級×本数）とは別系統で、
+     数字も一致しない前提なので、突合も比較もしない。
+
+     箱平均価格は 売立金額÷箱数 の端数切り＝派生値。列があれば原文のまま持つが、
+     グラフの計算には使わない（移動平均は必ず 金額の合計÷箱数の合計 で出す）。
+     列が無ければこちらで割って埋める。
+
+     ⚠ 必須列が1つでも欠けたら例外を投げる＝産地CSVをここに貼っても黙って通らない。
+        列の形が違うCSVを貼ったときに気づけるのが、この口の一番大事な仕事。 */
+  zentaiCSV(text, item){
+    const rows = Parse.csv(text);
+    if(rows.length===0) return {records:[], errors:[], dupCount:0, header:''};
+    const idx = Parse.headerIndex(rows[0]);
+    const header = rows[0].join(',');
+    const need = ['日付','箱数','売立金額'];
+    const missing = need.filter(k=>!(k in idx));
+    if(missing.length) throw new Error('必須列が見つかりません: ' + missing.join('、'));
+    const hasAvg = '箱平均価格' in idx;
+    const records = []; const errors = []; const seen = new Set(); let dupCount = 0;
+    for(let r=1;r<rows.length;r++){
+      const row = rows[r];
+      if(row.every(f=>Norm.text(f)==='')) continue;
+      const dateRaw = Norm.date(row[idx['日付']]);
+      const date = Norm.validDate(dateRaw) ? dateRaw : '';
+      const boxes = Norm.num(row[idx['箱数']]);
+      const amount = Norm.num(row[idx['売立金額']]);
+      const avgRaw = hasAvg ? Norm.num(row[idx['箱平均価格']]) : NaN;
+      const reasons = [];
+      if(!date) reasons.push('日付');
+      if(Number.isNaN(boxes) || boxes <= 0) reasons.push('箱数');
+      if(Number.isNaN(amount)) reasons.push('売立金額');
+      if(hasAvg && Norm.text(row[idx['箱平均価格']]) !== '' && Number.isNaN(avgRaw)) reasons.push('箱平均価格');
+      if(reasons.length){
+        errors.push({line:r+1, raw:row.join(','), reasons});
+        continue;
+      }
+      if(seen.has(date)) dupCount++;
+      seen.add(date);
+      // 資料に箱平均価格が無いときだけ、こちらで割って端数を切る（資料と同じ出し方）。
+      const avgPrice = Number.isNaN(avgRaw) ? Math.floor(amount / boxes) : avgRaw;
+      records.push({date, boxes, amount, avgPrice,
+                    csvItem: ('品目' in idx) ? Norm.text(row[idx['品目']]) : ''});
+    }
+    return {records, errors, dupCount, header};
   },
   /* 自分CSVの「規格」列（階級＋本数の省略記法）を分解する。
      「2L30」→{2L,30}, 「2L50」→{2L,50}, 「L」→{L,50}, 「M」→{M,50}
@@ -1100,7 +1183,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-07c';
+const APP_BUILD = '2026-09-08b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1113,8 +1196,8 @@ const DEFAULT_ITEM = 'クルクマ';
    ⚠ キーはレコードの item 文字列と完全一致していること（Norm.text の NFKC 正規化後の形）。
       ズレると全レコードが「表に無い品目」になる（消えはしない＝Store.itemNames の安全網）。
 
-   price / donut は「まだ決めていない」なら書かない。書かれていない品目では
-   価格推移カード・規格構成ドーナツを丸ごと出さない（間違った図を見せないため）。 */
+   price / sizeBars は「まだ決めていない」なら書かない。書かれていない品目では
+   価格推移カード・背景の規格バーを丸ごと出さない（間違った図を見せないため）。 */
 const ITEM_RULES = {
   'クルクマ': {
     // 年度＝この月から1年間。クルクマは年を跨いだ出荷が起こらないので暦年（1月始まり）＝
@@ -1128,15 +1211,30 @@ const ITEM_RULES = {
     // 分母は (本数 × 箱数) ÷ per。※ 入り本数は見ないので30本行と50本行は合算される
     //（前提メモ A-2「価格の基準は等級×階級であって規格ではない」）
     price: { basis: [['秀','2L'], ['秀','L']], per: 50, label: '50本換算' },
-    // 規格構成ドーナツのバケツ。現行の見た目を変えないための値。
-    donut: {
+    /* 折れ線の背景に敷く、その日の規格構成（100%の縦棒）。
+       2026-09-08b に、選択日1枚の規格構成ドーナツを廃してここへ移した（ユーザー判断）。
+       バケツ・色・その他の扱いはドーナツの定義をそのまま持ってきたもの＝新しい規則は足していない
+       （前提メモ A-3「ドーナツにルールは存在しない」＝勝手に一般化しない）。
+
+       ⚠ count（入り本数）まで見るのはクルクマだけ。同じ 秀2L でも 30本入りと 50本入りを
+         別の帯にする＝これがクルクマで一番見たいもの。価格の折れ線は50本換算なので
+         30/50 の入れ替わりでは動かない＝この情報は線の中に入っていない（前提メモ A-2）。
+
+       ⚠ その他は【薄敷きのまま】。スイピのように濃い赤にしてはいけない。
+         実データで数えると、その他は11日すべてに出て（全箱数の7.3%）、その77%が『別』＝
+         毎日ふつうに出るもの。赤にすると毎日まっ赤になり、合図として意味を失う。 */
+    sizeBars: {
       buckets: [
         {key:'2L30', label:'2L30', grade:'秀', size:'2L', count:30, colorVar:'var(--chart-2l30)'},
         {key:'2L50', label:'2L50', grade:'秀', size:'2L', count:50, colorVar:'var(--chart-2l50)'},
         {key:'L50',  label:'L',    grade:'秀', size:'L',  count:50, colorVar:'var(--chart-l50)'}
       ],
       otherLabel: 'その他', otherColorVar: 'var(--chart-other)'
-    }
+      // otherOpacity は書かない＝ほかの帯と同じ薄さ（Compute.BAR_FILL）
+    },
+    // 品目全体データ（JAの共選共販市況）の横軸の基準月。5月最初の日・火・木が1回目。
+    // 2026年なら 5/3(日) が1回目で、お盆前の最終出荷 8/13 が45回目になる（前提メモ A-17）。
+    zentai: { baseMonth: 5 }
   },
   // スイートピーは 10〜11月始まり・2〜3月終了。10始まりにしておくと、
   // 10月に出荷があった年もその分が前シーズンへ分断されない。
@@ -1164,10 +1262,12 @@ const ITEM_RULES = {
       // その他だけは濃いまま出す（otherOpacity）。ほかの帯は薄く敷いて折れ線を邪魔しないが、
       // これは「いつもと違う規格が出た日」の合図なので、薄いと見落とす（ユーザー判断 2026-09-07）。
       otherLabel: 'その他', otherColorVar: 'var(--chart-alert)', otherOpacity: 1
-    }
-    // donut は書かない。sizeBars が「毎日の構成」を見せる＝選択日1枚のドーナツの上位互換で、
-    // バケツを推測せずに済む（前提メモ A-3「ドーナツにルールは存在しない」）。
-    // ※ donut を書かない品目では、産地タブの日付セレクタも出ない（日付で動くものが無いため）。
+    },
+    /* 品目全体データの横軸の基準月。スイピは12月最初の日・火・木が1回目。
+       スイピには揃えるべき物日が無い（前提メモ A-16）ので、基準日は厳密でなくてよい。
+       ⚠ 年度の開始月（seasonStart:10）とは別物。年度は10月始まりのままで、
+         軸の起点だけが12月＝出始めの11月を 0・−1・−2… で左側に置く。 */
+    zentai: { baseMonth: 12 }
   }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
@@ -1194,6 +1294,11 @@ const Store = {
   sanchi: new Map(), // key -> {date,variety,grade(等級),size(階級),count(本数),boxQty,boxPrice,item}
   jibun: [], // {id,date,variety,grade,size,count,boxQty,betsuCount,source,addedAt,item}
   sakutsuke: [], // {id,variety,type:'新植'|'据置',tsubo,item,year} 年度ごとの作付設定（坪）
+  /* 品目全体データ（JAの共選共販市況）。key -> {date,item,boxes,amount,avgPrice}
+     その日・その品目の産地全体が1行で、品種も規格も無い。産地データ（sanchi）とは
+     別系統で数字も一致しない前提＝突合も比較もしない（前提メモ A-13）。
+     資料は毎回もらえるとは限らない＝欠測日があるのが普通。 */
+  zentai: new Map(),
   /* 取り込めなかった行の控え。取込1回＝1枠で、新しい順に積む（2026-09-07 新設）。
      {id, at:ISO文字列, kind:'産地'|'自分', item, header, total:元の件数, rows:[{line,raw,reasons}]}
      JSONバックアップにも丸ごと入れる（ユーザー指示 2026-09-07）＝機種変更しても
@@ -1225,6 +1330,7 @@ const Store = {
     Store.sanchi.forEach(add);
     Store.jibun.forEach(add);
     Store.sakutsuke.forEach(add);
+    Store.zentai.forEach(add);
     return names;
   },
   // 選択できる年度＝データのある年度 ∪ 今年（降順）。新年度を先に選んで作付設定を入れられるように今年を必ず含める。
@@ -1240,6 +1346,7 @@ const Store = {
     };
     Store.sanchi.forEach(add);
     Store.jibun.forEach(add);
+    Store.zentai.forEach(add);
     Store.sakutsuke.forEach(r=>{ if((r.item||DEFAULT_ITEM)===target && r.year) s.add(String(r.year)); });
     return Array.from(s).sort().reverse();
   },
@@ -1298,6 +1405,13 @@ const Store = {
       });
       Store.jibun = (data.jibun||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM}));
       Store.sakutsuke = (data.sakutsuke||[]).map(r=>({...r, item: r.item || DEFAULT_ITEM, year: String(r.year || Store.currentYear())}));
+      // 品目全体データ。古い保存には無いので、その時は空（＝移行は起きない）。
+      Store.zentai = new Map();
+      (data.zentai||[]).forEach(rec=>{
+        const row = {date:rec.date, item: rec.item || DEFAULT_ITEM,
+                     boxes:rec.boxes, amount:rec.amount, avgPrice:rec.avgPrice};
+        Store.zentai.set(Norm.zentaiKey(row), row);
+      });
       // 取り込めなかった行の控え。無ければ空（＝旧データからの移行は起きない）
       Store.importErrors = Array.isArray(data.importErrors) ? data.importErrors.slice(0, IMPORT_ERR_KEEP) : [];
       // 旧データの data.items（品目マスタ）は読み捨てる。品目の定義は ITEM_RULES が持つので、
@@ -1323,6 +1437,8 @@ const Store = {
         sanchi: Array.from(Store.sanchi.values()),
         jibun: Store.jibun,
         sakutsuke: Store.sakutsuke,
+        // 品目全体データ。置き場を1つ足しただけなので SCHEMA_VERSION は据え置き＝移行なし
+        zentai: Array.from(Store.zentai.values()),
         // 取り込めなかった行の控え。古い保存には無いので、読むときは空として扱う（移行なし）
         importErrors: Store.importErrors,
         meta: Store.meta,
@@ -1382,6 +1498,20 @@ const Store = {
       const key = Norm.keyOf(row);
       if(Store.sanchi.has(key)) updated++; else added++;
       Store.sanchi.set(key, row);
+    });
+    if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
+    return {added, updated};
+  },
+  /* 品目全体データの取り込み。1日1行なので同じ日は後勝ちで上書きする
+     （資料が訂正されて配り直されることがあるため）。 */
+  mergeZentai(records){
+    let added=0, updated=0;
+    const item = State.selectedItem || DEFAULT_ITEM;
+    records.forEach(rec=>{
+      const row = {date:rec.date, item, boxes:rec.boxes, amount:rec.amount, avgPrice:rec.avgPrice};
+      const key = Norm.zentaiKey(row);
+      if(Store.zentai.has(key)) updated++; else added++;
+      Store.zentai.set(key, row);
     });
     if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
     return {added, updated};
@@ -1486,6 +1616,7 @@ const Store = {
     Store.sanchi = new Map();
     Store.jibun = [];
     Store.sakutsuke = [];
+    Store.zentai = new Map();
     Store.importErrors = [];
     Store.meta = {lastBackupAt:null};
     Store.dirtyCount = 0;
@@ -1526,6 +1657,8 @@ const Store = {
       sanchi: Array.from(Store.sanchi.values()),
       jibun,
       sakutsuke: Store.sakutsuke,
+      // 品目全体データ（JAの共選共販市況）。産地データとは別系統なのでそのまま並べる。
+      zentai: Array.from(Store.zentai.values()),
       // 取り込めなかった行の控えも持ち越す（直しかけの行を機種変更でも失わないため）
       importErrors: Store.importErrors
     };
@@ -1568,10 +1701,19 @@ const Store = {
       item: Norm.text(r.item) || DEFAULT_ITEM,
       year: String(r.year || Store.currentYear())
     })).filter(r=>r.variety);
+    // 品目全体データ。旧バックアップには無いので、その時は空（全置換なので残さない）。
+    const zentai = new Map();
+    (data.zentai||[]).forEach(rec=>{
+      const row = {date: Norm.date(rec.date), item: Norm.text(rec.item) || DEFAULT_ITEM,
+                   boxes: Norm.num(rec.boxes), amount: Norm.num(rec.amount), avgPrice: Norm.num(rec.avgPrice)};
+      if(!Norm.validDate(row.date)) return;
+      zentai.set(Norm.zentaiKey(row), row);
+    });
     // 旧バックアップの data.items（品目マスタ）は読み捨てる。品目の定義は ITEM_RULES が持つ。
     Store.sanchi = sanchi;
     Store.jibun = jibun;
     Store.sakutsuke = sakutsuke;
+    Store.zentai = zentai;
     // 取り込めなかった行の控え。旧バックアップには無いので、その時は空にする（全置換なので残さない）。
     Store.importErrors = Array.isArray(data.importErrors) ? data.importErrors.slice(0, IMPORT_ERR_KEEP) : [];
     Store.dirtyCount = 0;
@@ -1624,7 +1766,7 @@ const Compute = {
      年度は date の先頭4桁＝暦年。品目は各レコードの item（旧データは移行でクルクマが入る）。
      毎描画で作り直すと 2800 件超を何度も走査するので、rev（データ更新カウンタ）と
      選択中の年度・品目をキーにキャッシュする。 */
-  _scope: {key:null, sanchi:null, jibun:null, sakutsuke:null},
+  _scope: {key:null, sanchi:null, jibun:null, sakutsuke:null, zentai:null},
   scopeKey(){ return `${State.selectedYear}|${State.selectedItem}|${Store.rev}`; },
   _rescope(){
     const key = Compute.scopeKey();
@@ -1634,9 +1776,13 @@ const Compute = {
     const inScope = (r)=> Compute.seasonYear(r.date, r.item || DEFAULT_ITEM) === y && (r.item || DEFAULT_ITEM) === it;
     const sanchi = new Map();
     Store.sanchi.forEach((rec, k)=>{ if(inScope(rec)) sanchi.set(k, rec); });
+    // 品目全体データは日付順の配列で持つ（移動平均が「実際にデータのある隣の点」を要るため）
+    const zentai = Array.from(Store.zentai.values()).filter(inScope)
+      .sort((a,b)=> a.date.localeCompare(b.date));
     Compute._scope = {
       key,
       sanchi,
+      zentai,
       jibun: Store.jibun.filter(inScope),
       // 作付設定は日付を持たないので year フィールドで絞る
       sakutsuke: Store.sakutsuke.filter(r=> String(r.year||'') === y && (r.item || DEFAULT_ITEM) === it)
@@ -1646,6 +1792,7 @@ const Compute = {
   scopedSanchi(){ return Compute._rescope().sanchi; },
   scopedJibun(){ return Compute._rescope().jibun; },
   scopedSakutsuke(){ return Compute._rescope().sakutsuke; },
+  scopedZentai(){ return Compute._rescope().zentai; },
 
   /* 取込タブは年度を持たない（年度バーを出していない）ので、手入力の品種候補は
      「その品目で今までに登録した作付設定の品種」＝全年度から拾う。
@@ -1667,7 +1814,8 @@ const Compute = {
                       (!y || Compute.seasonYear(r.date, it) === y);
     return {
       sanchi: Array.from(Store.sanchi.values()).filter(hit),
-      jibun: Store.jibun.filter(hit)
+      jibun: Store.jibun.filter(hit),
+      zentai: Array.from(Store.zentai.values()).filter(hit)
     };
   },
   /* 書き出しの年度セレクタに並べる年度＝実際にデータが入っている年度だけ（降順）。
@@ -1681,6 +1829,7 @@ const Compute = {
     };
     Store.sanchi.forEach(add);
     Store.jibun.forEach(add);
+    Store.zentai.forEach(add);
     return Array.from(s).sort().reverse();
   },
   /* 品種名の入力補助（手入力フォームの自由入力欄）。こちらも取込タブから使うので年度で絞らない。 */
@@ -1693,13 +1842,169 @@ const Compute = {
     ].filter(Boolean))).sort((a,b)=>a.localeCompare(b,'ja'));
   },
 
-  // 規格構成ドーナツのバケツを引く。品目に donut の定義が無ければ null＝分類しない
-  //（＝ドーナツを描かない。バケツを勝手に決めると意味のない図になるため）。
-  classify(grade, size, count, item){
-    const d = itemRule(item || State.selectedItem || DEFAULT_ITEM).donut;
-    if(!d) return null;
-    const hit = d.buckets.find(b=> b.grade===grade && b.size===size && b.count===count);
-    return hit ? hit.key : 'その他';
+  /* ================= 品目全体データ（JAの共選共販市況）=================
+     産地データ（品種×等級×階級）とは別系統。数字は一致しない前提で、突合も比較もしない。
+
+     ---- 横軸＝基準日から数えて何回目の出荷日か ----
+     出荷は日・火・木の週3回で、間隔が2日と3日で不揃い（前提メモ A-14）。
+     だから軸は「日付」でも「前後1日」でもなく、この通算回数で取る。
+
+     ⚠ 番号は必ずカレンダーから振る。取り込んだデータの並びから振ってはいけない。
+        資料が1回抜けた年だけ以降が1つずつ手前にずれ、5年重ねたときにその年の線だけ
+        左に寄る——しかも見た目では気づけない。
+     ⚠ 年末年始の休市も数え続ける（ユーザー判断）。データの無い日は点が無いだけで線はつなぐ
+        ＝空いた区間の長さが「ここは休みだった」の合図になる。
+
+     基準日＝ITEM_RULES の zentai.baseMonth の最初の 日・火・木。そこが1回目で、以降 2,3,…。
+     基準日より前は 0・−1・−2…（「4月」「11月」を別枠にしない＝別枠は年ごとに件数も
+     日付も違うので重ねられない）。
+     クルクマは5月始まりで、お盆前の最終出荷が毎年45回目に揃う（前提メモ A-17）。 */
+  SHIP_WDS: [0, 2, 4], // 日・火・木
+  // 1970-01-01 を 0 とする通し番号。時差や夏時間の影響を受けないよう UTC で数える。
+  dayNum(iso){
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||''));
+    return m ? Date.UTC(+m[1], +m[2]-1, +m[3]) / 86400000 : null;
+  },
+  isoOfDayNum(n){
+    const d = new Date(n * 86400000);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  },
+  wdOfDayNum(n){ return (((n + 4) % 7) + 7) % 7; }, // 1970-01-01 は木曜(4)
+  isShipDay(n){ return Compute.SHIP_WDS.includes(Compute.wdOfDayNum(n)); },
+  // 基準日の通し番号。品目に zentai を書いていなければ null＝この機能ごと出ない。
+  shipBase(item, year){
+    const rule = itemRule(item || DEFAULT_ITEM).zentai;
+    const y = parseInt(year, 10);
+    if(!rule || !Number.isFinite(y)) return null;
+    const m = Math.min(12, Math.max(1, Number(rule.baseMonth) || 1));
+    let n = Date.UTC(y, m-1, 1) / 86400000;
+    while(!Compute.isShipDay(n)) n++;
+    return n;
+  },
+  // [a,b] に含まれる 日・火・木 の数（両端を含む）。1日ずつ数えず週で割る。
+  countShipDays(a, b){
+    if(b < a) return 0;
+    let n = 0;
+    Compute.SHIP_WDS.forEach(w=>{
+      const first = a + ((((w - Compute.wdOfDayNum(a)) % 7) + 7) % 7);
+      if(first <= b) n += Math.floor((b - first) / 7) + 1;
+    });
+    return n;
+  },
+  /* 日付 → 何回目か。基準日が1、その1つ前が0、さらに前が−1…
+     ※ 日・火・木以外の日は「直前の出荷日」と同じ番号になる。資料は日・火・木しか
+        出ないので実務では起こらないが、起きても点が重なるだけで数字は壊れない。 */
+  shipIndex(date, item, year){
+    const base = Compute.shipBase(item, year);
+    const d = Compute.dayNum(date);
+    if(base === null || d === null) return null;
+    return (d >= base) ? Compute.countShipDays(base, d)
+                       : -Compute.countShipDays(d + 1, base - 1);
+  },
+  // 何回目か → その日の通し番号（基準日から数え直す）
+  shipDayNumAt(i, item, year){
+    const base = Compute.shipBase(item, year);
+    if(base === null || !Number.isFinite(i)) return null;
+    let n = base, k = 1;
+    const step = (i >= 1) ? 1 : -1;
+    while(k !== i){
+      do { n += step; } while(!Compute.isShipDay(n));
+      k += step;
+    }
+    return n;
+  },
+  // iMin..iMax の各番号に対応する実際の日付。ラベルとプロット詳細の両方から使う。
+  shipCalendar(item, year, iMin, iMax){
+    const map = new Map();
+    let n = Compute.shipDayNumAt(iMin, item, year);
+    if(n === null) return map;
+    for(let i=iMin; i<=iMax; i++){
+      map.set(i, Compute.isoOfDayNum(n));
+      do { n++; } while(!Compute.isShipDay(n));
+    }
+    return map;
+  },
+  /* 横軸のラベル＝月の変わり目にだけ月名を出す（番号も物日の縦線も出さない＝ユーザー判断）。
+     5年を重ねる図では年ごとに暦が違うので、表示中の年度のカレンダーで置く。 */
+  shipAxisLabels(cal){
+    const out = []; let lastM = '';
+    cal.forEach((iso, i)=>{
+      const m = iso.slice(0,7);
+      if(m !== lastM){ out.push({i, label: parseInt(iso.slice(5,7),10) + '月'}); lastM = m; }
+    });
+    return out;
+  },
+
+  /* ---- 3点移動平均 ----
+     前後1点を含む3点の【売立金額の合計 ÷ 箱数の合計】。箱平均価格の算術平均ではない
+     （箱数の少ない日が同じ重みで効いてしまうため）。
+     前後1点＝実際にデータのある隣の点なので、休みや欠測はまたいでつなぐ。
+     先頭と末尾は隣が片側しか無いので2点だけで計算する。 */
+  zentaiSeriesFrom(rows, item, year){
+    const src = rows.slice().sort((a,b)=> a.date.localeCompare(b.date));
+    return src.map((r, k)=>{
+      const win = [src[k-1], r, src[k+1]].filter(Boolean);
+      const boxes = win.reduce((s,x)=> s + (Number(x.boxes)||0), 0);
+      const amount = win.reduce((s,x)=> s + (Number(x.amount)||0), 0);
+      return {
+        date: r.date,
+        i: Compute.shipIndex(r.date, item, year),
+        boxes: Number(r.boxes)||0,
+        amount: Number(r.amount)||0,
+        avgPrice: Number(r.avgPrice)||0,   // 資料の生の箱平均価格。グラフには出さない。
+        ma: boxes>0 ? amount/boxes : null, // 移動平均（この線だけを描く）
+        span: win.length                   // 2なら端の点（3点そろっていない）
+      };
+    });
+  },
+  // 表示中の年度×品目ぶん
+  /* 箱数の3点移動平均。火曜は箱数が少なくなる傾向（前提メモ A-14）があり、生のままだと
+     一日おきにギザギザして流れが読めない（ユーザー指摘 2026-09-08b）。
+
+     ⚠ 5カ年比較の移動平均とは規則が違う。あちらは「配列上の隣」を使う＝資料の抜けをまたいで
+        つなぐが、こちらは【出荷回数が1つ違う日】を見て、そこに資料が無ければ使わない
+        （ユーザー指定「歯抜けがあったらまたがずに2点平均で」）。
+        両隣が揃えば3点、片側だけなら2点、どちらも無ければその日だけの1点。
+     ⚠ 平均するのは箱数そのもの（金額は関係しない）＝単純平均でよい。
+     ⚠⚠ 名前を ma にしないこと。zentaiSeriesFrom が既に ma を持っていて、それは
+        【箱単価の移動平均】＝桁がまるで違う（6,800 と 996）。同じ名前にすると棒の高さに
+        値段が入り、たて軸が7,000箱まで伸びる（2026-09-08b に実際にやってテストが捕まえた）。 */
+  zentaiBoxMA(points){
+    const byI = new Map();
+    points.forEach(p=>{ if(p.i != null && p.boxes > 0) byI.set(p.i, p); });
+    return points.map(p=>{
+      if(p.i == null || !(p.boxes > 0)) return {...p, boxMA:null, boxSpan:0};
+      const near = [byI.get(p.i - 1), p, byI.get(p.i + 1)].filter(Boolean);
+      const sum = near.reduce((s, q)=> s + q.boxes, 0);
+      return {...p, boxMA: sum / near.length, boxSpan: near.length};
+    });
+  },
+  zentaiSeries(){
+    return Compute.zentaiSeriesFrom(Compute.scopedZentai(),
+      State.selectedItem || DEFAULT_ITEM, State.selectedYear);
+  },
+  /* 5カ年比較の材料＝選択中の年度＋その前4年。データのある年だけ返す。
+     色は新しい年ほど濃い（--yr1 が選択中の年度）。 */
+  zentaiYearSeries(item, year, span){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const y0 = parseInt(year, 10);
+    if(!Number.isFinite(y0)) return [];
+    const n = span || 5;
+    const byYear = new Map();
+    Store.zentai.forEach(r=>{
+      if((r.item || DEFAULT_ITEM) !== it) return;
+      const y = Compute.seasonYear(r.date, it);
+      if(!byYear.has(y)) byYear.set(y, []);
+      byYear.get(y).push(r);
+    });
+    const out = [];
+    for(let k=0; k<n; k++){
+      const y = String(y0 - k);
+      const rows = byYear.get(y);
+      if(!rows || !rows.length) continue;
+      out.push({year:y, color:`var(--yr${k+1})`, points: Compute.zentaiSeriesFrom(rows, it, y)});
+    }
+    return out;
   },
   varietyList(){
     const agg = new Map(); // variety -> {boxes, days:Set}
@@ -1712,30 +2017,22 @@ const Compute = {
     return Array.from(agg.entries()).map(([variety,a])=>({variety, boxes:a.boxes, days:a.days.size}))
       .sort((a,b)=>b.boxes-a.boxes);
   },
-  latestDate(){
-    let latest = null;
-    Compute.scopedSanchi().forEach(rec=>{
-      if(latest===null || rec.date > latest) latest = rec.date;
-    });
-    return latest;
-  },
   datesWithData(){
-    // 産地データで出荷情報が取れた日付の集合（カレンダーの選択可否に使用）
+    // 産地データで出荷情報が取れた日付の集合（＝市場日。折れ線の横軸を作るのに使う）
     const s = new Set();
     Compute.scopedSanchi().forEach(rec=> s.add(rec.date));
     return s;
   },
-  sortedDates(){
-    // データのある日付の昇順配列（前後移動ボタンに使用）
-    return Array.from(Compute.datesWithData()).sort();
-  },
-  stepDate(current, dir){
-    // dir=-1で前、+1で次のデータのある日。端なら null
-    const arr = Compute.sortedDates();
-    const i = arr.indexOf(current);
-    if(i < 0) return null;
-    const j = i + dir;
-    return (j >= 0 && j < arr.length) ? arr[j] : null;
+  /* その日・その品種の箱数。プロットをタップしたときの詳細に出す。
+     規格構成ドーナツを撤去したとき、中央に出ていた「総箱数」の行き先としてここへ移した
+     （2026-09-08b ユーザー判断）。varieties は配列＝主要5品種でもその品種1つでも同じ形で呼べる。 */
+  boxesOn(varieties, date){
+    const set = new Set(varieties);
+    let n = 0;
+    Compute.scopedSanchi().forEach(rec=>{
+      if(rec.date === date && set.has(rec.variety)) n += Number(rec.boxQty) || 0;
+    });
+    return n;
   },
   marketDatesInRange(firstD, lastD){
     // 産地データに存在する日付（＝市場日）のうち [firstD, lastD] の範囲を昇順で返す
@@ -1752,25 +2049,6 @@ const Compute = {
       const p = byDate.get(d);
       return p ? {date:d, price:p.price, marker:p.marker} : {date:d, price:null, marker:null};
     });
-  },
-  // バケツは品目の donut 定義から組み立てる。定義が無ければ null を返す＝ドーナツを描かない。
-  donutDataForDay(varieties, date){
-    const item = State.selectedItem || DEFAULT_ITEM;
-    const d = itemRule(item).donut;
-    if(!d) return null;
-    const cats = {};
-    d.buckets.forEach(b=>{ cats[b.key] = 0; });
-    cats['その他'] = 0;
-    let total = 0;
-    const set = new Set(varieties);
-    Compute.scopedSanchi().forEach(rec=>{
-      if(rec.date !== date) return;
-      if(!set.has(rec.variety)) return;
-      const c = Compute.classify(rec.grade, rec.size, rec.count, item);
-      cats[c] += rec.boxQty;
-      total += rec.boxQty;
-    });
-    return {cats, total};
   },
   // 選択中の年度×品目での価格推移。計算そのものは lineDataFrom にある。
   // 品目ごとの差分は「規則」として引数で渡す＝lineDataFrom の中は品目を知らない。
@@ -1798,7 +2076,7 @@ const Compute = {
     const points = dates.map(date=>{
       const rows = byDate.get(date);
       const calc = (grade, size)=>{
-        // 価格未確定(boxPrice=null)は平均計算から除外。数量集計(donut/varietyList)には別途算入される。
+        // 価格未確定(boxPrice=null)は平均計算から除外。数量集計(背景の規格バー/varietyList)には別途算入される。
         // ※ 入り本数では絞らない＝同じ等級×階級なら30本行と50本行が合算される（従来どおり）。
         const rs = rows.filter(r=>r.grade===grade && r.size===size && r.boxPrice!=null);
         if(rs.length===0) return null;
@@ -1837,22 +2115,28 @@ const Compute = {
      日付ごとに、バケツ別の箱数と合計を返す。バケツは品目のルール（sizeBars.buckets）が正本で、
      どれにも当てはまらない行は OTHER にまとめて【棒の一番上】に赤で乗る
      ＝赤が見えたら「いつもと違う等級（3P など）が出た日」と一目で分かる。
-     価格未確定（boxPrice=null）の行も数える。数量の集計なので donutDataForDay と同じ扱い。
-     varieties は配列＝主要5品種のときは5品種を合計した割合になる。
+     価格未確定（boxPrice=null）の行も数える（数量の集計なので値段の有無は関係ない）。
+     varieties は配列＝複数を渡せば合計した割合になる。
      lineDataFrom と同じく Store も State も読まない純粋関数（テストが直接呼ぶ）。 */
   SIZE_BAR_OTHER: '__other__',
   BAR_FILL: 0.22,   // 背景に敷く帯の既定の薄さ（折れ線を邪魔しない濃さ）
+  // varieties に null を渡すと【品種で絞らない＝その品目の全部】になる。
+  // 品目全体の規格の割合（産地タブの「箱数」の下に出す図）がこれを使う。
   sizeMixFrom(rows, varieties, sb){
     if(!sb || !sb.buckets) return null; // ルールが無い品目では棒を描かない
     const OTHER = Compute.SIZE_BAR_OTHER;
-    const want = new Set(varieties);
+    const want = varieties ? new Set(varieties) : null;
     const byDate = new Map();       // date -> Map(バケツ -> 箱数)
     const totals = new Map();       // バケツ -> シーズン合計の箱数
     rows.forEach(rec=>{
-      if(!want.has(rec.variety)) return;
+      if(want && !want.has(rec.variety)) return;
       const q = Number(rec.boxQty) || 0;
       if(!(q > 0)) return;
-      const hit = sb.buckets.find(b=> b.grade===rec.grade && b.size===rec.size);
+      /* バケツに count（入り本数）を書いた品目では、そこまで一致した行だけが入る。
+         クルクマの 秀2L を 30本入り／50本入りに分けるためのもので、書いていないバケツ
+         （スイピの 4P2L など）は従来どおり 等級×階級 だけで拾う＝挙動は変わらない。 */
+      const hit = sb.buckets.find(b=> b.grade===rec.grade && b.size===rec.size
+                                   && (b.count == null || b.count === rec.count));
       const key = hit ? hit.key : OTHER;
       if(!byDate.has(rec.date)) byDate.set(rec.date, new Map());
       const m = byDate.get(rec.date);
@@ -1883,9 +2167,34 @@ const Compute = {
     return Compute.sizeMixFrom(Compute.scopedSanchi(), varieties,
       itemRule(State.selectedItem || DEFAULT_ITEM).sizeBars);
   },
+  /* 品目全体の規格の割合＝品種で絞らず、その年度の産地市況を全部合わせたもの。
+     ⚠ 出どころは【品種別の市況CSV】であって、上に出る箱数（JAの共選共販市況）とは別の資料。
+        2026-09-08 に原本で突き合わせて【箱数は完全に一致する】ことを確認したので、
+        同じ横軸に並べてよい（前提メモ A-19）。金額だけは丸めのぶんズレるので使わない。 */
+  sizeMixAll(){
+    return Compute.sizeMixFrom(Compute.scopedSanchi(), null,
+      itemRule(State.selectedItem || DEFAULT_ITEM).sizeBars);
+  },
+  /* 上の割合を、品目全体データと同じ「何回目の出荷日か」の軸に載せ替える。
+     資料の無い日は入らない＝図では空きになる（嘘をつくより空けておく）。 */
+  zentaiMixPoints(){
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const year = String(State.selectedYear || '');
+    const mix = Compute.sizeMixAll();
+    if(!mix) return null;
+    const points = [];
+    mix.byDate.forEach((d, date)=>{
+      if(!(d.total > 0)) return;
+      const i = Compute.shipIndex(date, item, year);
+      if(i == null) return;
+      points.push({date, i, sizes:d.sizes, total:d.total});
+    });
+    points.sort((a,b)=> a.i - b.i);
+    return {mix, points};
+  },
   /* ---- 作型（新植／据置／混植）----
      クルクマ固有の要求なので、品目のルールに alloc を書いた品目でだけ有効にする
-     （price / donut と同じ「書かなければ効かない」作法）。無効な品目では
+     （price / sizeBars と同じ「書かなければ効かない」作法）。無効な品目では
      作付設定の区分欄・未割当カード・割り当てモーダル・区分チップがすべて出ない。
      坪あたり売上は区分を見ないので、無効な品目でも今までどおり使える。 */
   allocEnabled(item){ return !!itemRule(item || State.selectedItem || DEFAULT_ITEM).alloc; },
@@ -2131,10 +2440,33 @@ const Charts = {
     const yScale = (v)=> padT + innerH - ((v-loY)/(hiY-loY))*innerH;
     return {loY, hiY, innerH, H, yScale};
   },
-  // 横スクロールしても左端に固定するY軸ラベル（別レイヤーSVG）
-  yAxisSVG(loY, hiY, yScale, padL, H){
+  /* ゼロを底にした目盛り（箱数など「量」用）。量は必ずゼロから測る＝高さがそのまま量になる。
+     刻みは【500箱で固定】・1目盛り34pxも据え置き（ユーザー指定 2026-09-08）。
+     ＝箱数が増えるほど図が縦に伸びる。
+     ⚠ 以前は数の大きさに合わせて刻みを選んでいたが、それだと箱数が増えると刻みも一緒に
+        大きくなって図の高さがほとんど変わらず、シーズンが進んで数が増えるほど山が平らに
+        見えていた（価格の 1000円刻み固定と同じ考え方に揃えた）。
+     ⚠ 500刻み×34px をそのまま当てると、箱数が1000程度の時期は目盛り3本＝68pxにしかならず
+        【いまより低くなる】。「縦に伸ばしたい」という目的のほうを採って下限を200pxにした
+        （刻み自動だった頃は170px＝これより少し高い）。
+     上限420px＝スマホの1画面に棒と目盛りが収まる範囲。ここに当たるのは8,000箱を超えてから。 */
+  COUNT_STEP: 500,
+  PX_PER_COUNT_STEP: 34,
+  COUNT_MIN_H: 200,
+  COUNT_MAX_H: 420,
+  niceCountAxis(maxV, padT, padB){
+    const step = Charts.COUNT_STEP;
+    const hiY = Math.max(step, Math.ceil(Math.max(1, maxV)/step)*step);
+    const innerH = Math.max(Charts.COUNT_MIN_H,
+                            Math.min(Charts.COUNT_MAX_H, (hiY/step) * Charts.PX_PER_COUNT_STEP));
+    const H = padT + innerH + padB;
+    const yScale = (v)=> padT + innerH - (Math.max(0, v)/hiY)*innerH;
+    return {loY:0, hiY, step, innerH, H, yScale};
+  },
+  // 横スクロールしても左端に固定するY軸ラベル（別レイヤーSVG）。刻みは既定で1000円。
+  yAxisSVG(loY, hiY, yScale, padL, H, step){
     let g = '';
-    for(let v=loY; v<=hiY+0.5; v+=1000){
+    for(let v=loY; v<=hiY+0.5; v+=(step || 1000)){
       const y = yScale(v);
       g += `<text x="${padL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--ink-muted)">${Fmt.num(v)}</text>`;
     }
@@ -2152,6 +2484,9 @@ const Charts = {
     }
     return s;
   },
+  /* 割合のドーナツ。⚠ 2026-09-08b に産地タブの規格構成ドーナツを撤去したので、
+     いまの呼び出しは【自分タブの品種別売上内訳】1箇所だけ。
+     読み上げ用のラベルもそれに合わせてある（「規格構成ドーナツ」は嘘になった）。 */
   donutSVG(cats, total, colorMap, size, hideCenter){
     size = size || 150;
     const r = size*0.36, cx = size/2, cy = size/2, sw = size*0.22;
@@ -2181,7 +2516,7 @@ const Charts = {
       offset += len;
       cumFrac += frac;
     });
-    return `<svg class="donut-svg" style="width:${size}px;height:${size}px" viewBox="0 0 ${size} ${size}" role="img" aria-label="規格構成ドーナツ">
+    return `<svg class="donut-svg" style="width:${size}px;height:${size}px" viewBox="0 0 ${size} ${size}" role="img" aria-label="品種別売上の内訳">
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>
       ${arcs}
       ${labels}
@@ -2192,9 +2527,10 @@ const Charts = {
   /* 価格推移の背面に敷く、規格構成の100%積み上げバー。mix = Compute.sizeMix() の出力。
      mix が無ければ空文字＝従来のグラフと1バイトも変わらない。
      dates は日付の配列（単一品種は points の日付、主要5品種は軸の日付）。 */
+  SIZE_BAR_W: 20,   // 折れ線の背景に敷く帯の幅。lineSVG の COLGAP がこれを基準に決まる
   sizeBarsSVG(mix, dates, xScale, padT, innerH){
     if(!mix || !mix.order || mix.order.length===0) return '';
-    const BW = 20;
+    const BW = Charts.SIZE_BAR_W;
     let s = '';
     dates.forEach((date,i)=>{
       const d = mix.byDate.get(date);
@@ -2212,11 +2548,207 @@ const Charts = {
     });
     return s;
   },
+  /* ---- 品目全体データのグラフ（横軸＝基準日から数えた出荷回数）----
+     日付を等間隔に並べる既存の2つのグラフとは軸の作り方が違う。あちらは
+     「データのある日を左から順に置く」ので、資料が抜けた年は詰まってしまい年をまたいで
+     重ねられない。こちらはカレンダーで振った番号を座標にするので、5年ぶんが同じ
+     物差しの上に乗る（お盆が毎年45回目に来る＝前提メモ A-17）。 */
+  shipFrame(iMin, iMax, padL, padR, COLGAP){
+    const n = iMax - iMin + 1;
+    const INSET = 18, TAIL = 4; // 最初の点をY軸から離す／最後の点を右端から離す
+    /* ⚠ 幅は「両端の余白も足した合計」で決める。padL+padR+(n-1)*COLGAP にすると、
+       あとで x0/x1 に余白を取るぶんだけ実際の間隔が COLGAP より詰まる
+       （19点で 19px 指定が 17.8px になった）。COLGAP は指定どおりの間隔にする。 */
+    const W = Math.max(320, padL + INSET + Math.max(1, n-1)*COLGAP + TAIL + padR);
+    const x0 = padL + INSET, x1 = W - padR - TAIL;
+    // 点が少ないときは 320px いっぱいに広げる（カードが半分空くのを避ける）＝そのぶん間隔は広がる
+    return {n, W, x0, x1, xScale:(i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*(i-iMin))/(n-1)};
+  },
+  /* 月の変わり目にだけ薄い縦線と月名を置く（番号は出さない／物日の縦線も出さない＝ユーザー判断）。
+     ⚠ 位置は【表示中の年度】の暦で決めている。年によってひと月の出荷日数が1日ぶん違うので、
+        重ねた別の年の実際の月替わりは最大1コマずれる（2022〜2030で実測：6月始まりが14か15、
+        7月が27か28、8月が40か41）。お盆前の最終出荷は9年とも45回目でぴったり揃う。
+        ＝「基準日と物日さえ合っていればラベルはざっくりでよい」というユーザー判断に沿った作り。 */
+  shipMonthMarks(labels, xScale, padT, innerH, H){
+    let s = '';
+    labels.forEach(({i, label})=>{
+      const x = xScale(i);
+      s += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${(padT+innerH).toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`;
+      s += `<text x="${x.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${'var(--ink-muted)'}">${label}</text>`;
+    });
+    return s;
+  },
+  /* 日付のラベル。棒を詰めると全部は入らないので、重ならない間隔まで間引く（先頭は必ず出す）。
+     間引きは「何個おき」ではなく【前のラベルからの距離】で決める＝資料が抜けて間隔が
+     不揃いになっても、詰まった所だけが間引かれる。日曜は赤（ほかのグラフと同じ）。 */
+  thinnedDateLabels(pts, xScale, H, minGap){
+    let s = '', lastX = -Infinity;
+    pts.forEach(p=>{
+      const x = xScale(p.i);
+      if(x - lastX < minGap) return;
+      lastX = x;
+      const sun = Charts.isSunday(p.date);
+      s += `<text x="${x.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(p.date)}</text>`;
+    });
+    return s;
+  },
+  /* 箱単価の5カ年比較。描くのは3点移動平均だけ（生の箱平均価格は線にしない＝ユーザー判断）。
+     hidden の年は線を消すが、軸の計算には残す＝凡例で絞っても目盛りが動かない。 */
+  zentaiLineSVG(series, opts){
+    opts = opts||{};
+    // COLGAP は既存の2つのグラフ（36）より詰めてある。5年ぶんを1画面で見比べる図なので、
+    // 1点ずつ読むより形の違いが見えるほうが大事（ユーザー指定 2026-09-08＝従来の1/4）。
+    const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 9;
+    let iMin = Infinity, iMax = -Infinity;
+    const vals = [];
+    series.forEach(s=> s.points.forEach(p=>{
+      if(p.i == null || p.ma == null) return;
+      if(p.i < iMin) iMin = p.i;
+      if(p.i > iMax) iMax = p.i;
+      vals.push(p.ma);
+    }));
+    if(vals.length===0){
+      const H = 160, W = 320;
+      return {svg:`<svg viewBox="0 0 ${W} ${H}" style="width:${W}px"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="13">データがありません</text></svg>`, ptMeta:[], w:W, yAxis:'', iMin:0, iMax:0};
+    }
+    const {n, W, xScale} = Charts.shipFrame(iMin, iMax, padL, padR, COLGAP);
+    const {loY, hiY, innerH, H, yScale} = Charts.niceYAxis(vals, padT, padB);
+    let grid = '';
+    for(let v=loY; v<=hiY+0.5; v+=1000){
+      const y = yScale(v);
+      grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+    const months = Charts.shipMonthMarks(opts.labels||[], xScale, padT, innerH, H);
+    let paths = '', markers = '';
+    const ptMeta = [];
+    series.forEach(s=>{
+      if(s.hidden) return;
+      const pts = s.points.filter(p=>p.i!=null && p.ma!=null).sort((a,b)=>a.i-b.i);
+      if(pts.length>=2){
+        const d = pts.map((p,k)=>`${k===0?'M':'L'} ${xScale(p.i).toFixed(1)} ${yScale(p.ma).toFixed(1)}`).join(' ');
+        paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
+      pts.forEach(p=>{
+        const x = xScale(p.i), y = yScale(p.ma);
+        // 点は小さめ。間隔を詰めた（COLGAP 9）ので大きいと隣とくっついて線が読めなくなる。
+        markers += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="${s.color}"/>`;
+        ptMeta.push({x, y, year:s.year, color:s.color, ...p});
+      });
+    });
+    const highlight = `<circle class="pt-highlight" r="9" fill="none" stroke="var(--ink)" stroke-width="2.5" style="opacity:0" pointer-events="none"/>`;
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="箱単価の5カ年比較" data-zentai-chart data-w="${W}">
+      ${grid}${months}${paths}${markers}${highlight}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+    </svg>`;
+    return {svg, ptMeta, w:W, yAxis:Charts.yAxisSVG(loY, hiY, yScale, padL, H), iMin, iMax, n};
+  },
+  /* 箱数。選択中の年度だけ・生の数字・棒。
+     量なので必ずゼロからの高さで比べる。線にすると出していない日をまたいでつながり、
+     「出していない」と「少し出した」の区別が消えるので棒にしてある（ユーザー設計）。 */
+  /* 品目全体データの棒（箱数）と、その下に敷く規格の割合の棒は、同じ物差しの上に置く。
+     ⚠ 2つの図の横軸を揃えるには【幅の出し方も範囲も完全に同じ】である必要がある。
+        だから枠の寸法をここに1つだけ置き、両方がこれを読む。片方だけ直すと
+        上下の棒が1本ずつずれ、しかも見た目では気づけない。 */
+  /* 棒グラフで「いま選んでいる棒」を示す枠。⚠ 折れ線と同じ丸い印にしてはいけない＝
+     棒を細くするほど丸が棒からはみ出して、どれを選んだのか分からなくなる（ユーザー指摘 2026-09-08b）。
+     棒そのものを黒い長方形で囲むと、幅がいくつでも必ず読める。 */
+  barHighlight(){
+    return `<rect class="pt-highlight-bar" rx="3" fill="none" stroke="var(--ink)" stroke-width="2"`
+      + ` width="0" height="0" style="opacity:0" pointer-events="none"/>`;
+  },
+  // BW は 2026-09-08b に 16→8（ユーザー指定「棒の幅をもう半分」）。棒どうしの余白は
+  // 引き続き棒の幅の1/5なので COLGAP も半分になり、同じ日数がこれまでの半分の幅に収まる。
+  ZENTAI_BAR: {padL:46, padR:16, BW:8, get COLGAP(){ return this.BW * 1.2; }},
+  zentaiBarsSVG(points, opts){
+    opts = opts||{};
+    /* 棒どうしの余白は棒の幅の1/5（ユーザー指定 2026-09-08）＝COLGAP は BW×1.2。
+       選択中の年度1本ぶんの図なので、横軸のラベルは月名ではなく日付を出す。 */
+    const {padL, padR, BW, COLGAP} = Charts.ZENTAI_BAR;
+    const padT = 16, padB = 30;
+    const pts = points.filter(p=>p.i!=null && p.boxes>0);
+    if(pts.length===0){
+      const H = 160, W = 320;
+      return {svg:`<svg viewBox="0 0 ${W} ${H}" style="width:${W}px"><text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-muted)" font-size="13">データがありません</text></svg>`, ptMeta:[], w:W, yAxis:'', iMin:0, iMax:0};
+    }
+    // 範囲は外から渡せる＝下の割合の図と横軸を揃えるため（渡さなければ自分のデータの範囲）
+    const iMin = (opts.iMin != null) ? opts.iMin : Math.min(...pts.map(p=>p.i));
+    const iMax = (opts.iMax != null) ? opts.iMax : Math.max(...pts.map(p=>p.i));
+    const {n, W, xScale} = Charts.shipFrame(iMin, iMax, padL, padR, COLGAP);
+    /* 棒の高さは箱数の移動平均（boxMA）。渡されていなければ生の箱数のまま。
+       ⚠ p.ma を見てはいけない＝あれは箱単価の移動平均で、桁が違う（Compute.zentaiBoxMA のコメント）。 */
+    const hOf = (p)=> (p.boxMA != null) ? p.boxMA : p.boxes;
+    const {hiY, step, innerH, H, yScale} = Charts.niceCountAxis(Math.max(...pts.map(hOf)), padT, padB);
+    let grid = '';
+    for(let v=0; v<=hiY+0.5; v+=step){
+      const y = yScale(v);
+      grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+    // 日付は「5/12」で4文字ぶん≒24px。棒を詰めたので30px間隔まで間引く。
+    const dates = Charts.thinnedDateLabels(pts, xScale, H, 30);
+    let bars = '';
+    const ptMeta = [];
+    const y0 = padT + innerH;
+    pts.forEach(p=>{
+      const x = xScale(p.i), y = yScale(hOf(p));
+      bars += `<rect x="${(x-BW/2).toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${(y0-y).toFixed(1)}" rx="2" fill="var(--primary)" fill-opacity="0.85"/>`;
+      // 選んだ時に囲む枠の寸法も持たせる（棒が細いので、丸い印では見えない＝ユーザー指摘）
+      ptMeta.push({x, y, bx:x-BW/2-3, by:y-3, bw:BW+6, bh:(y0-y)+6, color:'var(--primary)', ...p});
+    });
+    const highlight = Charts.barHighlight();
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="箱数" data-zentai-chart data-w="${W}">
+      ${grid}${bars}${highlight}${dates}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+    </svg>`;
+    return {svg, ptMeta, w:W, yAxis:Charts.yAxisSVG(0, hiY, yScale, padL, H, step), iMin, iMax, n};
+  },
+  /* 品目全体の規格の割合。上の箱数と同じ枠・同じ範囲に、高さを揃えた100%の棒を並べる
+     （ユーザー指定＝実数の積み上げではなく割合。量の山は上の図が見せている）。
+     たて軸は無い＝どの棒も100%なので目盛りに意味が無く、そのぶん横に広く使う。
+     高さは 2026-09-08b に 96→240（ユーザー指定「今の2.5倍」＝96では帯が潰れて読めなかった）。 */
+  ZENTAI_MIX_H: 240,
+  zentaiMixSVG(points, mix, iMin, iMax){
+    const {padL, padR, BW, COLGAP} = Charts.ZENTAI_BAR;
+    const padT = 8, padB = 26, innerH = Charts.ZENTAI_MIX_H;
+    const H = padT + innerH + padB;
+    const {W, xScale} = Charts.shipFrame(iMin, iMax, padL, padR, COLGAP);
+    const OTHER = Compute.SIZE_BAR_OTHER;
+    let bars = ''; const ptMeta = [];
+    points.forEach(p=>{
+      const x = xScale(p.i) - BW/2;
+      let y = padT + innerH; // 下から積む（order の先頭が一番下、その他が一番上）
+      mix.order.forEach(key=>{
+        const v = p.sizes.get(key) || 0;
+        if(!(v > 0)) return;
+        const h = innerH * (v / p.total);
+        y -= h;
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${h.toFixed(1)}" fill="${mix.colors[key]}" fill-opacity="0.9"/>`;
+      });
+      // 選んだ時は棒の柱ぜんぶを枠で囲む（丸い印だと細い棒では見えない＝ユーザー指摘）
+      ptMeta.push({x:xScale(p.i), y:padT + innerH/2,
+                   bx:x-3, by:padT-3, bw:BW+6, bh:innerH+6, ...p});
+    });
+    // 100%と0%の細い目印だけ置く（間の目盛りは意味が無い）
+    const frame = `<line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="var(--border)" stroke-width="1"/>`
+      + `<line x1="${padL}" y1="${padT+innerH}" x2="${W-padR}" y2="${padT+innerH}" stroke="var(--border)" stroke-width="1"/>`;
+    const dates = Charts.thinnedDateLabels(points, xScale, H, 30);
+    const highlight = Charts.barHighlight();
+    const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="規格比率" data-mix-chart data-w="${W}">
+      ${frame}${bars}${highlight}${dates}<rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+    </svg>`;
+    return {svg, ptMeta, w:W};
+  },
   lineSVG(points, opts){
     opts = opts||{};
-    const padL = 46, padR = 16, padT = 16, padB = 30, COLGAP = 36;
+    /* COLGAP は 2026-09-08b に 36→25.33（ユーザー指定「背景の棒の余白を今の1/3に」）。
+       背景の棒は幅20px（Charts.sizeBarsSVG の BW）なので、棒どうしの余白は
+       36−20＝16px だった。その1/3＝5.33px にすると COLGAP は 20+5.33＝25.33。
+       ⚠ 棒の幅は変えていない＝細くするのではなく、詰めて図全体を縮める指示。 */
+    const padL = 46, padR = 16, padT = 16, padB = 30;
+    const COLGAP = Charts.SIZE_BAR_W + (36 - Charts.SIZE_BAR_W) / 3;
     const n = points.length;
-    const W = Math.max(320, padL + padR + Math.max(1,n-1)*COLGAP);
+    const INSET = 18, TAIL = 4; // 最初の点をY軸から離す／最後の点を右端から離す
+    /* ⚠ 幅には両端の余白（INSET・TAIL）も足す。padL+padR+(n-1)*COLGAP だと、
+       あとで x0/x1 に取る 22px ぶんだけ実際の間隔が COLGAP より詰まる
+       （指定25.33に対して40点で24.77になっていた）。shipFrame で同じ直しを済ませてある。 */
+    const W = Math.max(320, padL + INSET + Math.max(1,n-1)*COLGAP + TAIL + padR);
     const withPrice = points.filter(p=>p.price!=null);
     if(withPrice.length===0){
       const H = 160;
@@ -2224,8 +2756,7 @@ const Charts = {
     }
     const prices = withPrice.map(p=>p.price);
     const {loY, hiY, innerH, H, yScale} = Charts.niceYAxis(prices, padT, padB);
-    // 最初の点をY軸（固定ラベル）から離すため左に18pxインセット
-    const x0 = padL + 18, x1 = W - padR - 4;
+    const x0 = padL + INSET, x1 = W - padR - TAIL;
     const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
 
     // gridlines（1000円刻み。Y軸ラベルは固定レイヤー側で描画）
@@ -2236,11 +2767,15 @@ const Charts = {
     }
     // 日曜マーカー（縦線＋ラベル背景）
     const sunday = Charts.sundayMarks((i)=>points[i].date, n, xScale, padT, innerH, H);
-    // x labels（全ての日付。日曜は赤）
+    /* x labels（全ての日付を出す。日曜は赤）。
+       ⚠ 2026-09-08b に COLGAP を 36→25.33 へ詰めたので、11px のままだと
+          「5/14」（約21px）が隣とほぼ接する。10px に落として全部を残す
+          （ユーザー指定「なるべく横軸ラベルは全部表示」＝間引くより字を小さくする）。
+          ※2桁の月（スイピの11〜12月）は「12/14」で約25pxとぎりぎり。実機で見て詰まるようなら間引きに変える。 */
     let xlabels = '';
     for(let i=0;i<n;i++){
       const sun = Charts.isSunday(points[i].date);
-      xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(points[i].date)}</text>`;
+      xlabels += `<text x="${xScale(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="${sun?'var(--cal-sun)':'var(--ink-muted)'}">${Fmt.date(points[i].date)}</text>`;
     }
     // 背景の階級構成バー（opts.mix を渡した品目だけ）。高さは毎日プロット領域いっぱいに
     // 揃えるので、読めるのは【比率】だけ＝その日の量の多少は出ない。
@@ -2342,6 +2877,13 @@ const Charts = {
 
 /* ============================== State ============================== */
 const MAJOR_VARIETY_KEY = '__major__';
+/* 産地タブの「表示」セレクタに入る、品種ではない2項目（品目全体データ）。
+   これを選んでいる間はドーナツ・日付セレクタ・規格の背景バーを出さない
+   ＝品目全体データには品種も規格も無いので、動かしても何も変わらないため。 */
+const ZENTAI_PRICE_KEY = '__zentai_price__';
+const ZENTAI_BOXES_KEY = '__zentai_boxes__';
+const isZentaiView = (v)=> v===ZENTAI_PRICE_KEY || v===ZENTAI_BOXES_KEY;
+const ZENTAI_YEARS = 5; // 5カ年比較で重ねる年数（選択中の年度＋前4年）
 // クルクマの主要品種。他の品目には当てはまらないので、実際に重ねる品種は
 // UI.majorVarieties() が「この一覧のうち表示中の品目にあるもの」を選び、
 // 1つも無ければ箱数の多い順に上位を代用する（品目を切り替えた直後に
@@ -2354,35 +2896,24 @@ const State = {
   selectedYear: null,     // 表示中の年度（'YYYY'）。起動時に最新年度で初期化
   selectedItem: null,     // 表示中の品目名。起動時に品目マスタの先頭（＝クルクマ）で初期化
   selectedVariety: MAJOR_VARIETY_KEY,
-  selectedDate: null,
-  calendarOpen: false,
-  calendarMonth: null,
-  mineDate: null,        // 自分出荷手入力の選択日付（産地と同じ自作カレンダー）
+  mineDate: null,        // 自分出荷手入力の選択日付（自作カレンダー）
   mineVariety: null,     // 手入力で最後に選んだ品種（連続入力のため保持）
   mineCalMonth: null,    // 手入力カレンダーの表示月
   mineMode: 'csv',
-  donutHighlight: null,
   selectedSeries: [],     // 主要5品種チャートで選択中の品種。空＝全表示（初期状態）
   seriesSelectable: [],   // 凡例をタップできる品種（データのあるもの）
+  selectedZentaiYears: [],// 5カ年比較で選択中の年度。空＝全表示（主要5品種と同じ作法）
+  zentaiMeta: null,       // 品目全体データのグラフのプロット位置（タップの当たり判定用）
+  mixMeta: null,          // 規格の割合のグラフの棒の位置（同上）
   pendingBackup: null,
   sanchiImportSummary: '',
+  zentaiImportSummary: '',
   mineImportSummary: '',
   multiMeta: null,
-  lineDetailShow: null,   // プロットタップで日付連動→再描画後に詳細を復元するための一時保持 {variety,date}
-  chartScrollLeft: null,  // 再描画をまたいで折れ線の横スクロール位置を保つ（nullなら右端＝最新日）
   shipMonthsOpen: []      // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
 };
 
 /* ============================== UI ============================== */
-// ドーナツの表示名と色は品目の donut 定義から組み立てる（旧 CAT_LABELS/CAT_COLORVAR の置き換え）。
-const catLabels = (item)=>{
-  const d = itemRule(item).donut; if(!d) return {};
-  const o = {}; d.buckets.forEach(b=>{ o[b.key] = b.label; }); o['その他'] = d.otherLabel; return o;
-};
-const catColorVars = (item)=>{
-  const d = itemRule(item).donut; if(!d) return {};
-  const o = {}; d.buckets.forEach(b=>{ o[b.key] = b.colorVar; }); o['その他'] = d.otherColorVar; return o;
-};
 // 品種を色分けする際の系列色（将来5品種まで対応）
 const SERIES_COLORS = ['var(--chart-blue)','var(--accent)','var(--warn)','var(--primary)','var(--ink-muted)'];
 
@@ -2437,6 +2968,9 @@ const UI = {
       const add = (r)=>{ if((r.item||DEFAULT_ITEM)===State.selectedItem){ const y=Compute.seasonYear(r.date, State.selectedItem); if(y) withData.add(y); } };
       Store.sanchi.forEach(add);
       Store.jibun.forEach(add);
+      // 品目全体データしか入っていない年度も「データのある年度」に数える。
+      // 入れないと、その資料だけ取り込んだ直後に空の年度が開いてグラフが出ない。
+      Store.zentai.forEach(add);
       State.selectedYear = Array.from(withData).sort().pop() || Store.currentYear();
     }
   },
@@ -2457,6 +2991,9 @@ const UI = {
       if(el.value !== want) el.value = want;
     };
     syncSelect(document.getElementById('item-select'), Store.itemNames(), State.selectedItem, null);
+    // 見えている品目名はこのラベル（<select> は透明。理由は #item-select のCSSコメント）
+    const itemLabel = document.getElementById('item-select-label');
+    if(itemLabel) itemLabel.textContent = State.selectedItem || '';
     UI.renderYearBar();
     const region = document.getElementById('storage-banner-region');
     if(Store.loadError){
@@ -2733,7 +3270,7 @@ const UI = {
        取込タブでは年度バーが出ない＝戻る手段が画面から消えて動けなくなる
        （2026-09-06 に実際に起きた。産地タブを押しても即座に押し戻された）。
        中身が無い年度は、空のまま見せて、そのまま隣の年度へ動けるようにする。 */
-    if(Store.sanchi.size===0 && Store.jibun.length===0 && State.tab!=='import' && State.tab!=='backup'){
+    if(Store.sanchi.size===0 && Store.jibun.length===0 && Store.zentai.size===0 && State.tab!=='import' && State.tab!=='backup'){
       State.tab = 'import';
       UI.renderTabs();
     }
@@ -2759,17 +3296,14 @@ const UI = {
       if(lineWrap) UI.wireLineTooltip(lineWrap);
       const multiWrap = document.querySelector('[data-multiline-wrap]');
       if(multiWrap) UI.wireMultiLineTooltip(multiWrap);
-      // 折れ線は初期表示を最新日（右端）に。左スクロールで過去へ遡れる。
-      // ただしプロットのタップ由来の再描画では、見ていた位置をそのまま保つ。
-      const scroller = document.querySelector('#main .chart-scroll');
-      if(scroller){
-        if(State.chartScrollLeft != null){
-          scroller.scrollLeft = State.chartScrollLeft;
-          State.chartScrollLeft = null;
-        }else{
-          scroller.scrollLeft = scroller.scrollWidth;
-        }
-      }
+      const zentaiWrap = document.querySelector('[data-zentai-wrap]');
+      if(zentaiWrap) UI.wireZentaiTooltip(zentaiWrap);
+      const mixWrap = document.querySelector('[data-mix-wrap]');
+      if(mixWrap) UI.wireMixTooltip(mixWrap);
+      // グラフは初期表示を最新日（右端）に。左スクロールで過去へ遡れる。
+      // ⚠ 1画面に2つ出ることがある（箱数＋規格の割合）ので、全部に当てる。
+      //    ただし動かすのはここ（描いた直後）だけ。スクロール中に書き込むと払いが止まる。
+      document.querySelectorAll('#main .chart-scroll').forEach(s=>{ s.scrollLeft = s.scrollWidth; });
     }
     if(State.tab==='mine'){
       /* 出荷明細一覧の月アコーディオン。開閉状態は State.shipMonthsOpen に控えて
@@ -2808,26 +3342,19 @@ const UI = {
   },
 
   /* ---------- Screen: 産地分析 ---------- */
-  donutLegendHTML(cats, total, item){
-    const labels = catLabels(item), colors = catColorVars(item);
-    return Object.keys(cats).map(cat=>{
-      const val = cats[cat];
-      return `<div class="legend-item" data-action="legend-toggle" data-cat="${cat}" data-active="${State.donutHighlight===cat}">
-        <span class="legend-dot" style="background:${colors[cat]}"></span>
-        <span class="legend-label">${Fmt.esc(labels[cat] || cat)}</span>
-        <span class="legend-val tnum">${Fmt.num(val)}</span>
-      </div>`;
-    }).join('');
-  },
   /* 背景の規格バーの読み方（1行）。凡例と箱数は出さない（ユーザー判断 2026-09-06）が、
      色と規格の対応だけはどこかに要るので、ここで文にして済ませている。
-     棒が無い品目では空文字＝改行も足さない（クルクマのHTMLを1バイトも動かさないため）。 */
+     棒が無い品目では空文字＝改行も足さない。
+     ⚠ 「その他」の言い方は品目で変わる。濃いまま出す品目（スイピ＝otherOpacity 1）では
+        赤そのものが合図なので「赤は〜」、薄敷きのままの品目（クルクマ）では赤くないので
+        「一番上が〜」と位置で言う。文言を1つに固定すると、片方で嘘になる。 */
   sizeBarNote(mix){
     if(!mix || !mix.order || mix.order.length===0) return '';
     const OTHER = Compute.SIZE_BAR_OTHER;
     const stack = mix.order.filter(k=>k!==OTHER).map(k=>mix.labels[k]).join('・');
+    const emph = !!(mix.opacity && mix.opacity[OTHER] >= 1);
     return `\n          <p class="chart-note">棒＝その日の規格の割合（下から ${Fmt.esc(stack)}`
-      + `、赤は${Fmt.esc(mix.labels[OTHER])}）</p>`;
+      + `、${emph ? '赤は' : '一番上が'}${Fmt.esc(mix.labels[OTHER])}）</p>`;
   },
   // 重ねて表示する品種。MAJOR_VARIETIES に載っていて実際にデータがあるものを優先し、
   // 1件も無い品目では箱数の多い順に上位を代用する。list は Compute.varietyList()（箱数降順）。
@@ -2838,20 +3365,26 @@ const UI = {
   },
   screenSanchi(){
     State.multiMeta = null;
+    State.zentaiMeta = null;
     const list = Compute.varietyList();
-    if(list.length===0){
+    const rule = itemRule(State.selectedItem || DEFAULT_ITEM);
+    // 品目全体データを使う品目か。ITEM_RULES に zentai を書かなければ選択肢ごと出ない。
+    const hasZentai = !!rule.zentai;
+    if(list.length===0 && (!hasZentai || Compute.scopedZentai().length===0)){
       return `<h1 class="screen-title">産地分析</h1>` + UI.emptyState('産地データがまだありません', '産地CSVを取込むと、品種ごとの規格構成と価格推移を確認できます。', '取込へ進む', 'import');
     }
-    // 日付の既定＝最新日
-    if(!State.selectedDate) State.selectedDate = Compute.latestDate();
+    // 品目全体データを使わない品目へ切り替えたら、品種の側へ戻す
+    if(!hasZentai && isZentaiView(State.selectedVariety)) State.selectedVariety = MAJOR_VARIETY_KEY;
     // 品種の既定＝主要5品種。単一品種が消えた場合のみリセット
-    if(State.selectedVariety !== MAJOR_VARIETY_KEY && !list.find(v=>v.variety===State.selectedVariety)){
+    if(!isZentaiView(State.selectedVariety) && State.selectedVariety !== MAJOR_VARIETY_KEY && !list.find(v=>v.variety===State.selectedVariety)){
       State.selectedVariety = MAJOR_VARIETY_KEY;
     }
-    const isMajor = State.selectedVariety === MAJOR_VARIETY_KEY;
-    const selDate = State.selectedDate;
+    // 産地データがまだ無い年度では品種の選択肢が空なので、品目全体データを開く
+    if(list.length===0) State.selectedVariety = ZENTAI_PRICE_KEY;
+    const zentaiView = hasZentai && isZentaiView(State.selectedVariety);
+    const isMajor = !zentaiView && State.selectedVariety === MAJOR_VARIETY_KEY;
 
-    // セレクタ（日付＋品種の横並び）。プルダウン上部を指定順に並べ、残りは既存順のまま。
+    // 表示セレクタ。プルダウン上部を指定順に並べ、残りは既存順のまま。
     const VARIETY_TOP_ORDER = ['バンコクスプリーム','ホワイト','ピアノホワイト','シャローム','エメラルドチョコゼブラ','チェリープリンセスデーン','パルビフローラ','リボン'];
     const isMix = (name)=> name.includes('ミックス'); // 「ミックス」を含む品種は最下部へ
     const restList = list.filter(v=>!VARIETY_TOP_ORDER.includes(v.variety));
@@ -2860,35 +3393,30 @@ const UI = {
       ...restList.filter(v=>!isMix(v.variety)),
       ...restList.filter(v=>isMix(v.variety))
     ];
-    const varietyOptions =
+    /* セレクタの中身。品目全体データを使う品目では、品種ではない2項目が混ざるので
+       グループに分けて「上＝全体／下＝品種別」を目で分かるようにする。 */
+    const varietyGroup =
       `<option value="${MAJOR_VARIETY_KEY}" ${isMajor?'selected':''}>主要5品種</option>` +
       orderedList.map(v=>`<option value="${Fmt.esc(v.variety)}" ${v.variety===State.selectedVariety?'selected':''}>${Fmt.esc(v.variety)}</option>`).join('');
+    const varietyOptions = hasZentai
+      ? `<optgroup label="品目全体">
+            <option value="${ZENTAI_PRICE_KEY}" ${State.selectedVariety===ZENTAI_PRICE_KEY?'selected':''}>箱単価 ${ZENTAI_YEARS}カ年比較</option>
+            <option value="${ZENTAI_BOXES_KEY}" ${State.selectedVariety===ZENTAI_BOXES_KEY?'selected':''}>箱数</option>
+          </optgroup>${list.length ? `<optgroup label="品種別">${varietyGroup}</optgroup>` : ''}`
+      : varietyGroup;
 
     /* 品目に規則が無いものは、カードごと出さない。
-       ドーナツはバケツが無いと「その他100%」の1色になり、価格推移は基準が無いと全点nullになる。
-       どちらも「間違った図」なので、まだ定義していない品目では描かないほうが正しい。
-       ルール（ITEM_RULES の price / donut）を書いた時点で自動的に出るようになる。 */
-    const rule = itemRule(State.selectedItem || DEFAULT_ITEM);
+       価格推移は基準が無いと全点nullになる＝「間違った図」なので、まだ定義していない品目では
+       描かないほうが正しい。ルール（ITEM_RULES の price / sizeBars）を書いた時点で自動的に出る。
+
+       ⚠ 2026-09-08b に日付セレクタとカレンダーを撤去した。日付で中身が変わるカードは
+         規格構成ドーナツだけで、そのドーナツを背景の棒に置き換えたため、動かしても
+         画面が何も変わらないただの飾りになっていた（ユーザー判断）。 */
     const priceLabel = (rule.price && rule.price.label) ? rule.price.label + ' ' : '';
-    /* 日付セレクタは【選択日で中身が変わるカードがある品目】だけに出す。
-       いまそれはドーナツ（規格構成）だけなので、donut を書いていない品目では
-       日付を動かしても画面が何も変わらない＝ただの飾りになる。
-       出さない品目では品種セレクタが1行を使う。 */
-    const showDate = !!rule.donut;
     const selectorCard = `
       <div class="card">
         <div class="selector-row">
-          ${showDate ? `<div class="field date-field">日付
-            <div class="date-nav">
-              <button type="button" class="date-step" data-action="date-step-prev" aria-label="前の出荷日へ" ${Compute.stepDate(selDate,-1)?'':'disabled'}>‹</button>
-              <button type="button" class="date-trigger" id="sanchi-date-trigger" data-action="toggle-calendar">
-                <span>${Fmt.esc(Fmt.mmdd(selDate))}</span><span class="caret">▾</span>
-              </button>
-              <button type="button" class="date-step" data-action="date-step-next" aria-label="次の出荷日へ" ${Compute.stepDate(selDate,1)?'':'disabled'}>›</button>
-            </div>
-            ${State.calendarOpen ? UI.calendarHTML() : ''}
-          </div>
-          <label class="field variety-field">品種` : `<label class="field variety-field">表示`}
+          <label class="field variety-field">${hasZentai ? '表示' : '品種'}
             <div class="select-wrap">
               <select id="variety-select">${varietyOptions}</select>
             </div>
@@ -2896,15 +3424,15 @@ const UI = {
         </div>
       </div>`;
 
-    let donutCard, lineCard;
+    let lineCard;
 
-    if(!rule.price){
+    if(zentaiView){
+      // 品目全体データ（品種も規格も無い）＝背景の規格バーは出せない
+      lineCard = UI.zentaiCardHTML(State.selectedVariety);
+    } else if(!rule.price){
       // 価格の基準（等級×階級と換算本数）が未定の品目では、価格推移を出さない
-      donutCard = ''; lineCard = '';
+      lineCard = '';
     } else if(isMajor){
-      // 主要5品種では規格構成（ドーナツ）は非表示。価格推移をメインに。
-      donutCard = '';
-
       // 折れ線＝主要5品種を色分けして重ねる。凡例タップで各品種の表示ON/OFF。
       const allSeries = UI.majorVarieties(list).map((variety,i)=>({variety, color:SERIES_COLORS[i%SERIES_COLORS.length], points:Compute.lineDataDense(variety)}));
       const anyData = allSeries.some(s=>s.points.some(p=>p.price!=null));
@@ -2931,9 +3459,12 @@ const UI = {
         // 軸は常に5品種ぶんで固定し、非選択の品種は線だけ消す
         const chartSeries = allSeries.map(s=>({...s, hidden: isFiltered && !sel.includes(s.variety)}));
         const anyShown = chartSeries.some(s=> !s.hidden && s.points.some(p=>p.price!=null));
-        /* 背景の規格構成バー＝5品種を合計した割合。凡例で品種を絞っても動かさない
-           （棒は「その日の市場全体がどこに寄っていたか」で、個々の線の話ではないため）。 */
-        const mix = rule.sizeBars ? Compute.sizeMix(allSeries.map(s=>s.variety)) : null;
+        /* ⚠ 主要5品種では背景の規格バーを出さない（2026-09-08b・ユーザー判断で撤去）。
+           見づらいだけではなく、読み方が存在しない図だったのが理由：背景の棒は
+           【5品種を足し合わせた1つの割合】なのに、線は【品種ごとにバラバラ】なので、
+           どの線がどの帯に対応するのか誰にも答えられない。合計の話と1品種ずつの話を
+           1枚に重ねてはいけない。棒は単一品種を選んだときだけ出す。 */
+        const mix = null;
         let chartInner, isolatedNote='';
         if(anyShown){
           const {svg, isolated, ptMeta, w, yAxis} = Charts.multiLineSVG(chartSeries, {mix});
@@ -2954,27 +3485,12 @@ const UI = {
           </div>`;
       }
     } else {
-      // 単一品種：ドーナツは選択日の箱数内訳。折れ線は全期間。
+      // 単一品種：折れ線は全期間。その背景に、その日の規格構成を100%の縦棒で敷く。
       const variety = State.selectedVariety;
-      const donut = Compute.donutDataForDay([variety], selDate); // 規則が無ければ null
-      if(!donut){
-        donutCard = ''; // バケツが未定の品目では規格構成を出さない
-      } else {
-        const {cats, total} = donut;
-        const donutBody = total>0
-          ? `<div class="donut-row">${Charts.donutSVG(cats, total, catColorVars(State.selectedItem), 180)}<div class="legend legend-flex">${UI.donutLegendHTML(cats, total, State.selectedItem)}</div></div>`
-          : `<div class="empty-state"><p>${Fmt.esc(Fmt.date(selDate))} の${Fmt.esc(variety)}のデータがありません。日付を変えてお試しください。</p></div>`;
-        donutCard = `
-          <div class="card">
-            <div class="card-head"><h2 class="card-title">規格構成（${Fmt.esc(Fmt.date(selDate))} <span class="${Fmt.wdClass(selDate)}">${Fmt.esc(Fmt.wd(selDate))}</span>）</h2></div>
-            ${donutBody}
-          </div>`;
-      }
-
       const points = Compute.lineDataDense(variety);
       const withData = points.filter(p=>p.price!=null);
-      /* 背景の規格構成バーは sizeBars を書いた品目だけ。書いていない品目（クルクマ）では
-         null のまま渡らないので、グラフは従来と1バイトも変わらない。 */
+      /* 背景の規格構成バーは sizeBars を書いた品目だけ（クルクマ・スイピとも書いてある）。
+         書いていない品目では null のまま渡らないので、グラフは従来どおり線だけになる。 */
       const mix = rule.sizeBars ? Compute.sizeMix([variety]) : null;
       let lineBlock;
       if(withData.length===0){
@@ -2994,52 +3510,119 @@ const UI = {
         </div>`;
     }
 
-    const seasonYear = Compute.seasonYear(selDate, State.selectedItem);
+    // 見出しの年度は、どの表示でも選択中の年度をそのまま出す
+    // （以前は選択日から逆算していたが、日付セレクタを撤去したので年度バーの値が唯一の正）
+    const seasonYear = String(State.selectedYear || '');
     return `
       <h1 class="screen-title">産地分析${seasonYear ? ` <span class="muted" style="font-weight:400">${seasonYear}</span>` : ''}</h1>
       ${selectorCard}
-      ${donutCard}
       ${lineCard}
     `;
   },
 
-  calendarHTML(){
-    const ym = State.calendarMonth || (State.selectedDate||'').slice(0,7);
-    const parts = ym.split('-');
-    const y = parseInt(parts[0],10), m = parseInt(parts[1],10);
-    if(!y || !m) return '';
-    const first = new Date(y, m-1, 1);
-    const startWD = first.getDay();
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const wds = ['日','月','火','水','木','金','土'];
-    const dataDates = Compute.datesWithData(); // 産地データのある日だけ選択可
-    const wdColor = (wd)=> wd===0 ? 'cal-sun' : wd===6 ? 'cal-sat' : '';
-    let cells = '';
-    for(let i=0;i<startWD;i++) cells += `<span class="cal-day empty"></span>`;
-    for(let d=1; d<=daysInMonth; d++){
-      const wd = new Date(y, m-1, d).getDay();
-      const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const isSel = iso === State.selectedDate;
-      const wc = wdColor(wd);
-      if(dataDates.has(iso)){
-        cells += `<button type="button" class="cal-day enabled ${wc} ${isSel?'selected':''}" data-action="cal-pick" data-date="${iso}">${d}</button>`;
-      } else {
-        cells += `<span class="cal-day disabled ${wc}">${d}</span>`;
-      }
+  /* 品目全体データのカード（箱単価の5カ年比較／箱数）。
+     この2つは品種も規格も無い資料なので、ドーナツ・日付セレクタ・規格の背景バーは出さない。
+     横軸は日付ではなく「基準日から数えて何回目の出荷日か」＝年をまたいで重ねられる物差し。 */
+  zentaiCardHTML(view){
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const rule = itemRule(item);
+    const year = String(State.selectedYear || '');
+    const isPrice = view === ZENTAI_PRICE_KEY;
+    const title = isPrice ? `箱単価 ${ZENTAI_YEARS}カ年比較` : '箱数';
+    const own = Compute.zentaiSeries(); // 表示中の年度ぶん
+    const series = isPrice ? Compute.zentaiYearSeries(item, year, ZENTAI_YEARS) : [];
+    const hasAny = isPrice ? series.some(s=>s.points.some(p=>p.ma!=null)) : own.some(p=>p.boxes>0);
+    if(!hasAny){
+      return `<div class="card">
+          <div class="card-head"><h2 class="card-title">${title}</h2></div>
+          <div class="empty-state">
+            <p>${Fmt.esc(year)}年度の品目全体データがまだありません。</p>
+            <div class="btn-row" style="justify-content:center"><button class="btn btn-secondary" style="width:auto" data-action="switch-tab" data-tab="import">取込へ進む</button></div>
+          </div>
+        </div>`;
     }
-    const wdRow = wds.map((w,i)=>`<div class="cal-wd ${wdColor(i)}">${w}</div>`).join('');
+    if(!isPrice){
+      /* 箱数（JAの資料）と、その下の規格の割合（品種別の市況CSV）を上下に並べる。
+         ⚠ 横軸の範囲は【2つのデータの和】で決める。片方の範囲で描くと、もう片方にしか
+            無い日が黙って消えるか、同じ日が別の位置に来る。和にしておけば、
+            資料が片方しか無い日は「空き」として見えるだけで済む。 */
+      const mixData = rule.sizeBars ? Compute.zentaiMixPoints() : null;
+      const mixPts = (mixData && mixData.points.length) ? mixData.points : null;
+      const boxPts = own.filter(p=>p.i!=null && p.boxes>0);
+      const allI = boxPts.map(p=>p.i).concat(mixPts ? mixPts.map(p=>p.i) : []);
+      const iMin = allI.length ? Math.min(...allI) : null;
+      const iMax = allI.length ? Math.max(...allI) : null;
+
+      // 棒は3点移動平均。火曜だけ落ち込むギザギザを均す（ユーザー指定 2026-09-08b）
+      const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(Compute.zentaiBoxMA(own), {iMin, iMax});
+      State.zentaiMeta = {ptMeta, w, kind:'boxes'};
+
+      let mixCard = '';
+      if(mixPts){
+        const m = Charts.zentaiMixSVG(mixPts, mixData.mix, iMin, iMax);
+        State.mixMeta = {ptMeta:m.ptMeta, w:m.w, mix:mixData.mix};
+        const stack = mixData.mix.order.filter(k=>k!==Compute.SIZE_BAR_OTHER)
+          .map(k=>mixData.mix.labels[k]).join('・');
+        /* 詳細は大きなカードを置かず、見出しの右の空きに日付と箱数だけ出す（ユーザー指定）。
+           タップするまでは空。棒をタップすると UI.wireMixTooltip が中身を書き込む。 */
+        mixCard = `
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">規格比率</h2><span class="tap-readout tnum" id="mix-tap"></span></div>
+          <div class="chart-wrap" data-mix-wrap><div class="chart-scroll">${m.svg}</div></div>
+          <p class="chart-note">その日の箱数を規格で分けた割合です（下から ${Fmt.esc(stack)}、一番上がその他）。どの日も高さは100%にそろえてあります。棒をタップすると日付と箱数が見出しの右に出ます。</p>
+          <p class="chart-note">⚠ この割合は【品種別の市況CSV】から、上の箱数は【JAの品目別市況】から出しています。別の資料ですが、箱数が一致することを原本で確かめてあります。</p>
+        </div>`;
+      } else {
+        State.mixMeta = null;
+      }
+      return `
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">箱数</h2><span class="tap-readout tnum" id="zentai-tap"></span></div>
+          <div class="chart-wrap" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          <p class="chart-note">産地全体の出荷箱数です。棒が立っていない所は資料が無い日です。棒の高さは前後の出荷日と合わせた3点の平均（火曜は少なくなる傾向があり、生のままだとギザギザして流れが読めないため）。資料が抜けている日はまたがず、あるぶんだけで平均します。<b>棒をタップすると、その日の実際の箱数</b>が見出しの右に出ます。</p>
+        </div>${mixCard}`;
+    }
+
+    /* 月名のラベルは【表示中の年度】の暦で置く。年によってひと月の出荷日数が1日ぶん違うので、
+       重ねた別の年の実際の月替わりは最大1コマずれる（実測。お盆前の最終出荷は毎年45回目で揃う）。
+       基準日と物日が揃っていればラベルはざっくりでよい、というユーザー判断に沿っている。 */
+    const idx = series.flatMap(s=>s.points).map(p=>p.i).filter(v=>v!=null);
+    const labels = Compute.shipAxisLabels(Compute.shipCalendar(item, year, Math.min(...idx), Math.max(...idx)));
+
+    // 凡例タップ＝年ごとのON/OFF（主要5品種と同じ操作）。選択が空なら全表示。
+    const sel = State.selectedZentaiYears || [];
+    const isFiltered = sel.length > 0;
+    const chartSeries = series.map(s=>({...s, hidden: isFiltered && !sel.includes(s.year)}));
+    const anyShown = chartSeries.some(s=> !s.hidden && s.points.some(p=>p.ma!=null));
+    let inner;
+    if(anyShown){
+      const {svg, ptMeta, w, yAxis} = Charts.zentaiLineSVG(chartSeries, {labels});
+      State.zentaiMeta = {ptMeta, w, kind:'price'};
+      inner = `<div class="chart-wrap" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+        <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>`;
+    } else {
+      State.zentaiMeta = null;
+      inner = `<div class="empty-state"><p>表示する年度がありません。凡例をタップして表示してください。</p></div>`;
+    }
+    const legend = series.map(s=>{
+      const off = isFiltered && !sel.includes(s.year);
+      return `<div class="legend-item ${off?'series-off':''}" data-action="zentai-year-toggle" data-year="${Fmt.esc(s.year)}" role="button">
+        <span class="series-dot" style="background:${s.color}"></span>
+        <span class="legend-label">${Fmt.esc(s.year)}年度</span>
+        <span class="legend-val">${off?'非表示':''}</span>
+      </div>`;
+    }).join('');
     return `
-      <div class="cal-backdrop" data-action="close-calendar"></div>
-      <div class="cal-pop">
-        <div class="cal-head">
-          <button type="button" data-action="cal-prev" aria-label="前の月">‹</button>
-          <span class="cal-title">${y}年${m}月</span>
-          <button type="button" data-action="cal-next" aria-label="次の月">›</button>
-        </div>
-        <div class="cal-grid">${wdRow}${cells}</div>
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">箱単価 ${ZENTAI_YEARS}カ年比較</h2></div>
+        ${inner}
+        <div class="series-legend">${legend}</div>
+        <p class="chart-note">線は3点移動平均（前後1点を含む3点の売立金額 ÷ 箱数）です。横軸は${itemRule(item).zentai.baseMonth}月最初の出荷日から数えた出荷回数（日・火・木）で、年が違っても同じ位置が同じ時期になります。</p>
       </div>`;
   },
-  // 自分出荷手入力の日付ピッカー。産地カレンダーと同一スタイルだが、全日付が選択可（出荷日は自由）。
+
+  // 自分出荷手入力の日付ピッカー（アプリで唯一のカレンダー。全日付が選択可＝出荷日は自由）。
+  // ※ 産地タブ側のカレンダーは 2026-09-08b に撤去した（日付で動くカードが無くなったため）。
   mineCalendarHTML(){
     const today = new Date();
     const todayYm = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
@@ -3108,9 +3691,11 @@ const UI = {
     const days = [], byDate = new Map();
     sorted.forEach(r=>{
       let g = byDate.get(r.date);
-      if(!g){ g = {date:r.date, rows:[], boxes:0, total:0}; byDate.set(r.date, g); days.push(g); }
+      if(!g){ g = {date:r.date, rows:[], boxes:0, stems:0, total:0}; byDate.set(r.date, g); days.push(g); }
       g.rows.push(r);
       g.boxes += (r.boxQty||0);
+      // その日の総本数（箱数の下に出す）。r.stems は matchJibun が Compute.rowStems で入れた値
+      g.stems += (r.stems||0);
       if(r.matched && !r.pending) g.total += r.amount; // pendingは金額nullなので売上合計に足さない
     });
     const months = [], byYm = new Map();
@@ -3161,7 +3746,7 @@ const UI = {
           <div class="ship-date-head">
             <span class="ship-date-md">${Fmt.date(g.date)}</span>
             <span class="ship-date-wd ${Fmt.wdClass(g.date)}">(${Fmt.wd(g.date)})</span>
-            <span class="ship-date-boxes tnum">${Fmt.num(g.boxes)}箱</span>
+            <span class="ship-date-boxes tnum">${Fmt.num(g.boxes)}箱${g.stems>0 ? `<small>${Fmt.num(g.stems)}本</small>` : ''}</span>
             ${g.total>0 ? `<span class="ship-date-total tnum">${Fmt.yen(g.total)}</span>` : ''}
           </div>
           ${blocks}
@@ -3355,7 +3940,7 @@ const UI = {
 
   /* ---------- Screen: 取込 ---------- */
   screenImport(){
-    const zeroData = Store.sanchi.size===0 && Store.jibun.length===0;
+    const zeroData = Store.sanchi.size===0 && Store.jibun.length===0 && Store.zentai.size===0;
     const onboard = zeroData ? `
       <div class="card">
         <h2 class="card-title">はじめに（3ステップ）</h2>
@@ -3394,6 +3979,21 @@ const UI = {
         </div>
         <div id="sanchi-import-summary">${State.sanchiImportSummary || ''}</div>
       </div>
+      ${itemRule(State.selectedItem || DEFAULT_ITEM).zentai ? `
+      <div class="card">
+        <div class="card-head"><h2 class="card-title">品目全体データCSV</h2></div>
+        <p class="card-caption">JAの「花き共選共販市況」から起こしたもの。ヘッダ: 日付,品目,箱数,売立金額,箱平均価格（産地データとは別のものです）</p>
+        <label class="dropzone" for="zentai-file-input">
+          ${Icon.upload}
+          <strong>タップしてCSVを選択</strong>
+        </label>
+        <input type="file" id="zentai-file-input" accept=".csv,text/csv">
+        <div class="paste-row">
+          <textarea class="csv-text csv-edit csv-paste" id="zentai-paste" placeholder="またはCSVを貼り付け（ヘッダ行を含めてOK）"></textarea>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="import-zentai-paste">貼り付けた内容を取込</button>
+        </div>
+        <div id="zentai-import-summary">${State.zentaiImportSummary || ''}</div>
+      </div>` : ''}
       <div class="card">
         <div class="card-head"><h2 class="card-title">自分の出荷</h2></div>
         <div class="segmented" role="tablist">
@@ -3650,8 +4250,12 @@ const UI = {
     setTimeout(()=>{ el.remove(); }, opts.duration || 4000);
   },
 
+  /* 確認モーダル。opts.altLabel / onAlt を渡すと、勧めたい選択肢を【上に全幅で1つ】足す。
+     3つを横に並べるとスマホの幅で文字が潰れるので、段を分けて
+     「上＝たぶんこちらが正しい」「下＝キャンセル／それでもこのまま」の形にしてある。 */
   modal(title, bodyHtml, opts){
     opts = opts || {};
+    const hasAlt = !!opts.altLabel;
     const root = document.getElementById('modal-root');
     root.innerHTML = `
       <div class="modal-backdrop">
@@ -3659,9 +4263,12 @@ const UI = {
           <button class="modal-close" id="modal-x-btn" aria-label="閉じる">×</button>
           <h2 class="modal-title">${Fmt.esc(title)}</h2>
           <div class="modal-body">${bodyHtml}</div>
+          ${hasAlt ? `<div class="btn-row" style="margin-bottom:var(--sp3)">
+            <button class="btn btn-primary" id="modal-alt-btn">${Fmt.esc(opts.altLabel)}</button>
+          </div>` : ''}
           <div class="btn-row">
             <button class="btn btn-ghost" id="modal-cancel-btn">キャンセル</button>
-            <button class="btn ${opts.danger?'btn-danger':'btn-primary'}" id="modal-confirm-btn">${Fmt.esc(opts.confirmLabel||'確認')}</button>
+            <button class="btn ${opts.danger?'btn-danger':(hasAlt?'btn-secondary':'btn-primary')}" id="modal-confirm-btn">${Fmt.esc(opts.confirmLabel||'確認')}</button>
           </div>
         </div>
       </div>`;
@@ -3673,6 +4280,13 @@ const UI = {
       if(opts.onConfirm) opts.onConfirm();
       UI.closeModal();
     });
+    if(hasAlt){
+      root.querySelector('#modal-alt-btn').addEventListener('click', ()=>{
+        // 先に閉じる＝この後の取り込みが画面を描き直すので、閉じるのを後にすると一瞬ちらつく
+        UI.closeModal();
+        if(opts.onAlt) opts.onAlt();
+      });
+    }
   },
   closeModal(){
     document.getElementById('modal-root').innerHTML = '';
@@ -3990,6 +4604,24 @@ const UI = {
     hl.setAttribute('cy', y);
     hl.style.opacity = '1';
   },
+  // 棒グラフ用。選んだ棒を黒い枠で囲む（丸い印は細い棒では見えない＝Charts.barHighlight のコメント）
+  moveBarHighlight(svg, m){
+    const hl = svg.querySelector('.pt-highlight-bar');
+    if(!hl || m.bx == null) return;
+    hl.setAttribute('x', m.bx.toFixed(1));
+    hl.setAttribute('y', m.by.toFixed(1));
+    hl.setAttribute('width', m.bw.toFixed(1));
+    hl.setAttribute('height', m.bh.toFixed(1));
+    hl.style.opacity = '1';
+  },
+  /* 見出しの右に添える読み出し（大きな詳細カードの代わり）。日付＋曜日＋数値。
+     曜日は日曜赤・土曜青で、ほかの画面（出荷明細の日付）と同じ色分けにそろえる。 */
+  setTapReadout(id, date, tail){
+    const box = document.getElementById(id);
+    if(!box) return;
+    box.innerHTML = `${Fmt.esc(Fmt.date(date))}<span class="${Fmt.wdClass(date)}">(${Fmt.esc(Fmt.wd(date))})</span>`
+      + `　${Fmt.esc(tail)}`;
+  },
   /* プロット詳細（グラフ下）の右端に出すタグ。
      出すのは【基準どおりでない日】だけ＝クルクマで L の値段を代替に採った日の「L代替」。
      基準どおり（2L）の日は断り書きが要らないので何も出さない（ユーザー判断 2026-09-07。
@@ -4012,7 +4644,11 @@ const UI = {
     const x1 = parseFloat(svg.getAttribute('data-x1'));
     const n = points.length;
     const xScale = (i)=> n<=1 ? (x0+x1)/2 : x0 + ((x1-x0)*i)/(n-1);
-    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span>${UI.lineDetailTag(p.marker)}`;
+    /* 箱数は 2026-09-08b に追加。規格構成ドーナツを撤去したので、その真ん中に出ていた
+       「総箱数」の行き先がここになった（ユーザー判断）。背景の棒は割合しか見せないため、
+       この数字が無いと「3箱の日」と「267箱の日」が同じ高さの帯に見えてしまう。 */
+    const detailHtml = (p)=> `<span class="cd-date">${Fmt.date(p.date)}</span><span class="cd-price">${Fmt.yen(p.price)}／箱</span>`
+      + `<span class="cd-boxes tnum">${Fmt.num(Compute.boxesOn([variety], p.date))}箱</span>${UI.lineDetailTag(p.marker)}`;
     const showAt = (i)=>{
       const m = svg.querySelector(`[data-pt="${i}"]`);
       if(m) UI.moveHighlight(svg, m.getAttribute('data-x'), m.getAttribute('data-y'));
@@ -4029,30 +4665,41 @@ const UI = {
       });
       if(nearestI<0) return;
       evt.stopPropagation();
-      const p = points[nearestI];
-      /* タップした点の日付に、日付セレクタ・カレンダー・ドーナツ（規格構成）を連動させる。
-         日付で動くものが無い品目（donut を書いていない＝日付セレクタも出していない）では
-         全画面を描き直す意味が無いので、詳細だけ差し替える。 */
-      if(itemRule(State.selectedItem || DEFAULT_ITEM).donut && State.selectedDate !== p.date){
-        State.selectedDate = p.date;
-        State.calendarMonth = p.date.slice(0,7);
-        State.lineDetailShow = {variety, date:p.date}; // 再描画後に詳細を復元
-        const sc = wrap.querySelector('.chart-scroll');
-        if(sc) State.chartScrollLeft = sc.scrollLeft; // 再描画で右端に戻さない
-        UI.renderMain();
-        return;
-      }
-      showAt(nearestI); // 同じ日なら詳細だけ更新
+      /* 2026-09-08b：全画面の描き直しをやめ、詳細だけ差し替える形に統一した。
+         以前は「タップした日に日付セレクタとドーナツを連動させる」ために描き直していたが、
+         その2つを撤去したので連動する相手がいない。描き直さないぶん、
+         グラフの横スクロール位置を覚えておく仕掛け（chartScrollLeft）も不要になった。 */
+      showAt(nearestI);
     };
     UI.tapOnly(svg, handle);
-    // 日付連動による再描画直後は、対象日の詳細を復元表示（プロットの選択状態を維持）
-    if(State.lineDetailShow && State.lineDetailShow.variety===variety){
-      const idx = points.findIndex(p=>p.date===State.lineDetailShow.date && p.price!=null);
-      if(idx>=0) showAt(idx);
-      State.lineDetailShow = null;
-    }
   },
 
+  /* ⛔ 上下2つのグラフの横スクロールを連動させない（2026-09-08b に入れて、同日に撤去）。
+     理由は2つ。①ユーザー判断＝連動は要らない、それぞれ独立に動かしたい。
+     ②【実機で払いがぎこちなくなる】＝指を離したあとの惰性で流れている最中に
+       相手の scrollLeft を代入すると、その代入がブラウザの慣性スクロールを打ち切る。
+       「箱数だけ滑らかに払えない（5カ年比較は滑らか）」の正体がこれだった。
+     ＝スクロール中に scrollLeft を書き込む仕掛けは、二度と足さないこと。 */
+  /* 規格の割合の棒をタップしたとき。その日の日付と箱数だけを見出しの右に出す
+     （ユーザー指定＝大きな詳細カードは置かない）。 */
+  wireMixTooltip(wrap){
+    const svg = wrap.querySelector('svg[data-mix-chart]');
+    if(!svg || !State.mixMeta) return;
+    const {ptMeta, w:W, mix} = State.mixMeta;
+    if(!ptMeta || ptMeta.length===0) return;
+    const handle = (evt)=>{
+      const rect = svg.getBoundingClientRect();
+      const svgX = ((evt.clientX - rect.left) / rect.width) * W;
+      let nearest = null, best = Infinity;
+      ptMeta.forEach(m=>{ const d = Math.abs(m.x - svgX); if(d<best){ best=d; nearest=m; } });
+      if(!nearest) return;
+      evt.stopPropagation();
+      UI.moveBarHighlight(svg, nearest);
+      // 見出しの右の空きに収まる分だけ＝日付（曜日つき）と箱数のみ（ユーザー指定）
+      UI.setTapReadout('mix-tap', nearest.date, `${Fmt.num(nearest.total)}箱`);
+    };
+    UI.tapOnly(svg, handle);
+  },
   wireMultiLineTooltip(wrap){
     const svg = wrap.querySelector('svg[data-multiline-chart]');
     if(!svg || !State.multiMeta) return;
@@ -4070,7 +4717,46 @@ const UI = {
       });
       if(!nearest) return;
       UI.moveHighlight(svg, nearest.x, nearest.y);
-      UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span>${UI.lineDetailTag(nearest.marker)}`, nearest.color);
+      UI.showLineDetail(nearest.variety, `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(nearest.price)}／箱</span>`
+        + `<span class="cd-boxes tnum">${Fmt.num(Compute.boxesOn([nearest.variety], nearest.date))}箱</span>${UI.lineDetailTag(nearest.marker)}`, nearest.color);
+      evt.stopPropagation();
+    };
+    UI.tapOnly(svg, handle);
+  },
+
+  /* 品目全体データのグラフのタップ。プロット（または棒）を押すと、その点の
+     実際の年月日を出す。移動平均の点は、その日が3点の真ん中。 */
+  wireZentaiTooltip(wrap){
+    const svg = wrap.querySelector('svg[data-zentai-chart]');
+    if(!svg || !State.zentaiMeta) return;
+    const {ptMeta, w:W, kind} = State.zentaiMeta;
+    if(!ptMeta || ptMeta.length===0) return;
+    const vb = svg.viewBox.baseVal;
+    const handle = (evt)=>{
+      const rect = svg.getBoundingClientRect();
+      const svgX = ((evt.clientX - rect.left) / rect.width) * W;
+      const svgY = ((evt.clientY - rect.top) / rect.height) * vb.height;
+      let nearest = null, best = Infinity;
+      ptMeta.forEach(m=>{
+        // 棒は縦に長いので横位置だけで選ぶ。折れ線は上下も見て一番近い点を選ぶ。
+        const d = (kind==='boxes') ? Math.abs(m.x - svgX) : Math.hypot(m.x - svgX, m.y - svgY);
+        if(d<best){ best=d; nearest=m; }
+      });
+      if(!nearest) return;
+      if(kind==='boxes'){
+        /* 箱数は見出しの右に小さく出す（ユーザー指定＝大きな詳細カードは置かない）。
+           ⚠ 出すのは【その日の実際の箱数】。棒の高さは移動平均なので、棒の高さとは一致しない。
+              棒は流れを見るためのもの、この数字はその日の事実、と役割を分けてある
+              （グラフ下の説明文にもそう書いてある）。 */
+        UI.moveBarHighlight(svg, nearest);
+        UI.setTapReadout('zentai-tap', nearest.date, `${Fmt.num(nearest.boxes)}箱`);
+      } else {
+        UI.moveHighlight(svg, nearest.x, nearest.y);
+        const info = `<span class="cd-date">${Fmt.date(nearest.date)}</span><span class="cd-price">${Fmt.yen(Math.round(nearest.ma))}／箱</span>`
+          // 端の点は隣が片側しか無いので2点だけの平均。黙って混ぜず、その旨を出す。
+          + (nearest.span===2 ? `<span class="cd-tag">端・2点</span>` : '');
+        UI.showLineDetail(`${nearest.year}年度`, info, nearest.color);
+      }
       evt.stopPropagation();
     };
     UI.tapOnly(svg, handle);
@@ -4175,10 +4861,6 @@ const App = {
       case 'theme-cycle':
         UI.cycleTheme();
         break;
-      case 'legend-toggle':
-        State.donutHighlight = (State.donutHighlight===t.getAttribute('data-cat')) ? null : t.getAttribute('data-cat');
-        UI.renderMain();
-        break;
       case 'series-toggle': {
         // 全表示→1品種のみ→タップごとに追加→全部そろったら全表示に戻る
         const v = t.getAttribute('data-variety');
@@ -4197,10 +4879,34 @@ const App = {
         UI.renderMain();
         break;
       }
+      case 'zentai-year-toggle': {
+        // 5カ年比較の凡例。品種の凡例（series-toggle）と同じ作法にそろえてある。
+        const y = t.getAttribute('data-year');
+        const sel = (State.selectedZentaiYears || []).slice();
+        const at = sel.indexOf(y);
+        const total = Compute.zentaiYearSeries(State.selectedItem, State.selectedYear, ZENTAI_YEARS).length;
+        if(sel.length === 0){
+          State.selectedZentaiYears = [y];
+        } else if(at >= 0){
+          sel.splice(at, 1);
+          State.selectedZentaiYears = sel; // 空になれば全表示（初期状態）へ
+        } else {
+          sel.push(y);
+          State.selectedZentaiYears = (sel.length >= total) ? [] : sel;
+        }
+        UI.renderMain();
+        break;
+      }
       case 'import-sanchi-paste': {
         const ta = document.getElementById('sanchi-paste');
         const txt = ta ? ta.value : '';
         App.importSanchiText(txt, '貼り付け');
+        break;
+      }
+      case 'import-zentai-paste': {
+        const ta = document.getElementById('zentai-paste');
+        const txt = ta ? ta.value : '';
+        App.importZentaiText(txt, '貼り付け');
         break;
       }
       case 'import-mine-paste': {
@@ -4213,39 +4919,6 @@ const App = {
         State.mineMode = t.getAttribute('data-mode');
         UI.renderMain();
         break;
-      case 'toggle-calendar':
-        State.calendarOpen = !State.calendarOpen;
-        if(State.calendarOpen) State.calendarMonth = (State.selectedDate || Compute.latestDate() || '').slice(0,7);
-        UI.renderMain();
-        break;
-      case 'close-calendar':
-        State.calendarOpen = false;
-        UI.renderMain();
-        break;
-      case 'cal-prev':
-      case 'cal-next': {
-        const ym = (State.calendarMonth || (State.selectedDate||'').slice(0,7)).split('-');
-        const d = new Date(parseInt(ym[0],10), parseInt(ym[1],10)-1 + (action==='cal-next'?1:-1), 1);
-        State.calendarMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        UI.renderMain();
-        break;
-      }
-      case 'cal-pick':
-        State.selectedDate = t.getAttribute('data-date');
-        State.calendarOpen = false;
-        State.donutHighlight = null;
-        UI.renderMain();
-        break;
-      case 'date-step-prev':
-      case 'date-step-next': {
-        const next = Compute.stepDate(State.selectedDate, action==='date-step-next' ? 1 : -1);
-        if(next){
-          State.selectedDate = next;
-          State.donutHighlight = null;
-          UI.renderMain();
-        }
-        break;
-      }
       case 'toggle-mine-calendar': {
         // 手入力フォームの他項目を保持するため、再描画せずポップアップを直接開閉
         const mount = document.getElementById('mine-cal-mount');
@@ -4355,7 +5028,7 @@ const App = {
       case 'open-reset-modal':
         UI.modal('全消去の確認', '産地データ・自分の出荷データを両方とも完全に削除します。この操作は取り消せません。事前にバックアップを書き出すことをおすすめします。', {
           danger:true, confirmLabel:'完全に消去する',
-          onConfirm:()=>{ Store.resetAll(); UI.toast('全データを消去しました'); State.selectedVariety=MAJOR_VARIETY_KEY; State.selectedDate=null; UI.route('import'); }
+          onConfirm:()=>{ Store.resetAll(); UI.toast('全データを消去しました'); State.selectedVariety=MAJOR_VARIETY_KEY; UI.route('import'); }
         });
         break;
       case 'step-boxqty': {
@@ -4378,13 +5051,7 @@ const App = {
     // 新しいシーズンのデータが入ったら、その最新年度が開いてほしいため）
     Store.rememberItem(State.selectedItem);
     State.selectedVariety = MAJOR_VARIETY_KEY;
-    State.selectedDate = null;
-    State.calendarOpen = false;
-    State.calendarMonth = null;
-    State.donutHighlight = null;
     State.selectedSeries = [];
-    State.lineDetailShow = null;
-    State.chartScrollLeft = null;
     State.shipMonthsOpen = [];
     State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
     UI.renderMain();
@@ -4406,13 +5073,17 @@ const App = {
     }
     if(e.target.id==='variety-select'){
       State.selectedVariety = e.target.value;
-      State.donutHighlight = null;
       UI.renderMain();
       return;
     }
     if(e.target.id==='sanchi-file-input' && e.target.files[0]){
       App.handleSanchiFile(e.target.files[0]);
       e.target.value=''; // 同名ファイルを修正して選び直しても再取込できるように
+      return;
+    }
+    if(e.target.id==='zentai-file-input' && e.target.files[0]){
+      App.handleZentaiFile(e.target.files[0]);
+      e.target.value='';
       return;
     }
     if(e.target.id==='mine-file-input' && e.target.files[0]){
@@ -4451,21 +5122,43 @@ const App = {
     App.importSanchiText(text, encoding);
   },
   // 産地CSV取込の中核（ファイル・ペースト共通）。encoding は表示用ラベル
+  /* 取り込もうとしているCSVの品目列が、いま選んでいる品目と食い違うときの確認。
+     産地・品目全体・自分の3つの取込が同じものを使う（以前は同じ文面が2箇所にあった）。
+     CSVの品目がアプリの知っている品目なら【そこへ切り替えて取り込む】を第一候補として出す。
+     選び間違いはここで気づくのだから、いったんキャンセルして上のセレクタを触り直させる
+     必要はない（ユーザー要望 2026-09-08）。 */
+  itemMismatchModal(others, count, run){
+    // 切り替え先を出すのは、食い違いが1品目だけで、それがアプリの知っている品目のときだけ。
+    // 表記ゆれや打ち間違いの名前に切り替えると、行き先の無い品目へ移ってしまう。
+    const target = (others.length === 1 && Store.itemNames().includes(others[0])) ? others[0] : null;
+    UI.modal('品目が違うようです',
+      `このCSVの品目は「${Fmt.esc(others.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
+      + `<br><br>このまま取り込むと、${count}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
+      + (target ? '' : `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`),
+      {confirmLabel:'このまま取り込む', onConfirm:run,
+       altLabel: target ? `「${target}」に切り替えて取り込む` : '',
+       onAlt: target ? ()=>App.switchItemAndImport(target, run) : null});
+  },
+  /* 品目を切り替えてから取り込む。
+     ⚠ 順番が肝心＝Store.merge* は State.selectedItem を見て品目を付けるので、
+       切り替えは必ず取り込みより先。年度は捨てて ensureScope に選び直させる
+       （切り替え前の年度を持ち越すと、取り込んだ行が入らない年度が開いて空に見える）。 */
+  switchItemAndImport(item, run){
+    App.applyScopeChange(()=>{
+      State.selectedItem = item;
+      State.selectedYear = null;
+      run();
+    });
+  },
   importSanchiText(text, encoding){
     try{
       if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
       const {records, errors, dupCount, unknownSpecs, header} = Parse.sanchiCSV(text, State.selectedItem);
       // 品目は選択中のものを付ける。CSVに品目列があって食い違う時だけ、取り込む前に確認する。
       const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
-      if(other.length){
-        UI.modal('品目が違うようです',
-          `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
-          + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
-          + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
-          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header)});
-        return;
-      }
-      App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header);
+      const run = ()=>App.finishSanchiImport(records, errors, dupCount, encoding, unknownSpecs, header);
+      if(other.length){ App.itemMismatchModal(other, records.length, run); return; }
+      run();
     }catch(err){
       State.sanchiImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
@@ -4510,6 +5203,35 @@ const App = {
     UI.renderMain();
     UI.toast(`産地CSVを取込みました（新規${added}・更新${updated}）`);
   },
+  async handleZentaiFile(file){
+    const {text, encoding} = await Parse.readFileSmart(file);
+    App.importZentaiText(text, encoding);
+  },
+  /* 品目全体データの取込（ファイル・ペースト共通）。
+     産地CSVをここに貼ると必須列が足りず例外になる＝間違いに気づける。逆も同じ。 */
+  importZentaiText(text, encoding){
+    try{
+      if(!text || !Norm.text(text)){ throw new Error('CSVが空です'); }
+      const {records, errors, dupCount, header} = Parse.zentaiCSV(text, State.selectedItem);
+      const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
+      const run = ()=>App.finishZentaiImport(records, errors, dupCount, header);
+      if(other.length){ App.itemMismatchModal(other, records.length, run); return; }
+      run();
+    }catch(err){
+      State.zentaiImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}<br>この欄は「品目全体データ」用です（日付・箱数・売立金額の列が要ります）。産地データは1つ上の欄へ。</div>`;
+      UI.renderMain();
+    }
+  },
+  finishZentaiImport(records, errors, dupCount, header){
+    const {added, updated} = Store.mergeZentai(records);
+    Store.addImportErrors('品目全体', State.selectedItem, errors, header);
+    State.zentaiImportSummary = `<div class="summary-box ${errors.length?'warn':''}">
+        <span>取込行数: ${records.length}／更新: ${updated}／新規: ${added}${dupCount?`／ファイル内重複: ${dupCount}件（後勝ち上書き）`:''}${errors.length?`／エラー行: ${errors.length}件`:''}</span>
+        ${App.errorDetailHTML(errors)}
+      </div>`;
+    UI.renderMain();
+    UI.toast(`品目全体データを取込みました（新規${added}・更新${updated}）`);
+  },
   async handleMineFile(file){
     const {text, encoding} = await Parse.readFileSmart(file);
     App.importMineText(text, encoding);
@@ -4521,15 +5243,9 @@ const App = {
       const {records, errors, header} = Parse.jibunCSV(text, State.selectedItem);
       // 産地CSVと同じく、CSVの品目列が選択中と食い違う時は取り込む前に確認する。
       const other = Array.from(new Set(records.map(r=>r.csvItem).filter(v=>v && v!==State.selectedItem)));
-      if(other.length){
-        UI.modal('品目が違うようです',
-          `このCSVの品目は「${Fmt.esc(other.join('／'))}」ですが、いま選んでいる品目は「${Fmt.esc(State.selectedItem)}」です。`
-          + `<br><br>このまま取り込むと、${records.length}件すべてが「${Fmt.esc(State.selectedItem)}」として保存されます。`
-          + `<br>違う場合は、キャンセルして上の品目を切り替えてからやり直してください。`,
-          {confirmLabel:'このまま取り込む', onConfirm:()=>App.finishMineImport(records, errors, encoding, header)});
-        return;
-      }
-      App.finishMineImport(records, errors, encoding, header);
+      const run = ()=>App.finishMineImport(records, errors, encoding, header);
+      if(other.length){ App.itemMismatchModal(other, records.length, run); return; }
+      run();
     }catch(err){
       State.mineImportSummary = `<div class="err-box">取込エラー: ${Fmt.esc(err.message)}</div>`;
       UI.renderMain();
@@ -4557,12 +5273,15 @@ const App = {
     const text = (e.header ? e.header + '\n' : '') + body;
     let res;
     try{
-      res = (e.kind === '産地') ? Parse.sanchiCSV(text, e.item) : Parse.jibunCSV(text, e.item);
+      res = (e.kind === '産地')     ? Parse.sanchiCSV(text, e.item)
+          : (e.kind === '品目全体') ? Parse.zentaiCSV(text, e.item)
+          :                           Parse.jibunCSV(text, e.item);
     }catch(err){
       UI.toast('取り込めませんでした: ' + err.message, {duration:6000});
       return;
     }
     if(e.kind === '産地') Store.mergeSanchi(res.records);
+    else if(e.kind === '品目全体') Store.mergeZentai(res.records);
     else Store.mergeJibun(res.records, 'csv');
     const took = res.records.length;
     // 残ったエラー行だけを枠に戻す（行番号は見出し行のぶんだけずれるので付け直さない）
@@ -4587,7 +5306,6 @@ const App = {
           Store.importBackup(State.pendingBackup);
           SelfTest.run();
           State.selectedVariety = MAJOR_VARIETY_KEY;
-          State.selectedDate = null;
           UI.route('sanchi');
           UI.toast('バックアップから復元しました');
         }
@@ -4684,15 +5402,24 @@ const App = {
       });
     return {text:[head, ...out].join('\r\n'), rows:out.length};
   },
-  /* 書き出す2ファイルを組み立てる。year が空文字なら全年度。
+  // 品目全体データの書き出し。取り込んだ形（資料と同じ列）でそのまま出す。
+  buildZentaiCSV(rows){
+    const head = '日付,品目,箱数,売立金額,箱平均価格';
+    const out = rows.slice()
+      .sort((a,b)=> a.date.localeCompare(b.date))
+      .map(r=>[r.date, (r.item||DEFAULT_ITEM), r.boxes, r.amount, r.avgPrice].map(App.csvCell).join(','));
+    return {text:[head, ...out].join('\r\n'), rows:out.length};
+  },
+  /* 書き出すファイルを組み立てる。year が空文字なら全年度。
      保存タブには年度バーが無いので、年度はモーダルの中で選ぶ（2026-09-07）。 */
   csvSectionsFor(item, year){
-    const {sanchi, jibun} = Compute.rowsForExport(item, year);
+    const {sanchi, jibun, zentai} = Compute.rowsForExport(item, year);
     const ts = new Date().toISOString().slice(0,10);
     // ファイル名に品目と年度を入れる。入れないと年度を続けて書き出したとき同じ名前になる。
     const tag = `${item}-${year ? year+'年度' : '全年度'}`;
     const sections = [];
     if(sanchi.length){ const s = App.buildSanchiCSV(sanchi); sections.push({name:'産地データ', filename:`curcuma-産地-${tag}-${ts}.csv`, text:s.text, rows:s.rows}); }
+    if(zentai.length){ const z = App.buildZentaiCSV(zentai); sections.push({name:'品目全体データ', filename:`curcuma-品目全体-${tag}-${ts}.csv`, text:z.text, rows:z.rows}); }
     if(jibun.length){ const j = App.buildJibunCSV(jibun); sections.push({name:'自分の出荷', filename:`curcuma-自分-${tag}-${ts}.csv`, text:j.text, rows:j.rows}); }
     return sections;
   },
@@ -4761,7 +5488,6 @@ window.__curcumaDev = {
     Store.loadSample();
     SelfTest.run();
     State.selectedVariety = MAJOR_VARIETY_KEY;
-    State.selectedDate = null;
     State.sanchiImportSummary = '';
     State.mineImportSummary = '';
     UI.route('sanchi');
@@ -4774,13 +5500,14 @@ window.__curcumaDev = {
     const byItem = {};
     const bump = (kind, name)=>{
       const k = name || DEFAULT_ITEM;
-      if(!byItem[k]) byItem[k] = {産地:0, 自分:0, 作付:0};
+      if(!byItem[k]) byItem[k] = {産地:0, 自分:0, 作付:0, 品目全体:0};
       byItem[k][kind]++;
     };
-    Store.itemNames().forEach(n=>{ if(!byItem[n]) byItem[n] = {産地:0, 自分:0, 作付:0}; });
+    Store.itemNames().forEach(n=>{ if(!byItem[n]) byItem[n] = {産地:0, 自分:0, 作付:0, 品目全体:0}; });
     Store.sanchi.forEach(r=>bump('産地', r.item));
     Store.jibun.forEach(r=>bump('自分', r.item));
     Store.sakutsuke.forEach(r=>bump('作付', r.item));
+    Store.zentai.forEach(r=>bump('品目全体', r.item));
     const m = Compute.matchJibun();
     const d = {
       build: APP_BUILD,
@@ -4789,6 +5516,7 @@ window.__curcumaDev = {
       'sanchi.size': Store.sanchi.size,
       'jibun.length': Store.jibun.length,
       'sakutsuke.length': Store.sakutsuke.length,
+      'zentai.size': Store.zentai.size,
       matched: m.filter(r=>r.matched).length,
       unmatched: m.filter(r=>!r.matched).length,
       pending: m.filter(r=>r.matched && r.pending).length
