@@ -264,8 +264,13 @@ main.is-bouncing{transition:transform 260ms cubic-bezier(.22,.61,.36,1);}
   /* ⚠ 幅は固定。日付や桁数で伸び縮みすると、タップするたび見出しの右が動いて落ち着かない
      （ユーザー指摘 2026-09-08b）。いちばん長い「12/18(火)　9,999箱」を実測して 134.3px。
      ＋左右padding16＋border2＝152.3 なので 154px 取り、中身は中央に置く。 */
-  width:154px; text-align:center;}
-.tap-readout:empty{display:none;}
+  width:154px; text-align:center;
+  /* ⚠ タップ前も高さだけは空けておく。消してしまうと、タップした瞬間に見出しが高くなり、
+     下のグラフごと少し下へずれる（実測2.8px・ユーザー指摘 2026-09-13）。
+     中身が入った時と同じ高さ＝字の大きさ×行間＋上下の余白と枠線。 */
+  min-height:calc(0.8125rem * 1.55 + 8px);}
+/* タップ前は枠と地だけ消す（大きさは残す）＝空の箱が浮かず、しかも画面が動かない。 */
+.tap-readout:empty{border-color:transparent; background:transparent;}
 .card-caption{font-size:0.75rem; color:var(--ink-muted);}
 .screen-title{font-size:1.25rem; font-weight:700;}
 /* 見出しの右にチップを添える行（保存タブの件数など） */
@@ -428,6 +433,16 @@ input[type="file"]{display:none;}
 /* 横スクロールしても左端に固定するY軸ラベル */
 .chart-yaxis{position:absolute; left:0; top:0; z-index:2; pointer-events:none; background:var(--surface); border-right:1px solid var(--border);}
 .chart-yaxis svg{display:block;}
+/* 「全体を表示」＝描いた図を、そのまま画面の幅まで縮める（2026-09-13 ユーザー要望）。
+   ⚠ 図を組み直すのではなく丸ごと拡縮する。組み直すと日付ラベルが重なるだけで、
+      「全体の形を一目で見たい」という目的に届かない。字は小さくなるが、
+      もう一度押せば元の大きさに戻る。
+   ⚠ たて軸は別のSVGを重ねてあるので、同じ倍率で縮めないと目盛りと格子がずれる。
+      倍率（--fit-k）は描いたあとでないと分からないので UI.afterRender が入れる。 */
+.fit-row{display:flex; justify-content:flex-end;}
+.chart-wrap.is-fit .chart-scroll{overflow-x:hidden;}
+.chart-wrap.is-fit .chart-scroll svg{width:100%; max-width:100%;}
+.chart-wrap.is-fit .chart-yaxis{transform:scale(var(--fit-k,1)); transform-origin:top left;}
 .donut-svg{width:150px; height:150px; flex-shrink:0; max-width:100%;}
 .donut-center-num{font-size:1.25rem; font-weight:700; fill:var(--ink);}
 .donut-center-lbl{font-size:0.625rem; fill:var(--ink-muted);}
@@ -1246,7 +1261,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-13b';
+const APP_BUILD = '2026-09-13c';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1354,8 +1369,12 @@ const ITEM_RULES = {
        ⚠ 年度の開始月（seasonStart:10）とは別物。年度は10月始まりのままで、
          軸の起点だけが12月＝出始めの11月を 0・−1・−2… で左側に置く。
        barColorVar＝箱数グラフの棒の色。すぐ下に並ぶ規格比率と同じ絵の具から採る
-       （緑のベタだけが浮いて見える、というユーザー指摘 2026-09-13）。 */
-    zentai: { baseMonth: 12, barColorVar: 'var(--chart-alert-s)' }
+       （緑のベタだけが浮いて見える、というユーザー指摘 2026-09-13）。
+       countStep＝箱数グラフのたて軸の刻み。⚠ スイピは一番多い日でも90箱ほどなので、
+       既定の500刻みだと目盛りが0と500しか出ず、棒が下にへばりついて読めない。
+       50刻みにすると90箱で上端100＝棒が図の9割まで伸びる。図の高さは変わらない
+       （目盛り2本＝68px → 下限200pxに揃うため）。 */
+    zentai: { baseMonth: 12, barColorVar: 'var(--chart-alert-s)', countStep: 50 }
   }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
@@ -2617,13 +2636,22 @@ const Charts = {
      ⚠ 500刻み×34px をそのまま当てると、箱数が1000程度の時期は目盛り3本＝68pxにしかならず
         【いまより低くなる】。「縦に伸ばしたい」という目的のほうを採って下限を200pxにした
         （刻み自動だった頃は170px＝これより少し高い）。
-     上限420px＝スマホの1画面に棒と目盛りが収まる範囲。ここに当たるのは8,000箱を超えてから。 */
+     上限420px＝スマホの1画面に棒と目盛りが収まる範囲。ここに当たるのは8,000箱を超えてから。
+
+     ⚠ 刻みは【品目ごと】に変えられる（`ITEM_RULES[].zentai.countStep`）。
+       出荷量の桁が品目でまるで違うため＝スイートピーは一番多い日でも90箱ほどで、
+       500刻みのままだと目盛りが0と500の2本しか出ず、棒が下にへばりついて読めない
+       （ユーザー指摘 2026-09-13）。スイピは50刻み。
+       書いていない品目は 500 のまま＝クルクマの見え方は1ドットも変わらない。
+     ⚠ 高さの決め方（1目盛り34px・下限200・上限420）は品目で変えない。
+       刻みを小さくしても目盛りの本数で高さが決まるので、スイピ90箱なら
+       目盛り2本＝68px → 下限の200pxに揃う＝いまと同じ大きさのまま。 */
   COUNT_STEP: 500,
   PX_PER_COUNT_STEP: 34,
   COUNT_MIN_H: 200,
   COUNT_MAX_H: 420,
-  niceCountAxis(maxV, padT, padB){
-    const step = Charts.COUNT_STEP;
+  niceCountAxis(maxV, padT, padB, stepOpt){
+    const step = stepOpt || Charts.COUNT_STEP;
     const hiY = Math.max(step, Math.ceil(Math.max(1, maxV)/step)*step);
     const innerH = Math.max(Charts.COUNT_MIN_H,
                             Math.min(Charts.COUNT_MAX_H, (hiY/step) * Charts.PX_PER_COUNT_STEP));
@@ -2850,7 +2878,7 @@ const Charts = {
           書いていない品目は従来どおり緑の85%＝見え方は1ドットも変わらない。 */
     const fill = opts.fillVar || 'var(--primary)';
     const fillOp = opts.fillVar ? 1 : 0.85;
-    const {hiY, step, innerH, H, yScale} = Charts.niceCountAxis(Math.max(...pts.map(hOf)), padT, padB);
+    const {hiY, step, innerH, H, yScale} = Charts.niceCountAxis(Math.max(...pts.map(hOf)), padT, padB, opts.countStep);
     let grid = '';
     for(let v=0; v<=hiY+0.5; v+=step){
       const y = yScale(v);
@@ -3102,7 +3130,10 @@ const State = {
   manageKind: 'sanchi',   // 'sanchi'（産地データ）/'zentai'（品目全体データ）
   manageYear: null,       // 選択中の年度。データのある年度に無ければ最新へ寄せる
   manageMonthsOpen: [],   // 開いている月（'YYYY-MM'）
-  manageDaysOpen: []      // CSVを開いている日（'YYYY-MM-DD'）
+  manageDaysOpen: [],     // CSVを開いている日（'YYYY-MM-DD'）
+  /* 「全体を表示」に切り替えているグラフ（'multi'/'line'/'price'/'boxes'/'mix'）。
+     既定は空＝どれも今までどおり実寸で横スクロール。 */
+  fitCharts: []
 };
 
 /* ============================== UI ============================== */
@@ -3496,6 +3527,7 @@ const UI = {
       // ⚠ 1画面に2つ出ることがある（箱数＋規格の割合）ので、全部に当てる。
       //    ただし動かすのはここ（描いた直後）だけ。スクロール中に書き込むと払いが止まる。
       document.querySelectorAll('#main .chart-scroll').forEach(s=>{ s.scrollLeft = s.scrollWidth; });
+      UI.syncFitScale();
     }
     if(State.tab==='mine'){
       /* 出荷明細一覧の月アコーディオン。開閉状態は State.shipMonthsOpen に控えて
@@ -3588,6 +3620,25 @@ const UI = {
           : `、一番上が${Fmt.esc(mix.labels[OTHER])}`)
       + `）</p>`;
   },
+  /* 「全体を表示」ボタン（横スクロールするグラフすべてに1つずつ）。
+     どのグラフを縮めているかは State.fitCharts に控える＝描き直しをまたいで残る。
+     key は 'multi'（主要5品種）/'line'（単一品種）/'price'（5カ年）/'boxes'/'mix'。 */
+  isFit(key){ return (State.fitCharts || []).includes(key); },
+  fitClass(key){ return UI.isFit(key) ? ' is-fit' : ''; },
+  fitButton(key){
+    return `<div class="fit-row"><button type="button" class="btn btn-sm btn-ghost" data-action="toggle-fit" data-fit="${key}">${UI.isFit(key) ? '元の大きさ' : '全体を表示'}</button></div>`;
+  },
+  /* 縮める倍率を測って --fit-k に入れる。図の幅は描いてみるまで分からないので、
+     描いたあと（afterRender）と、画面の幅が変わったとき（画面を横にした等）に呼ぶ。
+     ⚠ 呼び直さないと、重ねてあるたて軸だけ前の倍率のまま残って目盛りと格子がずれる。 */
+  syncFitScale(){
+    document.querySelectorAll('#main .chart-wrap.is-fit').forEach(w=>{
+      const svg = w.querySelector('.chart-scroll svg[data-w]');
+      const W = svg ? parseFloat(svg.getAttribute('data-w')) : 0;
+      const box = w.clientWidth;
+      if(W > 0 && box > 0) w.style.setProperty('--fit-k', (box / W).toFixed(4));
+    });
+  },
   // 重ねて表示する品種。MAJOR_VARIETIES に載っていて実際にデータがあるものを優先し、
   // 1件も無い品目では箱数の多い順に上位を代用する。list は Compute.varietyList()（箱数降順）。
   majorVarieties(list){
@@ -3633,7 +3684,7 @@ const UI = {
     const varietyOptions = hasZentai
       ? `<optgroup label="品目全体">
             <option value="${ZENTAI_PRICE_KEY}" ${State.selectedVariety===ZENTAI_PRICE_KEY?'selected':''}>箱単価 ${ZENTAI_YEARS}カ年比較</option>
-            <option value="${ZENTAI_BOXES_KEY}" ${State.selectedVariety===ZENTAI_BOXES_KEY?'selected':''}>箱数</option>
+            <option value="${ZENTAI_BOXES_KEY}" ${State.selectedVariety===ZENTAI_BOXES_KEY?'selected':''}>箱数／規格比率</option>
           </optgroup>${list.length ? `<optgroup label="品種別">${varietyGroup}</optgroup>` : ''}`
       : varietyGroup;
 
@@ -3701,7 +3752,7 @@ const UI = {
         if(anyShown){
           const {svg, isolated, ptMeta, w, yAxis} = Charts.multiLineSVG(chartSeries, {mix});
           State.multiMeta = {ptMeta, w};
-          chartInner = `<div class="chart-wrap" data-multiline-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          chartInner = `<div class="chart-wrap${UI.fitClass('multi')}" data-multiline-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('multi')}
             <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>`;
           if(isolated) isolatedNote = `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>`;
         } else {
@@ -3730,7 +3781,7 @@ const UI = {
       } else {
         const {svg, isolated, yAxis} = Charts.lineSVG(points, {mix});
         lineBlock = `
-          <div class="chart-wrap" data-line-wrap data-variety="${Fmt.esc(variety)}"><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          <div class="chart-wrap${UI.fitClass('line')}" data-line-wrap data-variety="${Fmt.esc(variety)}"><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('line')}
           <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>${UI.sizeBarNote(mix)}
           ${isolated ? `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>` : ''}
         `;
@@ -3787,7 +3838,8 @@ const UI = {
 
       // 棒は3点移動平均。火曜だけ落ち込むギザギザを均す（ユーザー指定 2026-09-08b）
       const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(Compute.zentaiBoxMA(own),
-        {iMin, iMax, fillVar: (rule.zentai || {}).barColorVar});
+        {iMin, iMax, fillVar: (rule.zentai || {}).barColorVar,
+         countStep: (rule.zentai || {}).countStep});
       State.zentaiMeta = {ptMeta, w, kind:'boxes'};
 
       let mixCard = '';
@@ -3801,7 +3853,7 @@ const UI = {
         mixCard = `
         <div class="card">
           <div class="card-head"><h2 class="card-title">規格比率</h2><span class="tap-readout tnum" id="mix-tap"></span></div>
-          <div class="chart-wrap" data-mix-wrap><div class="chart-scroll">${m.svg}</div></div>
+          <div class="chart-wrap${UI.fitClass('mix')}" data-mix-wrap><div class="chart-scroll">${m.svg}</div></div>${UI.fitButton('mix')}
           <p class="chart-note">その日の箱数を規格で分けた割合です（下から ${Fmt.esc(stack)}、一番上がその他）。どの日も高さは100%にそろえてあります。棒をタップすると日付と箱数が見出しの右に出ます。</p>
           <p class="chart-note">⚠ この割合は【品種別の市況CSV】から、上の箱数は【JAの品目別市況】から出しています。別の資料ですが、箱数が一致することを原本で確かめてあります。</p>
         </div>`;
@@ -3811,7 +3863,7 @@ const UI = {
       return `
         <div class="card">
           <div class="card-head"><h2 class="card-title">箱数</h2><span class="tap-readout tnum" id="zentai-tap"></span></div>
-          <div class="chart-wrap" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          <div class="chart-wrap${UI.fitClass('boxes')}" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('boxes')}
           <p class="chart-note">産地全体の出荷箱数です。棒が立っていない所は資料が無い日です。棒の高さは前後の出荷日と合わせた3点の平均（火曜は少なくなる傾向があり、生のままだとギザギザして流れが読めないため）。資料が抜けている日はまたがず、あるぶんだけで平均します。<b>棒をタップすると、その日の実際の箱数</b>が見出しの右に出ます。</p>
         </div>${mixCard}`;
     }
@@ -3831,7 +3883,7 @@ const UI = {
     if(anyShown){
       const {svg, ptMeta, w, yAxis} = Charts.zentaiLineSVG(chartSeries, {labels});
       State.zentaiMeta = {ptMeta, w, kind:'price'};
-      inner = `<div class="chart-wrap" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+      inner = `<div class="chart-wrap${UI.fitClass('price')}" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('price')}
         <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>`;
     } else {
       State.zentaiMeta = null;
@@ -5101,6 +5153,8 @@ const App = {
     document.addEventListener('input', (e)=>{
       if(e.target.classList && e.target.classList.contains('csv-edit')) App.autoGrowCsv(e.target);
     });
+    // 画面の幅が変わったら「全体を表示」の倍率を測り直す（横向きにした時など）
+    window.addEventListener('resize', UI.syncFitScale);
     // 年度バーの指の動き。バー本体は作り直さないので1回付ければ足りる。
     UI.wireYearBar();
     // 一番上でさらに上へ引いた時の、小さな伸び
@@ -5305,6 +5359,14 @@ const App = {
         UI.renderMain();
         break;
       }
+      case 'toggle-fit': {
+        // 「全体を表示」⇄「元の大きさ」。グラフごとに覚える（描き直しをまたいで残る）
+        const k = t.getAttribute('data-fit');
+        const i = State.fitCharts.indexOf(k);
+        if(i < 0) State.fitCharts.push(k); else State.fitCharts.splice(i, 1);
+        UI.renderMain();
+        break;
+      }
       case 'copy-import-day': {
         /* ⚠ ここは同期のまま走らせること（await を挟まない）。ブラウザは
            「いま叩かれたボタンの処理の中か」でコピーの可否を決める。 */
@@ -5407,6 +5469,7 @@ const App = {
     Store.rememberItem(State.selectedItem);
     State.selectedVariety = MAJOR_VARIETY_KEY;
     State.selectedSeries = [];
+    State.fitCharts = [];   // 品目・年度を変えたら図も別物＝縮め方は持ち越さない
     State.shipMonthsOpen = [];
     State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
     UI.renderMain();
@@ -5428,6 +5491,9 @@ const App = {
     }
     if(e.target.id==='variety-select'){
       State.selectedVariety = e.target.value;
+      /* 表示を切り替えたら「全体を表示」は解除する（ユーザー指定 2026-09-13）。
+         切り替え先は別のグラフなので、前の図の縮め方を持ち込まない。 */
+      State.fitCharts = [];
       UI.renderMain();
       return;
     }
