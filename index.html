@@ -1205,7 +1205,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-09b';
+const APP_BUILD = '2026-09-13a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1262,7 +1262,9 @@ const ITEM_RULES = {
     },
     // 品目全体データ（JAの共選共販市況）の横軸の基準月。5月最初の日・火・木が1回目。
     // 2026年なら 5/3(日) が1回目で、お盆前の最終出荷 8/13 が45回目になる（前提メモ A-17）。
-    zentai: { baseMonth: 5 }
+    // barColorVar＝箱数グラフの棒の色。すぐ下に並ぶ規格比率と同じ絵の具から採る
+    // （緑のベタだけが浮いて見える、というユーザー指摘 2026-09-13）。
+    zentai: { baseMonth: 5, barColorVar: 'var(--chart-other-s)' }
   },
   // スイートピーは 10〜11月始まり・2〜3月終了。10始まりにしておくと、
   // 10月に出荷があった年もその分が前シーズンへ分断されない。
@@ -1309,8 +1311,10 @@ const ITEM_RULES = {
     /* 品目全体データの横軸の基準月。スイピは12月最初の日・火・木が1回目。
        スイピには揃えるべき物日が無い（前提メモ A-16）ので、基準日は厳密でなくてよい。
        ⚠ 年度の開始月（seasonStart:10）とは別物。年度は10月始まりのままで、
-         軸の起点だけが12月＝出始めの11月を 0・−1・−2… で左側に置く。 */
-    zentai: { baseMonth: 12 }
+         軸の起点だけが12月＝出始めの11月を 0・−1・−2… で左側に置く。
+       barColorVar＝箱数グラフの棒の色。すぐ下に並ぶ規格比率と同じ絵の具から採る
+       （緑のベタだけが浮いて見える、というユーザー指摘 2026-09-13）。 */
+    zentai: { baseMonth: 12, barColorVar: 'var(--chart-alert-s)' }
   }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
@@ -1558,6 +1562,33 @@ const Store = {
     });
     if(added+updated>0){ Store.dirtyCount += (added+updated); Store.persist(); }
     return {added, updated};
+  },
+  /* 取り込んだ資料を1日ぶんまとめて消す（2026-09-13 新設）。
+     消す単位を「1日」にしたのは、資料が1日1枚で届くから＝消した結果を
+     「5/14 のぶんを消した」と一言で言える（ユーザー判断）。
+
+     ⚠ これが要るのは主に産地データのほう。品目全体は 品目＋日付 がキーなので
+       同じ日を入れ直せば丸ごと上書きされるが、産地は
+       日付×品種×等級×階級×本数 がキー＝品種名や本数を間違えた行は、
+       直したCSVを入れ直しても【別の行として増えるだけで間違いが残る】。
+
+     消した中身をそのまま返す＝トーストの「元に戻す」で戻せる（自分の出荷と同じ作法）。 */
+  removeImportedDay(kind, item, date){
+    const map = (kind === 'zentai') ? Store.zentai : Store.sanchi;
+    const it = item || DEFAULT_ITEM;
+    const taken = [];
+    map.forEach((rec, k)=>{ if((rec.item || DEFAULT_ITEM) === it && rec.date === date) taken.push([k, rec]); });
+    if(!taken.length) return null;
+    taken.forEach(([k])=> map.delete(k));
+    Store.dirtyCount += taken.length;
+    Store.persist();
+    return {kind, entries:taken};
+  },
+  restoreImportedDay(removed){
+    if(!removed) return;
+    const map = (removed.kind === 'zentai') ? Store.zentai : Store.sanchi;
+    removed.entries.forEach(([k, rec])=> map.set(k, rec));
+    Store.persist();
   },
   // 未確定だった市況行の箱単価を後から確定させる（keyで特定→数値をセット）。以降の再描画でmySalesが自動再計算される。
   setSanchiPrice(key, price){
@@ -1874,6 +1905,52 @@ const Compute = {
     Store.jibun.forEach(add);
     Store.zentai.forEach(add);
     return Array.from(s).sort().reverse();
+  },
+  /* 取込タブの「取り込んだデータを消す」一覧（2026-09-13 新設）。
+     kind='sanchi'（産地データ）/'zentai'（品目全体データ）。月の入れ子で、新しい月・新しい日が上。
+     ⚠ 表示中の年度ではなく引数の年度で切る＝取込タブには年度バーが無いので、
+       この機能だけが中で年度を選ぶ（CSV書き出しと同じ作り）。 */
+  importedDays(kind, item, year){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const y = String(year || '');
+    const src = (kind === 'zentai') ? Store.zentai : Store.sanchi;
+    const byDate = new Map();
+    src.forEach(r=>{
+      if((r.item || DEFAULT_ITEM) !== it) return;
+      if(y && Compute.seasonYear(r.date, it) !== y) return;
+      if(!byDate.has(r.date)) byDate.set(r.date, []);
+      byDate.get(r.date).push(r);
+    });
+    const days = Array.from(byDate.entries()).map(([date, rows])=>{
+      // 品目全体はその日1行きり＝箱数と売立金額をそのまま出す。
+      // 産地は何行にも分かれるので、行数・品種数・箱数の3つで「その日らしさ」を出す。
+      if(kind === 'zentai'){
+        const r = rows[0];
+        return {date, rows:rows.length, boxes:Number(r.boxes)||0, amount:Number(r.amount)||0, varieties:0};
+      }
+      return {date, rows:rows.length,
+              boxes: rows.reduce((s,r)=> s + (Number(r.boxQty)||0), 0),
+              amount: 0,
+              varieties: new Set(rows.map(r=>r.variety).filter(Boolean)).size};
+    }).sort((a,b)=> b.date.localeCompare(a.date));
+    const months = [];
+    days.forEach(d=>{
+      const ym = d.date.slice(0,7);
+      let m = months.find(x=>x.ym === ym);
+      if(!m){ m = {ym, days:[], rows:0, boxes:0, amount:0}; months.push(m); }
+      m.days.push(d); m.rows += d.rows; m.boxes += d.boxes; m.amount += d.amount;
+    });
+    return months;
+  },
+  // 1日ぶんの数え上げ。削除の確認に出す数字を、一覧と同じ数え方で出すため（別々に数えるとズレる）。
+  importedDayAt(kind, item, date){
+    const it = item || State.selectedItem || DEFAULT_ITEM;
+    const months = Compute.importedDays(kind, it, Compute.seasonYear(date, it));
+    for(const m of months){
+      const d = m.days.find(x=>x.date === date);
+      if(d) return d;
+    }
+    return null;
   },
   /* 品種名の入力補助（手入力フォームの自由入力欄）。こちらも取込タブから使うので年度で絞らない。 */
   itemDataVarieties(item){
@@ -2726,6 +2803,12 @@ const Charts = {
     /* 棒の高さは箱数の移動平均（boxMA）。渡されていなければ生の箱数のまま。
        ⚠ p.ma を見てはいけない＝あれは箱単価の移動平均で、桁が違う（Compute.zentaiBoxMA のコメント）。 */
     const hOf = (p)=> (p.boxMA != null) ? p.boxMA : p.boxes;
+    /* 棒の色は品目ごとに ITEM_RULES[].zentai.barColorVar で決める。すぐ下の規格比率と
+       同じ絵の具から採るため（緑のベタだけが浮いて見える＝ユーザー指摘 2026-09-13）。
+       ⚠ 渡される色は【あらかじめ濃さを作り込んだ -s 系】なので、薄めずにそのまま敷く。
+          書いていない品目は従来どおり緑の85%＝見え方は1ドットも変わらない。 */
+    const fill = opts.fillVar || 'var(--primary)';
+    const fillOp = opts.fillVar ? 1 : 0.85;
     const {hiY, step, innerH, H, yScale} = Charts.niceCountAxis(Math.max(...pts.map(hOf)), padT, padB);
     let grid = '';
     for(let v=0; v<=hiY+0.5; v+=step){
@@ -2739,9 +2822,9 @@ const Charts = {
     const y0 = padT + innerH;
     pts.forEach(p=>{
       const x = xScale(p.i), y = yScale(hOf(p));
-      bars += `<rect x="${(x-BW/2).toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${(y0-y).toFixed(1)}" rx="2" fill="var(--primary)" fill-opacity="0.85"/>`;
+      bars += `<rect x="${(x-BW/2).toFixed(1)}" y="${y.toFixed(1)}" width="${BW}" height="${(y0-y).toFixed(1)}" rx="2" fill="${fill}" fill-opacity="${fillOp}"/>`;
       // 選んだ時に囲む枠の寸法も持たせる（棒が細いので、丸い印では見えない＝ユーザー指摘）
-      ptMeta.push({x, y, bx:x-BW/2-3, by:y-3, bw:BW+6, bh:(y0-y)+6, color:'var(--primary)', ...p});
+      ptMeta.push({x, y, bx:x-BW/2-3, by:y-3, bw:BW+6, bh:(y0-y)+6, color:fill, ...p});
     });
     const highlight = Charts.barHighlight();
     const svg = `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px" role="img" aria-label="箱数" data-zentai-chart data-w="${W}">
@@ -2971,7 +3054,13 @@ const State = {
   zentaiImportSummary: '',
   mineImportSummary: '',
   multiMeta: null,
-  shipMonthsOpen: []      // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
+  shipMonthsOpen: [],     // 出荷明細一覧で開いている月（'YYYY-MM'）。既定は全て閉じる
+  /* 取込タブの「取り込んだデータを消す」。消したあとの描き直しで
+     開いていた場所が閉じてしまわないよう、開閉と選択をここに控える。 */
+  manageOpen: false,      // 見開きそのもの（既定は閉じる）
+  manageKind: 'sanchi',   // 'sanchi'（産地データ）/'zentai'（品目全体データ）
+  manageYear: null,       // 選択中の年度。データのある年度に無ければ最新へ寄せる
+  manageMonthsOpen: []    // 開いている月（'YYYY-MM'）
 };
 
 /* ============================== UI ============================== */
@@ -3399,6 +3488,18 @@ const UI = {
         seg.classList.toggle('hidden', State.mineMode!=='csv');
         seg2.classList.toggle('hidden', State.mineMode!=='manual');
       }
+      /* 「取り込んだデータを消す」の開閉を控える。消すと画面を描き直すので、
+         控えていないと消すたびに見開きが閉じて、続けて消せない。 */
+      const root = document.querySelector('#main details[data-manage-root]');
+      if(root) root.addEventListener('toggle', ()=>{ State.manageOpen = root.open; });
+      document.querySelectorAll('#main details[data-manage-ym]').forEach(d=>{
+        d.addEventListener('toggle', ()=>{
+          const ym = d.getAttribute('data-manage-ym');
+          const i = State.manageMonthsOpen.indexOf(ym);
+          if(d.open){ if(i<0) State.manageMonthsOpen.push(ym); }
+          else if(i>=0) State.manageMonthsOpen.splice(i,1);
+        });
+      });
     }
   },
 
@@ -3624,7 +3725,8 @@ const UI = {
       const iMax = allI.length ? Math.max(...allI) : null;
 
       // 棒は3点移動平均。火曜だけ落ち込むギザギザを均す（ユーザー指定 2026-09-08b）
-      const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(Compute.zentaiBoxMA(own), {iMin, iMax});
+      const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(Compute.zentaiBoxMA(own),
+        {iMin, iMax, fillVar: (rule.zentai || {}).barColorVar});
       State.zentaiMeta = {ptMeta, w, kind:'boxes'};
 
       let mixCard = '';
@@ -4121,7 +4223,68 @@ const UI = {
         </form>
       </div>
       ${UI.importErrorsHTML()}
+      ${UI.importManageHTML()}
     `;
+  },
+
+  /* 取り込んだデータを日ごとに消す（2026-09-13 新設）。取込タブの一番下・既定は閉じる。
+     ここに置いたのは動線＝間違いに気づくのは取り込んだ直後で、そのあとやることは
+     「消す→入れ直す」。同じ画面で終わるようにした（産地タブに置くと往復になる）。
+     年度は中で選ぶ＝取込タブには年度バーが無いため（CSV書き出しと同じ作り）。 */
+  importManageHTML(){
+    const item = State.selectedItem || DEFAULT_ITEM;
+    const years = Compute.yearsWithData(item);
+    if(!years.length) return '';
+    const year = years.includes(State.manageYear) ? State.manageYear : years[0];
+    // 品目全体データを使わない品目では、切り替えを出さず産地データだけにする
+    const hasZentai = !!itemRule(item).zentai;
+    const kind = (hasZentai && State.manageKind === 'zentai') ? 'zentai' : 'sanchi';
+    const months = Compute.importedDays(kind, item, year);
+    const yearOpts = years.map(y=>`<option value="${Fmt.esc(y)}" ${y===year?'selected':''}>${Fmt.esc(y)}年度</option>`).join('');
+    const segmented = hasZentai ? `
+      <div class="segmented" role="tablist">
+        <button role="tab" aria-selected="${kind==='sanchi'}" data-action="manage-kind" data-kind="sanchi">産地データ</button>
+        <button role="tab" aria-selected="${kind==='zentai'}" data-action="manage-kind" data-kind="zentai">品目全体データ</button>
+      </div>` : '';
+    const body = months.length ? months.map(m=>{
+      const open = State.manageMonthsOpen.includes(m.ym);
+      const rows = m.days.map(d=>`
+        <div class="ship-row">
+          <div class="ship-main">
+            <span class="ship-date tnum">${Fmt.date(d.date)}(${Fmt.wd(d.date)})</span>
+            <span class="ship-detail tnum">${UI.importedDayText(kind, d)}</span>
+          </div>
+          <button class="ship-del" data-action="delete-import-day" data-kind="${kind}" data-date="${Fmt.esc(d.date)}" aria-label="この日のデータを消す">${Icon.trash}</button>
+        </div>`).join('');
+      return `
+        <details class="collapse ship-month" data-manage-ym="${m.ym}"${open?' open':''}>
+          <summary>
+            <span class="sm-title">${Number(m.ym.slice(5))}月</span>
+            <span class="sm-meta tnum">${m.days.length}日・${Fmt.num(m.boxes)}箱</span>
+          </summary>
+          <div class="stack" style="margin-top:var(--sp3)">${rows}</div>
+        </details>`;
+    }).join('') : `<p class="muted" style="font-size:0.8125rem">${Fmt.esc(year)}年度のデータはまだありません。</p>`;
+    return `
+      <div class="card">
+        <details class="collapse" data-manage-root${State.manageOpen?' open':''}>
+          <summary>取り込んだデータを消す</summary>
+          <div class="stack" style="margin-top:var(--sp3)">
+            ${segmented}
+            <label class="field">年度
+              <div class="select-wrap"><select data-action="manage-year">${yearOpts}</select></div>
+            </label>
+            ${body}
+            <p class="muted" style="font-size:0.75rem">消すのは1日ぶんまとめてです。消した直後なら「元に戻す」で戻せます。</p>
+          </div>
+        </details>
+      </div>`;
+  },
+  // 日ごとの一行に出す数字。資料の性格が違うので出すものも変える。
+  importedDayText(kind, d){
+    return (kind === 'zentai')
+      ? `${Fmt.num(d.boxes)}箱・${Fmt.yen(d.amount)}`
+      : `${d.rows}行・${d.varieties}品種・${Fmt.num(d.boxes)}箱`;
   },
 
   /* 取り込めなかった行の置き場（2026-09-07 新設）。取込1回＝1枠で新しい順。
@@ -5053,6 +5216,33 @@ const App = {
         UI.toast('消しました');
         break;
       }
+      case 'manage-kind': {
+        State.manageKind = t.getAttribute('data-kind');
+        State.manageMonthsOpen = []; // 資料が変われば日付の並びも変わる
+        UI.renderMain();
+        break;
+      }
+      case 'delete-import-day': {
+        /* 1日ぶんまとめて消す。確認を一枚はさむのは「消していいか」より
+           【選んだ日が合っているか】を見せるため＝一覧は要約なので押し間違えても気づけない。
+           消したあとは自分の出荷と同じく「元に戻す」を出す。 */
+        const kind = t.getAttribute('data-kind'), date = t.getAttribute('data-date');
+        const item = State.selectedItem || DEFAULT_ITEM;
+        const d = Compute.importedDayAt(kind, item, date);
+        if(!d) break;
+        const label = (kind === 'zentai') ? '品目全体データ' : '産地データ';
+        UI.modal('この日のデータを消しますか？',
+          `<b>${Fmt.esc(Fmt.date(date))}（${Fmt.esc(Fmt.wd(date))}）</b>の${label}を消します。<br>${Fmt.esc(UI.importedDayText(kind, d))}<br><br>同じ日のCSVを取り込み直せば元に戻せます。`,
+          {danger:true, confirmLabel:'消す', onConfirm:()=>{
+            const removed = Store.removeImportedDay(kind, item, date);
+            UI.renderMain();
+            if(removed){
+              UI.toast('消しました', {actionLabel:'元に戻す', duration:5000,
+                onAction:()=>{ Store.restoreImportedDay(removed); UI.renderMain(); }});
+            }
+          }});
+        break;
+      }
       case 'clear-import-errors-all': {
         // 画面に出ている分＝いま選んでいる品目の分だけを消す（見えていないものは消さない）
         const item = State.selectedItem || DEFAULT_ITEM;
@@ -5143,6 +5333,13 @@ const App = {
     }
     if(e.target.id==='variety-select'){
       State.selectedVariety = e.target.value;
+      UI.renderMain();
+      return;
+    }
+    if(e.target.getAttribute && e.target.getAttribute('data-action')==='manage-year'){
+      // 「取り込んだデータを消す」の年度。取込タブには年度バーが無いのでここで選ぶ。
+      State.manageYear = e.target.value;
+      State.manageMonthsOpen = []; // 別の年度の月を開いたままにしない
       UI.renderMain();
       return;
     }
