@@ -439,7 +439,7 @@ input[type="file"]{display:none;}
       もう一度押せば元の大きさに戻る。
    ⚠ たて軸は別のSVGを重ねてあるので、同じ倍率で縮めないと目盛りと格子がずれる。
       倍率（--fit-k）は描いたあとでないと分からないので UI.afterRender が入れる。 */
-.fit-row{display:flex; justify-content:flex-end;}
+.fit-row{display:flex; justify-content:flex-end; gap:var(--sp2);}
 .chart-wrap.is-fit .chart-scroll{overflow-x:hidden;}
 .chart-wrap.is-fit .chart-scroll svg{width:100%; max-width:100%;}
 .chart-wrap.is-fit .chart-yaxis{transform:scale(var(--fit-k,1)); transform-origin:top left;}
@@ -498,6 +498,10 @@ input[type="file"]{display:none;}
 .series-legend .legend-item.series-off .legend-label{text-decoration:line-through;}
 .series-dot{width:28px; height:6px; border-radius:3px; flex-shrink:0;}
 .series-muted{opacity:0.5;}
+/* 規格の色つき凡例（横一列・折り返し可）。tap 等の操作は持たない、色の対応だけの表示 */
+.size-legend{display:flex; flex-wrap:wrap; gap:var(--sp2) var(--sp4); padding:6px 2px;}
+.size-legend-item{display:flex; align-items:center; gap:5px; font-size:0.8125rem; color:var(--ink);}
+.size-legend-dot{width:12px; height:12px; border-radius:3px; flex-shrink:0;}
 
 /* ---- Shipment list ---- */
 .ship-row{display:flex; align-items:center; justify-content:space-between; gap:var(--sp3); padding:var(--sp3); border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface-2);}
@@ -1261,7 +1265,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-13c';
+const APP_BUILD = '2026-09-15a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -3133,7 +3137,8 @@ const State = {
   manageDaysOpen: [],     // CSVを開いている日（'YYYY-MM-DD'）
   /* 「全体を表示」に切り替えているグラフ（'multi'/'line'/'price'/'boxes'/'mix'）。
      既定は空＝どれも今までどおり実寸で横スクロール。 */
-  fitCharts: []
+  fitCharts: [],
+  boxesRaw: false   // 箱数グラフ：false=3点移動平均（既定）／true=生データ（ユーザー指定 2026-09-15）
 };
 
 /* ============================== UI ============================== */
@@ -3597,8 +3602,8 @@ const UI = {
   },
 
   /* ---------- Screen: 産地分析 ---------- */
-  /* 背景の規格バーの読み方（1行）。凡例と箱数は出さない（ユーザー判断 2026-09-06）が、
-     色と規格の対応だけはどこかに要るので、ここで文にして済ませている。
+  /* 背景の規格バーの読み方（1行）。箱数は出さない（ユーザー判断 2026-09-06）。
+     凡例は当初出していなかったが、2026-09-15 にユーザー指定で横一列の色凡例（sizeLegendHTML）を追加した。
      棒が無い品目では空文字＝改行も足さない。
      ⚠ 「その他」の言い方は品目で変わる。合図として強調する品目（スイピ）は
         「出た日だけ一番上に乗る」＝出ない日があることが情報なので、そう言う。
@@ -3620,13 +3625,31 @@ const UI = {
           : `、一番上が${Fmt.esc(mix.labels[OTHER])}`)
       + `）</p>`;
   },
+  /* 規格の色つき凡例（横一列）。規格比率カードと単品種の価格グラフで共通に使う。
+     色は規格比率グラフと同じ【solid】を使う（薄敷きの色だと帯と印象が変わるため）。 */
+  sizeLegendHTML(mix){
+    if(!mix || !mix.order || mix.order.length===0) return '';
+    const items = mix.order.map(key=>{
+      const color = (mix.solid && mix.solid[key]) || mix.colors[key];
+      return `<span class="size-legend-item"><span class="size-legend-dot" style="background:${color}"></span>${Fmt.esc(mix.labels[key])}</span>`;
+    }).join('');
+    return `<div class="size-legend">${items}</div>`;
+  },
   /* 「全体を表示」ボタン（横スクロールするグラフすべてに1つずつ）。
      どのグラフを縮めているかは State.fitCharts に控える＝描き直しをまたいで残る。
      key は 'multi'（主要5品種）/'line'（単一品種）/'price'（5カ年）/'boxes'/'mix'。 */
   isFit(key){ return (State.fitCharts || []).includes(key); },
   fitClass(key){ return UI.isFit(key) ? ' is-fit' : ''; },
+  fitButtonInner(key){
+    return `<button type="button" class="btn btn-sm btn-ghost" data-action="toggle-fit" data-fit="${key}">${UI.isFit(key) ? '元の大きさ' : '全体を表示'}</button>`;
+  },
   fitButton(key){
-    return `<div class="fit-row"><button type="button" class="btn btn-sm btn-ghost" data-action="toggle-fit" data-fit="${key}">${UI.isFit(key) ? '元の大きさ' : '全体を表示'}</button></div>`;
+    return `<div class="fit-row">${UI.fitButtonInner(key)}</div>`;
+  },
+  // 箱数グラフの「生データ」⇄「移動平均」切り替え（ユーザー指定 2026-09-15）。
+  // State.boxesRaw に控える＝品目・年度・表示を変えたらリセット（fitCharts と同じ扱い）。
+  rawToggleButton(){
+    return `<button type="button" class="btn btn-sm btn-ghost" data-action="toggle-box-raw">${State.boxesRaw ? '移動平均' : '生データ'}</button>`;
   },
   /* 縮める倍率を測って --fit-k に入れる。図の幅は描いてみるまで分からないので、
      描いたあと（afterRender）と、画面の幅が変わったとき（画面を横にした等）に呼ぶ。
@@ -3782,7 +3805,7 @@ const UI = {
         const {svg, isolated, yAxis} = Charts.lineSVG(points, {mix});
         lineBlock = `
           <div class="chart-wrap${UI.fitClass('line')}" data-line-wrap data-variety="${Fmt.esc(variety)}"><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('line')}
-          <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>${UI.sizeBarNote(mix)}
+          <div class="chart-detail" id="line-detail" data-empty="true">プロットをタップすると詳細を表示します</div>${UI.sizeLegendHTML(mix)}
           ${isolated ? `<p class="chart-caption">連続データが少ないため、一部は単独の点のみ表示しています（データ不足）。</p>` : ''}
         `;
       }
@@ -3836,8 +3859,12 @@ const UI = {
       const iMin = allI.length ? Math.min(...allI) : null;
       const iMax = allI.length ? Math.max(...allI) : null;
 
-      // 棒は3点移動平均。火曜だけ落ち込むギザギザを均す（ユーザー指定 2026-09-08b）
-      const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(Compute.zentaiBoxMA(own),
+      /* 棒は既定で3点移動平均。火曜だけ落ち込むギザギザを均す（ユーザー指定 2026-09-08b）。
+         State.boxesRaw で生データに切り替え可能（ユーザー指定 2026-09-15）＝
+         zentaiBarsSVG の hOf は boxMA が無ければ p.boxes をそのまま使うので、
+         生データ時は own をそのまま渡せばよい（boxMA を持たない）。 */
+      const boxSrc = State.boxesRaw ? own : Compute.zentaiBoxMA(own);
+      const {svg, ptMeta, w, yAxis} = Charts.zentaiBarsSVG(boxSrc,
         {iMin, iMax, fillVar: (rule.zentai || {}).barColorVar,
          countStep: (rule.zentai || {}).countStep});
       State.zentaiMeta = {ptMeta, w, kind:'boxes'};
@@ -3846,16 +3873,15 @@ const UI = {
       if(mixPts){
         const m = Charts.zentaiMixSVG(mixPts, mixData.mix, iMin, iMax);
         State.mixMeta = {ptMeta:m.ptMeta, w:m.w, mix:mixData.mix};
-        const stack = mixData.mix.order.filter(k=>k!==Compute.SIZE_BAR_OTHER)
-          .map(k=>mixData.mix.labels[k]).join('・');
         /* 詳細は大きなカードを置かず、見出しの右の空きに日付と箱数だけ出す（ユーザー指定）。
-           タップするまでは空。棒をタップすると UI.wireMixTooltip が中身を書き込む。 */
+           タップするまでは空。棒をタップすると UI.wireMixTooltip が中身を書き込む。
+           説明文はやめて横一列の色凡例だけにした（ユーザー指定 2026-09-15）。
+           出どころの注記（品種別の市況CSV／JAの品目別市況の突き合わせ）は下の箱数カードへ移した。 */
         mixCard = `
         <div class="card">
           <div class="card-head"><h2 class="card-title">規格比率</h2><span class="tap-readout tnum" id="mix-tap"></span></div>
           <div class="chart-wrap${UI.fitClass('mix')}" data-mix-wrap><div class="chart-scroll">${m.svg}</div></div>${UI.fitButton('mix')}
-          <p class="chart-note">その日の箱数を規格で分けた割合です（下から ${Fmt.esc(stack)}、一番上がその他）。どの日も高さは100%にそろえてあります。棒をタップすると日付と箱数が見出しの右に出ます。</p>
-          <p class="chart-note">⚠ この割合は【品種別の市況CSV】から、上の箱数は【JAの品目別市況】から出しています。別の資料ですが、箱数が一致することを原本で確かめてあります。</p>
+          ${UI.sizeLegendHTML(mixData.mix)}
         </div>`;
       } else {
         State.mixMeta = null;
@@ -3863,8 +3889,10 @@ const UI = {
       return `
         <div class="card">
           <div class="card-head"><h2 class="card-title">箱数</h2><span class="tap-readout tnum" id="zentai-tap"></span></div>
-          <div class="chart-wrap${UI.fitClass('boxes')}" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>${UI.fitButton('boxes')}
-          <p class="chart-note">産地全体の出荷箱数です。棒が立っていない所は資料が無い日です。棒の高さは前後の出荷日と合わせた3点の平均（火曜は少なくなる傾向があり、生のままだとギザギザして流れが読めないため）。資料が抜けている日はまたがず、あるぶんだけで平均します。<b>棒をタップすると、その日の実際の箱数</b>が見出しの右に出ます。</p>
+          <div class="chart-wrap${UI.fitClass('boxes')}" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
+          <div class="fit-row">${UI.rawToggleButton()}${UI.fitButtonInner('boxes')}</div>
+          <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
+          <p class="chart-note">参照元：品目別市況</p>
         </div>${mixCard}`;
     }
 
@@ -3899,10 +3927,11 @@ const UI = {
     }).join('');
     return `
       <div class="card">
-        <div class="card-head"><h2 class="card-title">箱単価 ${ZENTAI_YEARS}カ年比較</h2></div>
+        <div class="card-head"><h2 class="card-title">箱単価 ${ZENTAI_YEARS}カ年比較</h2><span class="muted" style="white-space:nowrap">${rule.zentai.baseMonth}月最初</span></div>
         ${inner}
         <div class="series-legend">${legend}</div>
-        <p class="chart-note">線は3点移動平均（前後1点を含む3点の売立金額 ÷ 箱数）です。横軸は${itemRule(item).zentai.baseMonth}月最初の出荷日から数えた出荷回数（日・火・木）で、年が違っても同じ位置が同じ時期になります。</p>
+        <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
+        <p class="chart-note">横軸は出荷回数です。</p>
       </div>`;
   },
 
@@ -5367,6 +5396,12 @@ const App = {
         UI.renderMain();
         break;
       }
+      case 'toggle-box-raw': {
+        // 箱数グラフの「移動平均」⇄「生データ」（ユーザー指定 2026-09-15）
+        State.boxesRaw = !State.boxesRaw;
+        UI.renderMain();
+        break;
+      }
       case 'copy-import-day': {
         /* ⚠ ここは同期のまま走らせること（await を挟まない）。ブラウザは
            「いま叩かれたボタンの処理の中か」でコピーの可否を決める。 */
@@ -5470,6 +5505,7 @@ const App = {
     State.selectedVariety = MAJOR_VARIETY_KEY;
     State.selectedSeries = [];
     State.fitCharts = [];   // 品目・年度を変えたら図も別物＝縮め方は持ち越さない
+    State.boxesRaw = false; // 同上＝表示（移動平均/生データ）も持ち越さない
     State.shipMonthsOpen = [];
     State.mineDate = null; State.mineVariety = null; State.mineCalMonth = null;
     UI.renderMain();
@@ -5494,6 +5530,7 @@ const App = {
       /* 表示を切り替えたら「全体を表示」は解除する（ユーザー指定 2026-09-13）。
          切り替え先は別のグラフなので、前の図の縮め方を持ち込まない。 */
       State.fitCharts = [];
+      State.boxesRaw = false;
       UI.renderMain();
       return;
     }
