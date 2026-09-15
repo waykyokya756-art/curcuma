@@ -451,6 +451,10 @@ input[type="file"]{display:none;}
 /* グラフの読み方の説明。chart-caption は「データ不足」等の注意書き用（警告色）なので、
    ただの説明にそれを使うと警告に見える。こちらは色を付けない。 */
 .chart-note{font-size:0.75rem; color:var(--ink-muted); padding:2px 2px; margin:0;}
+/* 説明の行が2つ続くときの入れ物。カードは子どうしを var(--sp3) だけ空けるので、
+   注記どうしまで同じだけ空くと離れて見える（ユーザー指摘 2026-09-15）。
+   ひとまとめにして、この中だけ隙間を無くす。 */
+.chart-notes{display:flex; flex-direction:column; gap:0;}
 /* 折れ線の詳細表示（固定位置。タップしたプロットの内容を表示） */
 .chart-detail{display:flex; align-items:center; gap:10px; min-height:72px; padding:8px 12px; border-radius:var(--r-md); background:var(--surface-2); border:1px solid var(--border); color:var(--ink);}
 .chart-detail[data-empty="true"]{color:var(--ink-muted); font-size:0.8125rem;}
@@ -498,8 +502,11 @@ input[type="file"]{display:none;}
 .series-legend .legend-item.series-off .legend-label{text-decoration:line-through;}
 .series-dot{width:28px; height:6px; border-radius:3px; flex-shrink:0;}
 .series-muted{opacity:0.5;}
-/* 規格の色つき凡例（横一列・折り返し可）。tap 等の操作は持たない、色の対応だけの表示 */
-.size-legend{display:flex; flex-wrap:wrap; gap:var(--sp2) var(--sp4); padding:6px 2px;}
+/* 規格の色つき凡例（横一列・折り返し可）。tap 等の操作は持たない、色の対応だけの表示。
+   ⚠ 左詰めにしない（ユーザー指摘 2026-09-15）＝4つを横幅いっぱいに均等に置く。
+      左に寄せると右側だけ大きく空いて、グラフの幅と揃っていないように見える。 */
+.size-legend{display:flex; flex-wrap:wrap; justify-content:space-between;
+  gap:var(--sp2) var(--sp3); padding:6px 2px;}
 .size-legend-item{display:flex; align-items:center; gap:5px; font-size:0.8125rem; color:var(--ink);}
 .size-legend-dot{width:12px; height:12px; border-radius:3px; flex-shrink:0;}
 
@@ -1265,7 +1272,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-15a';
+const APP_BUILD = '2026-09-15b';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1374,11 +1381,14 @@ const ITEM_RULES = {
          軸の起点だけが12月＝出始めの11月を 0・−1・−2… で左側に置く。
        barColorVar＝箱数グラフの棒の色。すぐ下に並ぶ規格比率と同じ絵の具から採る
        （緑のベタだけが浮いて見える、というユーザー指摘 2026-09-13）。
+       ⚠ ここに【その他】の色（--chart-alert-s）を使ってはいけない（ユーザー指定 2026-09-15）。
+         あれは「いつもと違う規格が出た日」の合図として強く作ってある色なので、
+         箱数の棒に敷くと合図の意味が薄まる。下から3段目（M）の色を使う。
        countStep＝箱数グラフのたて軸の刻み。⚠ スイピは一番多い日でも90箱ほどなので、
        既定の500刻みだと目盛りが0と500しか出ず、棒が下にへばりついて読めない。
        50刻みにすると90箱で上端100＝棒が図の9割まで伸びる。図の高さは変わらない
        （目盛り2本＝68px → 下限200pxに揃うため）。 */
-    zentai: { baseMonth: 12, barColorVar: 'var(--chart-alert-s)', countStep: 50 }
+    zentai: { baseMonth: 12, barColorVar: 'var(--chart-size3-s)', countStep: 50 }
   }
 };
 const itemRule = (name)=> ITEM_RULES[name] || ITEM_RULES[DEFAULT_ITEM] || {};
@@ -3745,7 +3755,7 @@ const UI = {
       if(!anyData){
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価・主要5品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価）</h2></div>
             <div class="empty-state"><p>主要5品種の価格データがまだありません。</p></div>
           </div>`;
       } else {
@@ -3784,7 +3794,7 @@ const UI = {
         }
         lineCard = `
           <div class="card">
-            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価・主要5品種）</h2></div>
+            <div class="card-head"><h2 class="card-title">価格推移（${priceLabel}箱単価）</h2></div>
             ${chartInner}${UI.sizeBarNote(mix)}
             <div class="series-legend">${seriesLegend}</div>
             ${isolatedNote}
@@ -3891,8 +3901,10 @@ const UI = {
           <div class="card-head"><h2 class="card-title">箱数</h2><span class="tap-readout tnum" id="zentai-tap"></span></div>
           <div class="chart-wrap${UI.fitClass('boxes')}" data-zentai-wrap><div class="chart-scroll">${svg}</div>${yAxis?`<div class="chart-yaxis">${yAxis}</div>`:''}</div>
           <div class="fit-row">${UI.rawToggleButton()}${UI.fitButtonInner('boxes')}</div>
-          <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
-          <p class="chart-note">参照元：品目別市況</p>
+          <div class="chart-notes">
+            <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
+            <p class="chart-note">参照元：品目別市況</p>
+          </div>
         </div>${mixCard}`;
     }
 
@@ -3927,11 +3939,13 @@ const UI = {
     }).join('');
     return `
       <div class="card">
-        <div class="card-head"><h2 class="card-title">箱単価 ${ZENTAI_YEARS}カ年比較</h2><span class="muted" style="white-space:nowrap">${rule.zentai.baseMonth}月最初</span></div>
+        <div class="card-head"><h2 class="card-title">箱単価 ${ZENTAI_YEARS}カ年比較</h2></div>
         ${inner}
         <div class="series-legend">${legend}</div>
-        <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
-        <p class="chart-note">横軸は出荷回数です。</p>
+        <div class="chart-notes">
+          <p class="chart-note">※ 日・火・木の3点移動平均です。</p>
+          <p class="chart-note">横軸は${rule.zentai.baseMonth}月最初の出荷日を基準日とした出荷回数です。</p>
+        </div>
       </div>`;
   },
 
