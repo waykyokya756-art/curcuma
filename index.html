@@ -535,6 +535,8 @@ input[type="file"]{display:none;}
 .ship-date-head{display:flex; align-items:flex-end; gap:8px; font-variant-numeric:tabular-nums; padding-bottom:6px; margin-bottom:var(--sp2); border-bottom:2px solid var(--border);}
 .ship-date-md{font-size:1.3125rem; font-weight:800; color:var(--ink);}
 .ship-date-wd{font-size:0.9375rem; font-weight:700; color:var(--ink-muted);}
+/* 日付見出しの横に出す未マッチチップ。見出しは下端揃えなので、少し上げて曜日の字と高さを合わせる。 */
+.ship-date-nomatch{margin-bottom:2px;}
 /* 箱数は2段（上＝箱数／下＝その日の総本数）。下段は狭いので一段小さくする（ユーザー指定 2026-09-08b）。
    右揃えにしておくと、桁が増えても金額との間隔が動かない。 */
 .ship-date-boxes{margin-left:auto; font-size:0.9375rem; font-weight:600; color:var(--ink-muted);
@@ -1272,7 +1274,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-15b';
+const APP_BUILD = '2026-09-22a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -4009,11 +4011,23 @@ const UI = {
     // 日付は新しい順。同じ日の中は取込順（配列順）のまま＝品種の出現順を崩さない。
     // ※以前は addedAt の降順で並べていたが、取込中のミリ秒差で日内の順序が入れ替わることがあった。
     const sorted = matched.slice().sort((a,b)=> b.date.localeCompare(a.date));
-    // 品種→色番号。7色で循環し、マーカー(--mkN)・ドーナツ(--dnN)・凡例で共用する。
-    // 採番は表示順から。取込順で採ると画面上の色が 1,2,3… の順に並ばず、
-    // 古いCSVを後から取り込むだけで既存の品種の色が動いてしまう。
+    /* 品種→色番号。7色で循環し、マーカー(--mkN)・ドーナツ(--dnN)・凡例で共用する。
+       並び（品種別売上内訳・ドーナツの周回）も、この orderSeq をそのまま使う。
+
+       採番は【初めて出荷した順】＝古い日から数える。新しい品種は必ず列の末尾に足されるので、
+       出荷日を取り込んでも既存の品種の色は動かない。
+
+       ⚠ 新しい日から数えてはいけない（2026-09-22 までそうなっていて、実際に事故になった）。
+         最新日に出ている品種が前へ繰り上がるため、1日取り込むだけで既存の色が入れ替わる。
+         実例＝9/22（バンコクスプリームとピアノホワイトだけの日）を取り込んだ瞬間、
+         ピアノホワイトが2番へ繰り上がり、その日に出していないホワイトが3番へ押し出された
+         （ホワイト＝杏 → ピンク）。その日を消すと戻ることもユーザーが確認している。
+       ⚠ 残る穴＝【取り逃した過去の日をあとから足す】と、その日に初登場する品種が
+         列の前に割り込むので色がずれる。ここまで塞ぐには品種ごとの色を保存するしかなく、
+         「保存データを増やしたくない」というユーザー判断で採らなかった（2026-09-22）。 */
+    const asc = matched.slice().sort((a,b)=> a.date.localeCompare(b.date));
     const orderSeq = [], seenV = new Set();
-    sorted.forEach(r=>{ if(r.variety && !seenV.has(r.variety)){ seenV.add(r.variety); orderSeq.push(r.variety); } });
+    asc.forEach(r=>{ if(r.variety && !seenV.has(r.variety)){ seenV.add(r.variety); orderSeq.push(r.variety); } });
     const markMap = {}; orderSeq.forEach((v,i)=>{ markMap[v] = (i%7)+1; });
     // 日ごと → 月ごと。件数が増えていくので、配列の総なめ（find）ではなく Map で引く。
     const days = [], byDate = new Map();
@@ -4044,6 +4058,14 @@ const UI = {
       v.rows.push(r);
       if(r.matched && !r.pending) v.amount += r.amount;
     });
+    // 未マッチ（産地に該当行が無い）の扱い。日ごとにCSVが出るので、ふつうは
+    // 「その日ぜんぶ未マッチ」か「ぜんぶマッチ」のどちらか＝規格ごとに1つずつチップを出すと
+    // 縦に伸びるだけで情報が増えない。そこで【その日ぜんぶ未マッチ】なら日付の横に1つだけ出し、
+    // 各規格のチップは省く。【一部だけ未マッチ】のときは、どの規格かが要るので日付の横に加えて
+    // 各規格にもチップを残す（従来のレイアウト）。※未確定(pending)はマッチ扱いなので別。
+    const unmatchedCount = g.rows.filter(r=>!r.matched).length;
+    const anyUnmatched = unmatchedCount > 0;
+    const allUnmatched = anyUnmatched && unmatchedCount === g.rows.length;
     const blocks = byVar.map(v=>{
       v.rows.sort((a,b)=> UI.specRank(a)-UI.specRank(b));
       const specLines = v.rows.map(r=>`
@@ -4056,7 +4078,9 @@ const UI = {
               ? `<div class="sv-spec-sub"><span class="badge badge-pending">未確定</span><button class="btn-fill" data-action="fill-price" data-key="${Fmt.esc(r.sanchiKey)}">金額入力</button></div>`
               : r.matched
                 ? `<div class="sv-spec-sub"><span>${Fmt.yen(r.boxPrice)}<span class="u">/箱</span></span><span class="sv-dot">・</span><span>${Fmt.yen(r.perStem)}<span class="u">/本</span></span></div>`
-                : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
+                : allUnmatched
+                  ? ``
+                  : `<div class="sv-spec-sub"><span class="badge badge-nomatch">未マッチ</span></div>`}
             <button class="sv-del" data-action="delete-mine-row" data-id="${r.id}" aria-label="この規格を削除">${Icon.trash}</button>
           </div>`).join('');
       return `
@@ -4074,6 +4098,7 @@ const UI = {
           <div class="ship-date-head">
             <span class="ship-date-md">${Fmt.date(g.date)}</span>
             <span class="ship-date-wd ${Fmt.wdClass(g.date)}">(${Fmt.wd(g.date)})</span>
+            ${anyUnmatched ? `<span class="badge badge-nomatch ship-date-nomatch">未マッチ</span>` : ''}
             <span class="ship-date-boxes tnum">${Fmt.num(g.boxes)}箱${g.stems>0 ? `<small>${Fmt.num(g.stems)}本</small>` : ''}</span>
             ${g.total>0 ? `<span class="ship-date-total tnum">${Fmt.yen(g.total)}</span>` : ''}
           </div>
