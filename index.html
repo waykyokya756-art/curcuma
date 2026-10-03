@@ -53,6 +53,9 @@
   --cal-sun:#D64541; --cal-sat:#2F6DB5; --chart-blue:#2F6DB5;
   --mk1:#D6EBDF; --mk2:#F6E6C8; --mk3:#F6DCE9; --mk4:#D9E7F4; --mk5:#E7DDF1; --mk6:#C9ECEF; --mk7:#E1E5C7;
   --dn1:#3C9A6B; --dn2:#D89A3C; --dn3:#D06B98; --dn4:#4784C6; --dn5:#8A72C2; --dn6:#31B9C6; --dn7:#7A7822;
+  /* 回収率カードの棒の「栽培経費の回収」ぶん（超えた分は --primary）。
+     実測＝地(--surface-2)との明るさの比1.84／--primary との境目2.42 */
+  --recover:#8FBFA6;
   --shadow:0 1px 2px rgba(20,40,30,.06), 0 4px 16px rgba(20,40,30,.05);
   /* 色以外（余白・角丸・書体）はテーマで変わらないのでここだけ */
   --sp2:8px; --sp3:12px; --sp4:16px; --sp5:20px; --sp6:24px;
@@ -80,6 +83,8 @@
     --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
     --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
     --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
+    /* 地より明るく敷く（ライトを裏返して黒に沈めない）。地との比2.43／--primary との境目2.60 */
+    --recover:#356B50;
     --shadow:none;
   }
 }
@@ -99,6 +104,7 @@
   --cal-sun:#E27469; --cal-sat:#6FA8E0; --chart-blue:#6FA8E0;
   --mk1:#24402F; --mk2:#3A2E1B; --mk3:#3A2430; --mk4:#1E3140; --mk5:#2E2741; --mk6:#123A3D; --mk7:#38381E;
   --dn1:#5BB98A; --dn2:#E0A458; --dn3:#E58BB6; --dn4:#6FA8E0; --dn5:#B79BE8; --dn6:#5DC2C9; --dn7:#969B41;
+  --recover:#356B50;
   --shadow:none;
 }
 /* アプリ内でライトを選んだ時。色は :root がそのまま効く（上のメディアブロックを
@@ -405,6 +411,31 @@ input[type="file"]{display:none;}
 .kpi-sec-label{font-size:0.8125rem; color:var(--ink-muted); font-weight:600;}
 .kpi-sec-value{font-size:1.5rem; font-weight:700; color:var(--accent-text);}
 .kpi-sec-value small{font-size:0.875rem; font-weight:600; color:var(--ink-muted); margin-left:2px;}
+/* ---- 栽培経費の回収率（2026-10-03 新設・見本＝mock/回収率カード_見本.png） ---- */
+.rc-big{display:flex; align-items:baseline; flex-wrap:wrap; gap:var(--sp2);}
+.rc-pct{font-size:clamp(2rem,8vw,2.5rem); font-weight:700; line-height:1.1;}
+.rc-state{font-size:0.75rem; font-weight:700; padding:2px 10px; border-radius:var(--r-pill); white-space:nowrap;}
+.rc-state.is-going{background:var(--warn-soft); color:var(--warn-text);}
+.rc-state.is-done{background:var(--primary-soft); color:var(--primary);}
+.rc-bar{position:relative; height:14px; background:var(--surface-2); border-radius:7px; margin-top:4px;}
+.rc-fill{position:absolute; left:0; top:0; bottom:0; background:var(--recover); border-radius:7px 0 0 7px;}
+.rc-fill.is-full{border-radius:7px;}
+.rc-over{position:absolute; top:0; bottom:0; background:var(--primary); border-radius:0 7px 7px 0;}
+/* 100%の区切り線。棒より上下に少しはみ出させて「ここが目標」と分かるようにする */
+.rc-mark{position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; background:var(--ink);}
+.rc-scale{position:relative; height:1.1em; font-size:0.6875rem; color:var(--ink-muted); margin-top:-6px;}
+.rc-scale span{position:absolute; transform:translateX(-50%); white-space:nowrap;}
+.rc-scale span:first-child{transform:none;}
+.rc-scale span:last-child{transform:translateX(-100%);}
+.rc-legend{display:flex; flex-wrap:wrap; gap:4px var(--sp3); font-size:0.6875rem; color:var(--ink-muted); margin-top:-6px;}
+.rc-dot{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px;}
+.rc-rows{display:flex; flex-direction:column;}
+.rc-row{display:flex; justify-content:space-between; align-items:baseline; gap:var(--sp3); padding:6px 0; border-top:1px solid var(--border); font-size:0.8125rem;}
+.rc-row b{font-weight:700; white-space:nowrap;}
+.rc-row b.is-minus{color:var(--danger-text);}
+.rc-note{font-size:0.6875rem; color:var(--ink-muted); line-height:1.6;}
+.rc-sum{font-size:0.8125rem; color:var(--ink); font-weight:600;}
+.rc-actions{display:flex; flex-direction:column; gap:var(--sp2);}
 .tag-betsu{display:inline-block; font-size:0.6875rem; font-weight:700; color:var(--warn-text); background:var(--warn-soft); border-radius:var(--r-sm); padding:1px 6px; vertical-align:middle;}
 
 /* ---- Empty state ---- */
@@ -1280,7 +1311,7 @@ const IMPORT_ERR_ROWS = 200;
 // 配信中の版を画面（保存タブ）とコンソールで確認するための版数。
 // index.html は curcuma-dashboard.html から生成する2ファイル構成なので、
 // 「手元は直したのに本番が古い」を目視で潰せるようにここを毎リリース更新する。
-const APP_BUILD = '2026-09-23a';
+const APP_BUILD = '2026-10-04a';
 // スキーマ版。2 で「年度×品目」の2軸を導入した（全レコードに item、作付設定に year）。
 // 3 で規格を 等級(grade)／階級(size)／本数(count) の3項目へ分割した。
 // 旧 v2 の grade は等級と階級が連結された1つの文字列だった（'秀2L'）。
@@ -1768,6 +1799,49 @@ const Store = {
     Store.dirtyCount += 1;
     Store.persist();
   },
+  /* ---- 栽培経費の回収率の設定（2026-10-03 新設） ----
+     年度×品目ごとに5つ：ja=JA控除／box=段ボール（一番高いもの）／mat=資材（以上3つの和が1箱の定額経費）、
+     rate=手数料率（%）、fixed=栽培経費（個別固定費の計画値）。
+     置き場所は meta の中＝保存の最上位キーも SCHEMA_VERSION も変えない（移行なし）。
+     将来、栽培管理アプリが正本を持ったら、手入力をそちらからの取り込みに差し替える。 */
+  recoveryKey(year, item){ return String(year) + '|' + (item || DEFAULT_ITEM); },
+  // 値を整える。使えない設定（段ボールか栽培経費が0以下）は null＝無いのと同じ
+  normRecovery(r){
+    if(!r || typeof r!=='object') return null;
+    const n = v=>{ const x = Norm.num(v); return (typeof x==='number' && isFinite(x) && x>=0) ? x : 0; };
+    const s = {ja:n(r.ja), box:n(r.box), mat:n(r.mat), rate:n(r.rate), fixed:n(r.fixed)};
+    if(!(s.box>0) || !(s.fixed>0) || s.rate>=100) return null;
+    return s;
+  },
+  recoverySetting(year, item){
+    const all = (Store.meta && Store.meta.recovery) || {};
+    return Store.normRecovery(all[Store.recoveryKey(year, item)]);
+  },
+  setRecoverySetting(rec){
+    const s = Store.normRecovery(rec);
+    if(!s) return false;
+    if(!Store.meta.recovery || typeof Store.meta.recovery!=='object') Store.meta.recovery = {};
+    Store.meta.recovery[Store.recoveryKey(State.selectedYear || Store.currentYear(), State.selectedItem)] = s;
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
+  },
+  clearRecoverySetting(){
+    const all = Store.meta.recovery;
+    const key = Store.recoveryKey(State.selectedYear || Store.currentYear(), State.selectedItem);
+    if(!all || !(key in all)) return false;
+    delete all[key];
+    Store.dirtyCount += 1;
+    Store.persist();
+    return true;
+  },
+  // バックアップから読んだ設定を整える（壊れた項目は捨てる）。オブジェクトでなければ null＝今の設定を残す
+  recoveryFromBackup(raw){
+    if(!raw || typeof raw!=='object' || Array.isArray(raw)) return null;
+    const out = {};
+    Object.keys(raw).forEach(k=>{ const s = Store.normRecovery(raw[k]); if(s) out[k] = s; });
+    return out;
+  },
   resetAll(){
     Store.sanchi = new Map();
     Store.jibun = [];
@@ -1816,7 +1890,9 @@ const Store = {
       // 品目全体データ（JAの共選共販市況）。産地データとは別系統なのでそのまま並べる。
       zentai: Array.from(Store.zentai.values()),
       // 取り込めなかった行の控えも持ち越す（直しかけの行を機種変更でも失わないため）
-      importErrors: Store.importErrors
+      importErrors: Store.importErrors,
+      // 栽培経費の回収率の設定（年度×品目ごと）。手入力の値なので機種変更で失わないよう持ち越す
+      recovery: (Store.meta && Store.meta.recovery) || {}
     };
     return payload;
   },
@@ -1872,6 +1948,10 @@ const Store = {
     Store.zentai = zentai;
     // 取り込めなかった行の控え。旧バックアップには無いので、その時は空にする（全置換なので残さない）。
     Store.importErrors = Array.isArray(data.importErrors) ? data.importErrors.slice(0, IMPORT_ERR_KEEP) : [];
+    // 回収率の設定。⚠ ほかと違い、バックアップに入っていなければ今の設定を残す（リン判断 2026-10-03）
+    //   ＝設定の無い古い控えを読んでも、手入力した値が消えない。
+    const recovery = Store.recoveryFromBackup(data.recovery);
+    if(recovery) Store.meta.recovery = recovery;
     Store.dirtyCount = 0;
     Store.meta.lastBackupAt = new Date().toISOString();
     Store.persist();
@@ -2564,6 +2644,36 @@ const Compute = {
       Compute._mine = {key, matched, summary: Compute.jibunSummary(matched)};
     }
     return Compute._mine;
+  },
+
+  /* ---- 栽培経費の回収率（2026-10-03 新設・簡易版） ----
+     1箱の貢献利益＝箱単価×（1−手数料率）−1箱の定額経費（JA控除＋段ボール＋資材）。
+     定額経費は「重い方の箱」に合わせて1本化してある＝30入・50入以外の箱（M100・別）にも同じ額を引く。
+     数えるのは金額が確定した行だけ。金額未確定・未マッチの箱は添え書き用に数だけ返す。
+     計算と考え方の正本＝shinki-shuno/10_keiei-bunseki/10_経営分析.md
+     ※純粋関数（テストが直接呼ぶ）。matchJibun の結果をそのまま受ける。 */
+  recoveryFrom(matched, s){
+    if(!s || !(s.fixed>0)) return null;
+    const perBox = (s.ja||0) + (s.box||0) + (s.mat||0);
+    const rate = (s.rate||0) / 100;
+    let contrib = 0, pendingBoxes = 0, unmatchedBoxes = 0, boxes = 0;
+    (matched||[]).forEach(r=>{
+      const q = Number(r.boxQty)||0;
+      if(!r.matched){ unmatchedBoxes += q; return; }
+      if(r.pending){ pendingBoxes += q; return; }
+      boxes += q;
+      contrib += q * (r.boxPrice * (1 - rate) - perBox);
+    });
+    const ratio = contrib / s.fixed;
+    return {contrib, fixed:s.fixed, ratio, boxes, perBox, rate:s.rate,
+      remain: Math.max(0, s.fixed - contrib), surplus: Math.max(0, contrib - s.fixed),
+      pendingBoxes, unmatchedBoxes};
+  },
+  // 選択中の年度×品目の回収率。設定が無ければ null（＝カードを出さない）
+  recoveryView(){
+    const s = Store.recoverySetting(State.selectedYear, State.selectedItem);
+    if(!s) return null;
+    return Compute.recoveryFrom(Compute.mineView().matched, s);
   }
 };
 
@@ -4240,6 +4350,7 @@ const UI = {
           <span>総本数 <b class="tnum">${Fmt.num(sum.totalStems)}</b>本</span>
         </div>
       </div>
+      ${UI.recoveryCardHTML()}
       ${pendingBlock}
       ${allocBlock}
       <div class="card">
@@ -4294,6 +4405,7 @@ const UI = {
         ${unmatchedBlock}
       </div>
       ${UI.sakutsukeBlocksHTML()}
+      ${UI.recoverySettingsHTML()}
     `;
   },
 
@@ -4559,6 +4671,90 @@ const UI = {
     const n = Store.importErrors.filter(e=>(e.item||DEFAULT_ITEM) === item)
                                 .reduce((s,e)=>s + (e.total||0), 0);
     return n ? `<span class="err-mark" title="取り込めなかった行が残っています">● ${n}行</span>` : '';
+  },
+
+  /* 栽培経費の回収率カード（2026-10-03 新設・見本＝mock/回収率カード_見本.png）。
+     設定の無い年度×品目では空文字＝カードごと出さない。
+     名前に「利益」を使わない＝100%を黒字と誤解させないため（ハウス等の共通の費用は未控除）。 */
+  recoveryCardHTML(){
+    const v = Compute.recoveryView();
+    if(!v) return '';
+    const done = v.ratio >= 1;
+    const pct = Math.max(0, Math.round(v.ratio * 100));
+    const signedYen = n => n < 0 ? '−' + Fmt.yen(-n) : Fmt.yen(n);
+    let bar, scale, legend = '';
+    if(!done){
+      const w = Math.max(0, Math.min(100, v.ratio * 100));
+      bar = `<div class="rc-fill" style="width:${w}%"></div><div class="rc-mark" style="left:100%"></div>`;
+      scale = `<span style="left:0">0</span><span style="left:50%">50%</span><span style="left:100%">100%</span>`;
+    } else {
+      // 棒の右端＝いまの回収率。100%の位置は左へ寄っていく
+      const at = 100 / v.ratio;
+      bar = `<div class="rc-fill${at>=100?' is-full':''}" style="width:${at}%"></div>`
+          + (at<100 ? `<div class="rc-over" style="left:${at}%;width:${100-at}%"></div>` : '')
+          + `<div class="rc-mark" style="left:${at}%"></div>`;
+      // 100%と右端の目盛りが近い（125%未満）と字が重なるので、そのときは右端を省く（大きな数字に出ている）
+      // 100%の目盛りが右端に寄ったら（90%超）、字を左へ逃がして棒の外にはみ出させない
+      scale = `<span style="left:0">0</span><span style="left:${at}%${at>90?';transform:translateX(-100%)':''}">100%</span>`
+            + (at <= 80 ? `<span style="left:100%">${pct}%</span>` : '<span style="display:none"></span>');
+      legend = `<div class="rc-legend">
+          <span><span class="rc-dot" style="background:var(--recover)"></span>栽培経費の回収</span>
+          <span><span class="rc-dot" style="background:var(--primary)"></span>所得の原資（上乗せ）</span>
+        </div>`;
+    }
+    const notes = ['出荷経費は目安（重い方の箱で1本化して計算）。'];
+    if(v.pendingBoxes>0) notes.push(`金額未確定の${Fmt.num(v.pendingBoxes)}箱は含まない。`);
+    if(v.unmatchedBoxes>0) notes.push(`未マッチの${Fmt.num(v.unmatchedBoxes)}箱も含まない。`);
+    if(done) notes.push('ハウス・軽トラなどの共通の費用はまだ引いていない。');
+    return `
+      <div class="card" id="recovery-card">
+        <span class="kpi-label">栽培経費の回収率</span>
+        <div class="rc-big">
+          <span class="rc-pct tnum">${pct}%</span>
+          <span class="rc-state ${done ? 'is-done' : 'is-going'}">${done ? '回収済み・積み増し中' : '回収中'}</span>
+        </div>
+        <div class="rc-bar" role="img" aria-label="栽培経費の回収率 ${pct}%">${bar}</div>
+        <div class="rc-scale tnum" aria-hidden="true">${scale}</div>
+        ${legend}
+        <div class="rc-rows">
+          <div class="rc-row"><span>累計の貢献利益</span><b class="tnum${v.contrib<0?' is-minus':''}">${signedYen(v.contrib)}</b></div>
+          <div class="rc-row"><span>栽培経費（個別固定費）</span><b class="tnum">${Fmt.yen(v.fixed)}</b></div>
+          ${done
+            ? `<div class="rc-row"><span>上乗せ（所得の原資）</span><b class="tnum">${Fmt.yen(v.surplus)}</b></div>`
+            : `<div class="rc-row"><span>回収の残り</span><b class="tnum">${Fmt.yen(v.remain)}</b></div>`}
+        </div>
+        <p class="rc-note">${notes.join('')}</p>
+      </div>`;
+  },
+
+  /* 回収率の設定フォーム（年度×品目ごと）。作付設定と同じく自分タブの末尾に置く。
+     入力済みなら値を入れておく。未入力の年度は JA控除549・資材50・手数料13.3% を初期値に出す。 */
+  recoverySettingsHTML(){
+    const year = String(State.selectedYear), item = String(State.selectedItem);
+    const s = Store.recoverySetting(year, item);
+    const val = (k, d)=> s ? s[k] : d;
+    const perBox = s ? (s.ja + s.box + s.mat) : null;
+    const field = (name, label, v, ph, step)=>`
+          <label class="field">${label}
+            <input type="number" name="${name}" inputmode="decimal" min="0" step="${step||'any'}" placeholder="${ph}" value="${v==null?'':v}">
+          </label>`;
+    return `
+      <details class="card collapse" id="recovery-settings">
+        <summary style="font-size:1rem"><span>${Fmt.esc(year)}年の栽培経費の設定（${Fmt.esc(item)}）</span></summary>
+        <p class="card-caption" style="margin-top:var(--sp2)">入れると、上に「栽培経費の回収率」が出ます。<b>年度ごと</b>の設定です。1箱の定額経費は<b>重い方の箱に合わせて1本化</b>し、30入・50入以外の箱にも同じ額を引きます。</p>
+        ${s ? `<p class="rc-sum">いまの設定：1箱あたり <span class="tnum">${Fmt.yen(perBox)}</span>・手数料 <span class="tnum">${s.rate}%</span>・栽培経費 <span class="tnum">${Fmt.yen(s.fixed)}</span></p>` : ''}
+        <form id="recovery-form" data-action="submit-recovery" class="stack">
+          ${field('ja', 'JA控除（円/箱）', val('ja', 549), '例: 549')}
+          ${field('box', '段ボール（一番高いもの・円/箱）', val('box', null), '例: 120')}
+          ${field('mat', '資材（円/箱）', val('mat', 50), '例: 50')}
+          ${field('rate', '手数料率（%）', val('rate', 13.3), '例: 13.3')}
+          ${field('fixed', '栽培経費（個別固定費の計画値・円）', val('fixed', null), '例: 500000')}
+          <div class="rc-actions">
+            <button type="submit" class="btn btn-primary">${s ? '設定を更新' : '設定を保存'}</button>
+            ${s ? `<button type="button" class="btn btn-ghost" data-action="clear-recovery">この年度の設定を消す</button>` : ''}
+          </div>
+        </form>
+      </details>`;
   },
 
   /* 作付の2ブロック（内容カード＋設定フォーム）。年度×品目に紐づくので、
@@ -5549,6 +5745,12 @@ const App = {
         }
         break;
       }
+      case 'clear-recovery':
+        UI.modal('設定を消す', `${Fmt.esc(String(State.selectedYear))}年・${Fmt.esc(String(State.selectedItem))}の栽培経費の設定を消します。回収率カードも出なくなります。`, {
+          danger:true, confirmLabel:'消す',
+          onConfirm:()=>{ Store.clearRecoverySetting(); UI.renderMain(); UI.toast('栽培経費の設定を消しました'); }
+        });
+        break;
       case 'export-backup':
         App.exportBackup();
         break;
@@ -5657,6 +5859,9 @@ const App = {
     } else if(act==='submit-sakutsuke'){
       e.preventDefault();
       App.submitSakutsuke(e.target);
+    } else if(act==='submit-recovery'){
+      e.preventDefault();
+      App.submitRecovery(e.target);
     }
   },
 
@@ -6071,6 +6276,17 @@ const App = {
     Store.addSakutsuke({variety, type, tsubo});
     UI.renderMain();
     UI.toast('作付を追加しました');
+  },
+  submitRecovery(form){
+    const fd = new FormData(form);
+    const rec = {};
+    ['ja','box','mat','rate','fixed'].forEach(k=>{ rec[k] = fd.get(k); });
+    if(!Store.setRecoverySetting(rec)){
+      UI.toast('段ボールと栽培経費を入力してください（手数料率は100%未満）');
+      return;
+    }
+    UI.renderMain();
+    UI.toast('栽培経費の設定を保存しました');
   }
 };
 
